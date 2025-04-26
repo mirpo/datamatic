@@ -1,0 +1,61 @@
+version: 2
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - env:
+      - GO111MODULE=on
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+      - -tags=netgo
+    ldflags:
+      # Omit the symbol table and debug information.
+      - "-s"
+      # Omit the DWARF symbol table.
+      - "-w"
+      - "-X main.version={{ .Version }}"
+      - "-X main.commit={{ .ShortCommit }}"
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    main: "./datamatic.go"
+
+archives:
+  - format: tar.gz
+    files:
+      - README.md
+      - LICENSE
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+
+release:
+  prerelease: auto
+
+source:
+  enabled: true
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+brews:
+  - repository:
+      owner: "mirpo"
+      name: "homebrew-tools"
+      token: "{{ .Env.GITHUB_TOKEN }}"
+    commit_author:
+      name: "Miroslav Pokrovskii"
+      email: "miroslavpokrovskiy@gmail.com"
+    homepage: "https://github.com/mirpo/datamatic"
+    description: "Generate synthetic datasets using local LLMs via Ollama and LMstudio with Llama 3.3, DeepSeek-R1, Phi-4, Gemma 3, Mistral Small 3.1 and other major language models."
