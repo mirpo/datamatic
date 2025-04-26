@@ -26,24 +26,22 @@ Before using this tool for synthetic data generation, please:
 
 ## Installation
 
-### From Source
-
-```bash
-# Clone the repository
-git clone https://github.com/mirpo/datamatic
-cd datamatic
-
-# Build the binary
-go build -o datamatic
-
-# Move to your PATH (optional)
-sudo mv datamatic /usr/local/bin/
+[Homebrew](https://brew.sh/):
+```shell
+brew tap mirpo/homebrew-tools
+brew install datamatic
 ```
 
-### Using Go Install
-
-```bash
+Using `go install`:
+```shell
 go install github.com/mirpo/datamatic@latest
+```
+
+### Local Build
+```shell
+git clone https://github.com/mirpo/datamatic.git
+cd datamatic
+make build
 ```
 
 ## Quick Start
@@ -51,6 +49,7 @@ go install github.com/mirpo/datamatic@latest
 1. Create a configuration file `news_titles.yaml`:
 ```yaml
 version: 1.0
+
 steps:
   - name: generate_titles_simple
     model: ollama:llama3.1
