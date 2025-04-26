@@ -1,0 +1,46 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "schedule": [
+        "on friday"
+    ],
+    "extends": [
+        "config:recommended",
+        ":dependencyDashboard",
+        ":semanticCommits",
+        ":pinVersions"
+    ],
+    "labels": [
+        "dependencies"
+    ],
+    "osvVulnerabilityAlerts": true,
+    "prConcurrentLimit": 50,
+    "prHourlyLimit": 5,
+    "vulnerabilityAlerts": {
+        "schedule": [
+            "at any time"
+        ]
+    },
+    "enabledManagers": [
+        "gomod"
+    ],
+    "packageRules": [
+        {
+            "matchCategories": [
+                "golang"
+            ],
+            "enabled": true
+        },
+        {
+            "matchManagers": [
+                "gomod"
+            ],
+            "groupName": "go deps"
+        },
+        {
+            "matchManagers": [
+                "github-actions"
+            ],
+            "groupName": "github actions"
+        }
+    ]
+}

@@ -1,0 +1,54 @@
+version: "2"
+linters:
+  enable:
+    - asasalint
+    - bidichk
+    - bodyclose
+    - containedctx
+    - contextcheck
+    - gocheckcompilerdirectives
+    - intrange
+    - makezero
+    - misspell
+    - nilerr
+    - nolintlint
+    - nosprintfhostport
+    - unconvert
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+  settings:
+    staticcheck:
+      checks:
+        - -SA1019
+        - all
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+severity:
+  default: error
+  rules:
+    - linters:
+        - gofmt
+        - goimports
+        - intrange
+        - usestdlibvars
+      severity: info
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

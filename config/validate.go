@@ -1,0 +1,234 @@
+package config
+
+import (
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/url"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	"github.com/mirpo/datamatic/llm"
+)
+
+func validateVersion(version string) error {
+	if version == "" {
+		return errors.New("version is required")
+	}
+
+	if version != "1.0" {
+		return fmt.Errorf("version '%s' is unsupported", version)
+	}
+
+	return nil
+}
+
+func isValidName(name string) error {
+	if len(name) == 0 {
+		return errors.New("filename cannot be empty")
+	}
+
+	if len(name) > 255 {
+		return errors.New("filename exceeds the maximum length of 255 characters")
+	}
+
+	illegalChars := regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
+	if illegalChars.MatchString(name) {
+		return errors.New("filename contains invalid characters")
+	}
+
+	if strings.HasSuffix(name, " ") || (len(name) > 1 && strings.HasSuffix(name, ".")) {
+		return errors.New("filename cannot end with a space or a period (unless the name is just '.')")
+	}
+
+	return nil
+}
+
+func getStepType(step Step) (StepType, error) {
+	promptDefined := len(step.Prompt) > 0
+	cmdDefined := len(step.Cmd) > 0
+
+	if promptDefined && cmdDefined {
+		return UnknownStepType, errors.New("either 'prompt' or 'cmd' should be defined, not both")
+	}
+
+	if !promptDefined && !cmdDefined {
+		return UnknownStepType, errors.New("either 'prompt' or 'cmd' must be defined")
+	}
+
+	if promptDefined {
+		return PromptStepType, nil
+	}
+
+	return CliStepType, nil
+}
+
+func getModelDetails(step Step) (llm.ProviderType, string, error) {
+	if step.Model == "" {
+		return llm.ProviderUnknown, "", errors.New("model definition can't be empty")
+	}
+
+	result := strings.SplitN(step.Model, ":", 2)
+	if len(result) != 2 {
+		return llm.ProviderUnknown, "", fmt.Errorf("model should follow pattern 'provider:model', examples: 'ollama:llama3.1'")
+	}
+
+	providerStr := result[0]
+	modelName := result[1]
+
+	providerType := llm.ProviderType(providerStr)
+	switch providerType {
+	case llm.ProviderOllama, llm.ProviderLmStudio:
+	default:
+		return llm.ProviderUnknown, "", fmt.Errorf("unsupported provider: %s", providerStr)
+	}
+
+	if len(modelName) == 0 {
+		return llm.ProviderUnknown, "", errors.New("model name can't be empty")
+	}
+
+	return providerType, modelName, nil
+}
+
+func validateURL(input string) error {
+	parsedURL, err := url.ParseRequestURI(input)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+
+	if parsedURL.Scheme == "" || parsedURL.Host == "" {
+		return errors.New("invalid URL: missing scheme or host")
+	}
+
+	return nil
+}
+
+func validateModelConfig(step ModelConfig) error {
+	if step.Temperature != nil {
+		if *step.Temperature < 0 || *step.Temperature > 1 {
+			return errors.New("temperature must be between 0 and 1")
+		}
+	}
+
+	if step.MaxTokens != nil {
+		if *step.MaxTokens <= 0 {
+			return errors.New("maxTokens must be > 0")
+		}
+	}
+
+	if step.BaseURL != "" {
+		if err := validateURL(step.BaseURL); err != nil {
+			return fmt.Errorf("invalid baseUrl: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func getFullOutputPath(step Step, outputFolder string) (string, error) {
+	extension := ".jsonl"
+
+	filename := step.OutputFilename
+	if len(filename) == 0 {
+		filename = step.Name
+	}
+
+	if err := isValidName(filename); err != nil {
+		return "", fmt.Errorf("invalid effective output filename '%s': %w", filename, err)
+	}
+
+	if !strings.HasSuffix(filename, extension) {
+		filename = filename + extension
+	}
+
+	fullPath := filepath.Join(outputFolder, filename)
+
+	return filepath.Clean(fullPath), nil
+}
+
+func validateAndAbsOutputFolder(outputFolder string) (string, error) {
+	if len(outputFolder) == 0 {
+		return "", errors.New("output folder is required")
+	}
+
+	if err := isValidName(outputFolder); err != nil {
+		return "", fmt.Errorf("invalid output folder name: %w", err)
+	}
+
+	absOutputFolder, err := filepath.Abs(outputFolder)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for output folder '%s': %w", outputFolder, err)
+	}
+
+	return absOutputFolder, nil
+}
+
+func (c *Config) Validate() error {
+	slog.Debug("start config validation")
+
+	if err := validateVersion(c.Version); err != nil {
+		return err
+	}
+
+	absOutputFolder, err := validateAndAbsOutputFolder(c.OutputFolder)
+	if err != nil {
+		return err
+	}
+	c.OutputFolder = absOutputFolder
+
+	if len(c.Steps) == 0 {
+		return errors.New("at least one step is required")
+	}
+
+	stepNames := map[string]bool{}
+
+	for index := range c.Steps {
+		step := &c.Steps[index]
+
+		if len(step.Name) == 0 {
+			return fmt.Errorf("step at index %d: name can't be empty", index)
+		}
+
+		if stepNames[step.Name] {
+			return fmt.Errorf("duplicate step name found: '%s'", step.Name)
+		}
+		stepNames[step.Name] = true
+
+		stepType, err := getStepType(*step)
+		if err != nil {
+			return fmt.Errorf("step '%s': %w", step.Name, err)
+		}
+		step.Type = stepType
+
+		llmProvider, modelName, err := getModelDetails(*step)
+		if err != nil {
+			return fmt.Errorf("step '%s': %w", step.Name, err)
+		}
+		step.ModelConfig.ModelProvider = llmProvider
+		step.ModelConfig.ModelName = modelName
+
+		if err := validateModelConfig(step.ModelConfig); err != nil {
+			return fmt.Errorf("step '%s': model config validation failed: %w", step.Name, err)
+		}
+
+		if step.MaxResults <= 0 {
+			step.MaxResults = DefaultStepMinMaxResults
+		}
+
+		if len(step.OutputFilename) > 0 {
+			if err := isValidName(step.OutputFilename); err != nil {
+				return fmt.Errorf("step '%s': invalid output filename '%s': %w", step.Name, step.OutputFilename, err)
+			}
+		}
+
+		fullOutputPath, err := getFullOutputPath(*step, c.OutputFolder)
+		if err != nil {
+			return fmt.Errorf("step '%s': failed to get full output path: %w", step.Name, err)
+		}
+		step.OutputFilename = fullOutputPath
+	}
+
+	slog.Debug("config validation successful")
+	return nil
+}

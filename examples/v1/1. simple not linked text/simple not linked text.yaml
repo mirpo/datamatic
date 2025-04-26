@@ -1,0 +1,20 @@
+version: 1.0
+
+steps:
+  - name: generate_titles_simple
+    model: ollama:llama3.1
+    prompt: |
+      Generate a catchy and one unique news title. Come up with a wildly different and surprising news headline. Return only one news title per request, without any extra thinking.
+
+  - name: generate_titles_full
+    model: lmstudio:hermes-3-llama-3.2-3b
+    systemPrompt: |
+      You are a creative news title generator. Avoid repeating topics about aliens, UFOs, outer space, or extraterrestrial life. Explore topics like technology,  nature, sports, politics, or bizarre everyday events.
+    prompt: |
+      Generate a catchy and one unique news title. Come up with a wildly different and surprising news headline. Return only one news title per request, without any extra thinking.
+    maxResults: 15
+    modelConfig:
+      baseUrl: http://localhost:1234/v1
+      temperature: 0.7
+      maxTokens: 500
+    outputFilename: generate_titles_full.jsonl
