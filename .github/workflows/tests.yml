@@ -1,0 +1,40 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-n-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        go-version: ["1.24.2"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+
+      - name: Install dependencies
+        run: make install
+
+      - name: golangci-lint
+        if: runner.os != 'Windows'
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.1.2
+          args: --verbose
+
+      - name: Run tests
+        run: make test
+
+      - name: Build
+        run: make build
