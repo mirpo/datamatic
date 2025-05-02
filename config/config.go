@@ -1,6 +1,9 @@
 package config
 
-import "github.com/mirpo/datamatic/llm"
+import (
+	"github.com/mirpo/datamatic/jsonl"
+	"github.com/mirpo/datamatic/llm"
+)
 
 const (
 	DefaultStepMinMaxResults = 3
@@ -8,22 +11,24 @@ const (
 
 func NewConfig() *Config {
 	return &Config{
-		ConfigFile:   "",
-		Verbose:      false,
-		LogPretty:    true,
-		OutputFolder: "dataset",
-		HTTPTimeout:  300,
+		ConfigFile:       "",
+		Verbose:          false,
+		LogPretty:        true,
+		OutputFolder:     "dataset",
+		HTTPTimeout:      300,
+		ValidateResponse: true,
 	}
 }
 
 type Config struct {
-	ConfigFile   string
-	Verbose      bool
-	LogPretty    bool
-	OutputFolder string
-	HTTPTimeout  int
-	Version      string `yaml:"version"`
-	Steps        []Step `yaml:"steps"`
+	ConfigFile       string
+	Verbose          bool
+	LogPretty        bool
+	OutputFolder     string
+	HTTPTimeout      int
+	ValidateResponse bool
+	Version          string `yaml:"version"`
+	Steps            []Step `yaml:"steps"`
 }
 
 type StepType string
@@ -36,14 +41,15 @@ const (
 
 type Step struct {
 	Type           StepType
-	Name           string      `yaml:"name"`
-	Model          string      `yaml:"model"`
-	Prompt         string      `yaml:"prompt"`
-	Cmd            string      `yaml:"cmd"`
-	SystemPrompt   string      `yaml:"systemPrompt"`
-	MaxResults     int         `yaml:"maxResults"`
-	ModelConfig    ModelConfig `yaml:"modelConfig"`
-	OutputFilename string      `yaml:"outputFilename"`
+	Name           string           `yaml:"name"`
+	Model          string           `yaml:"model"`
+	Prompt         string           `yaml:"prompt"`
+	Cmd            string           `yaml:"cmd"`
+	SystemPrompt   string           `yaml:"systemPrompt"`
+	MaxResults     int              `yaml:"maxResults"`
+	ModelConfig    ModelConfig      `yaml:"modelConfig"`
+	OutputFilename string           `yaml:"outputFilename"`
+	JSONSchema     jsonl.JSONSchema `yaml:"jsonSchema"`
 }
 
 type ModelConfig struct {

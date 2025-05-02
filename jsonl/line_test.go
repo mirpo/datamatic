@@ -7,6 +7,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func isValidUUID(u string) bool {
+	_, err := uuid.Parse(u)
+	return err == nil
+}
+
 func TestCleanResponse(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -48,11 +53,11 @@ func TestCleanResponse(t *testing.T) {
 	}
 }
 
-func TestNewLineEntity(t *testing.T) {
+func TestNewTextLineEntity(t *testing.T) {
 	response := "```json\n{\"foo\":\"bar\"}\n```"
 	prompt := "  What is foo?   "
 
-	entity := NewLineEntity(response, prompt)
+	entity, _ := NewLineEntity(response, prompt, false)
 
 	assert.NotEmpty(t, entity.ID)
 	assert.True(t, isValidUUID(entity.ID))
@@ -63,7 +68,26 @@ func TestNewLineEntity(t *testing.T) {
 	assert.Equal(t, `{"foo":"bar"}`, entity.Response)
 }
 
-func isValidUUID(u string) bool {
-	_, err := uuid.Parse(u)
-	return err == nil
+func TestNewJSONLineEntity(t *testing.T) {
+	response := "```json\n{\"foo\":\"bar\"}\n```"
+	prompt := "  What is foo?   "
+
+	entity, _ := NewLineEntity(response, prompt, true)
+
+	assert.NotEmpty(t, entity.ID)
+	assert.True(t, isValidUUID(entity.ID))
+
+	assert.Equal(t, "json", entity.Format)
+
+	assert.Equal(t, "What is foo?", entity.Prompt)
+	assert.Equal(t, map[string]interface{}{"foo": "bar"}, entity.Response)
+}
+
+func TestNewJSONLineEntityError(t *testing.T) {
+	response := "```json\n{foo\":\"bar\"}\n```"
+	prompt := "  What is foo?   "
+
+	_, err := NewLineEntity(response, prompt, true)
+
+	assert.Error(t, err)
 }

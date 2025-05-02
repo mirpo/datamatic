@@ -190,6 +190,10 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("step at index %d: name can't be empty", index)
 		}
 
+		if strings.ToUpper(step.Name) == "SYSTEM" {
+			return errors.New("using 'SYSTEM as step name is not allowed")
+		}
+
 		if stepNames[step.Name] {
 			return fmt.Errorf("duplicate step name found: '%s'", step.Name)
 		}
@@ -201,32 +205,44 @@ func (c *Config) Validate() error {
 		}
 		step.Type = stepType
 
-		llmProvider, modelName, err := getModelDetails(*step)
-		if err != nil {
-			return fmt.Errorf("step '%s': %w", step.Name, err)
-		}
-		step.ModelConfig.ModelProvider = llmProvider
-		step.ModelConfig.ModelName = modelName
-
-		if err := validateModelConfig(step.ModelConfig); err != nil {
-			return fmt.Errorf("step '%s': model config validation failed: %w", step.Name, err)
-		}
-
-		if step.MaxResults <= 0 {
-			step.MaxResults = DefaultStepMinMaxResults
-		}
-
-		if len(step.OutputFilename) > 0 {
-			if err := isValidName(step.OutputFilename); err != nil {
-				return fmt.Errorf("step '%s': invalid output filename '%s': %w", step.Name, step.OutputFilename, err)
+		if stepType == PromptStepType {
+			if step.JSONSchema.HasSchemaDefinition() {
+				if !step.JSONSchema.ValidateRequiredProperties() {
+					return fmt.Errorf("step '%s': invalid schema validation, properties or required are not matching", step.Name)
+				}
 			}
-		}
 
-		fullOutputPath, err := getFullOutputPath(*step, c.OutputFolder)
-		if err != nil {
-			return fmt.Errorf("step '%s': failed to get full output path: %w", step.Name, err)
+			if strings.Contains(step.Prompt, "{{.SYSTEM.JSON_SCHEMA}}") && !step.JSONSchema.ValidateRequiredProperties() {
+				return fmt.Errorf("step '%s': JSON schema is required when using '{{.SYSTEM.JSON_SCHEMA}}' in the prompt", step.Name)
+			}
+
+			llmProvider, modelName, err := getModelDetails(*step)
+			if err != nil {
+				return fmt.Errorf("step '%s': %w", step.Name, err)
+			}
+			step.ModelConfig.ModelProvider = llmProvider
+			step.ModelConfig.ModelName = modelName
+
+			if err := validateModelConfig(step.ModelConfig); err != nil {
+				return fmt.Errorf("step '%s': model config validation failed: %w", step.Name, err)
+			}
+
+			if step.MaxResults <= 0 {
+				step.MaxResults = DefaultStepMinMaxResults
+			}
+
+			if len(step.OutputFilename) > 0 {
+				if err := isValidName(step.OutputFilename); err != nil {
+					return fmt.Errorf("step '%s': invalid output filename '%s': %w", step.Name, step.OutputFilename, err)
+				}
+			}
+
+			fullOutputPath, err := getFullOutputPath(*step, c.OutputFolder)
+			if err != nil {
+				return fmt.Errorf("step '%s': failed to get full output path: %w", step.Name, err)
+			}
+			step.OutputFilename = fullOutputPath
 		}
-		step.OutputFilename = fullOutputPath
 	}
 
 	slog.Debug("config validation successful")

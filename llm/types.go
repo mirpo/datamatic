@@ -1,6 +1,10 @@
 package llm
 
-import "context"
+import (
+	"context"
+
+	"github.com/mirpo/datamatic/jsonl"
+)
 
 type ProviderType string
 
@@ -27,6 +31,8 @@ type Provider interface {
 type GenerateRequest struct {
 	UserMessage   string
 	SystemMessage string
+	IsJSON        bool
+	JSONSchema    jsonl.JSONSchema
 }
 
 type GenerateResponse struct {

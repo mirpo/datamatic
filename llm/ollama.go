@@ -32,7 +32,7 @@ type ollamaChatRequest struct {
 	Stream   bool             `json:"stream"`
 	Messages []ollamaMessage  `json:"messages"`
 	Options  ollamaReqOptions `json:"options,omitempty"`
-	Format   string           `json:"format,omitempty"`
+	Format   interface{}      `json:"format,omitempty"`
 }
 
 type ollamaReqOptions struct {
@@ -68,6 +68,10 @@ func (p *OllamaProvider) Generate(ctx context.Context, request GenerateRequest) 
 	userMsg := ollamaMessage{Role: "user", Content: request.UserMessage}
 	msgs = append(msgs, userMsg)
 	req.Messages = msgs
+
+	if request.IsJSON {
+		req.Format = &request.JSONSchema
+	}
 
 	log.Debug().Msgf("LLM request: %+v, to baseUrl: %s", req, p.client.BaseURL)
 

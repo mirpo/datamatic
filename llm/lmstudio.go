@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/mirpo/datamatic/httpclient"
+	"github.com/mirpo/datamatic/jsonl"
 	"github.com/rs/zerolog/log"
 )
 
@@ -14,6 +15,28 @@ const DefaultLmStudioBaseURL = "http://localhost:1234/v1"
 type LmStudioProvider struct {
 	config ProviderConfig
 	client *httpclient.Client
+}
+
+type ResponseJSONSchema struct {
+	Name   string           `json:"name"`
+	Strict bool             `json:"strict"`
+	Schema jsonl.JSONSchema `json:"schema"`
+}
+
+type ResponseFormat struct {
+	Type       string             `json:"type,omitempty"`
+	JSONSchema ResponseJSONSchema `json:"json_schema,omitempty"`
+}
+
+func NewResponseFormat(jsonSchema jsonl.JSONSchema) ResponseFormat {
+	return ResponseFormat{
+		Type: "json_schema",
+		JSONSchema: ResponseJSONSchema{
+			Name:   "json_schema",
+			Strict: true,
+			Schema: jsonSchema,
+		},
+	}
 }
 
 func NewLmStudioProvider(config ProviderConfig) *LmStudioProvider {
@@ -28,11 +51,12 @@ func NewLmStudioProvider(config ProviderConfig) *LmStudioProvider {
 }
 
 type lmStudioChatRequest struct {
-	Model       string            `json:"model"`
-	Messages    []lmStudioMessage `json:"messages"`
-	Temperature *float64          `json:"temperature,omitempty"`
-	MaxTokens   *int              `json:"max_tokens,omitempty"`
-	Stream      bool              `json:"stream"`
+	Model          string            `json:"model"`
+	Messages       []lmStudioMessage `json:"messages"`
+	Temperature    *float64          `json:"temperature,omitempty"`
+	MaxTokens      *int              `json:"max_tokens,omitempty"`
+	Stream         bool              `json:"stream"`
+	ResponseFormat *ResponseFormat   `json:"response_format,omitempty"`
 }
 
 type lmStudioMessage struct {
@@ -72,6 +96,11 @@ func (p *LmStudioProvider) Generate(ctx context.Context, request GenerateRequest
 	userMsg := lmStudioMessage{Role: "user", Content: request.UserMessage}
 	msgs = append(msgs, userMsg)
 	req.Messages = msgs
+
+	if request.IsJSON {
+		responseFormat := NewResponseFormat(request.JSONSchema)
+		req.ResponseFormat = &responseFormat
+	}
 
 	log.Debug().Msgf("LLM request: %+v, to baseUrl: %s", req, p.client.BaseURL)
 

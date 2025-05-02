@@ -28,6 +28,7 @@ func main() {
 	flag.StringVar(&cfg.ConfigFile, "config", "", "Config file path")
 	flag.StringVar(&cfg.OutputFolder, "output", "dataset", "Output folder path")
 	flag.IntVar(&cfg.HTTPTimeout, "http-timeout", 300, "HTTP timeout: 0 - no timeout, if number - recommended to put high on poor hardware")
+	flag.BoolVar(&cfg.ValidateResponse, "validate-response", true, "Validate JSON response from server to match the schema")
 
 	flag.Parse()
 
