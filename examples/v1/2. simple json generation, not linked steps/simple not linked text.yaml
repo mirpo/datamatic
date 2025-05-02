@@ -1,0 +1,39 @@
+version: 1.0
+
+steps:
+  - name: generate_titles_json_ollama
+    model: ollama:llama3.1
+    prompt: |
+      Generate a catchy and one unique news title. Come up with a wildly different and surprising news headline. Return only one news title per request, without any extra thinking.
+    jsonSchema:
+      type: object
+      properties:
+        title:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+      required:
+        - title
+        - tags
+
+  - name: generate_titles_json_lmstudio
+    model: lmstudio:hermes-3-llama-3.2-3b
+    systemPrompt: |
+      You are a creative news title generator. Avoid repeating topics about aliens, UFOs, outer space, or extraterrestrial life. Explore topics like technology,  nature, sports, politics, or bizarre everyday events.
+    prompt: |
+      Generate a catchy and one unique news title. Come up with a wildly different and surprising news headline. Return only one news title per request, without any extra thinking.
+    maxResults: 15
+    jsonSchema:
+      type: object
+      properties:
+        title:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+      required:
+        - title
+        - tags

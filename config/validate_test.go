@@ -284,9 +284,9 @@ func TestValidateConfig(t *testing.T) {
 					MaxResults: 10,
 				},
 				{
-					Name:  "step2_cli",
-					Cmd:   "echo 'hello'",
-					Model: "ollama:dummy",
+					Name:   "step2_cli",
+					Model:  "ollama:dummy",
+					Prompt: "Generate new.",
 				},
 				{
 					Name:       "step3_default_maxresults",
@@ -310,7 +310,7 @@ func TestValidateConfig(t *testing.T) {
 		assert.Equal(t, 10, cfg.Steps[0].MaxResults) // Should remain 10
 
 		// Verify injected values for step2 (CLI)
-		assert.Equal(t, CliStepType, cfg.Steps[1].Type)
+		assert.Equal(t, PromptStepType, cfg.Steps[1].Type)
 		assert.Equal(t, llm.ProviderOllama, cfg.Steps[1].ModelConfig.ModelProvider) // Assuming Model is required
 		assert.Equal(t, "dummy", cfg.Steps[1].ModelConfig.ModelName)                // Assuming Model is required
 		assert.Equal(t, DefaultStepMinMaxResults, cfg.Steps[1].MaxResults)          // MaxResults defaulted to 3

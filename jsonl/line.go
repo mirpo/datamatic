@@ -1,6 +1,7 @@
 package jsonl
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/google/uuid"
@@ -27,16 +28,25 @@ func cleanResponse(input string) string {
 	return input
 }
 
-func NewLineEntity(response string, prompt string) LineEntity {
+func NewLineEntity(response string, prompt string, isJSON bool) (LineEntity, error) {
 	cleanedResponse := cleanResponse(response)
 
 	format := "text"
 	var parsedResponse interface{} = cleanedResponse
+
+	if isJSON {
+		format = "json"
+
+		err := json.Unmarshal([]byte(cleanedResponse), &parsedResponse)
+		if err != nil {
+			return LineEntity{}, err
+		}
+	}
 
 	return LineEntity{
 		ID:       uuid.New().String(),
 		Prompt:   cleanResponse(prompt),
 		Response: parsedResponse,
 		Format:   format,
-	}
+	}, nil
 }
