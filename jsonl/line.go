@@ -12,6 +12,7 @@ type LineEntity struct {
 	Format   string      `json:"format"`
 	Prompt   string      `json:"prompt"`
 	Response interface{} `json:"response"`
+	Values   interface{} `json:"values,omitempty"`
 }
 
 func cleanResponse(input string) string {
@@ -28,7 +29,7 @@ func cleanResponse(input string) string {
 	return input
 }
 
-func NewLineEntity(response string, prompt string, isJSON bool) (LineEntity, error) {
+func NewLineEntity(response string, prompt string, isJSON bool, values interface{}) (LineEntity, error) {
 	cleanedResponse := cleanResponse(response)
 
 	format := "text"
@@ -48,5 +49,6 @@ func NewLineEntity(response string, prompt string, isJSON bool) (LineEntity, err
 		Prompt:   cleanResponse(prompt),
 		Response: parsedResponse,
 		Format:   format,
+		Values:   values,
 	}, nil
 }

@@ -57,7 +57,7 @@ func TestNewTextLineEntity(t *testing.T) {
 	response := "```json\n{\"foo\":\"bar\"}\n```"
 	prompt := "  What is foo?   "
 
-	entity, _ := NewLineEntity(response, prompt, false)
+	entity, _ := NewLineEntity(response, prompt, false, nil)
 
 	assert.NotEmpty(t, entity.ID)
 	assert.True(t, isValidUUID(entity.ID))
@@ -66,13 +66,30 @@ func TestNewTextLineEntity(t *testing.T) {
 
 	assert.Equal(t, "What is foo?", entity.Prompt)
 	assert.Equal(t, `{"foo":"bar"}`, entity.Response)
+	assert.Nil(t, entity.Values)
+}
+
+func TestNewTextLineEntityWithValues(t *testing.T) {
+	response := "```json\n{\"foo\":\"bar\"}\n```"
+	prompt := "  What is foo?   "
+
+	entity, _ := NewLineEntity(response, prompt, false, []string{"123", "456"})
+
+	assert.NotEmpty(t, entity.ID)
+	assert.True(t, isValidUUID(entity.ID))
+
+	assert.Equal(t, "text", entity.Format)
+
+	assert.Equal(t, "What is foo?", entity.Prompt)
+	assert.Equal(t, `{"foo":"bar"}`, entity.Response)
+	assert.Equal(t, []string{"123", "456"}, entity.Values)
 }
 
 func TestNewJSONLineEntity(t *testing.T) {
 	response := "```json\n{\"foo\":\"bar\"}\n```"
 	prompt := "  What is foo?   "
 
-	entity, _ := NewLineEntity(response, prompt, true)
+	entity, _ := NewLineEntity(response, prompt, true, nil)
 
 	assert.NotEmpty(t, entity.ID)
 	assert.True(t, isValidUUID(entity.ID))
@@ -87,7 +104,7 @@ func TestNewJSONLineEntityError(t *testing.T) {
 	response := "```json\n{foo\":\"bar\"}\n```"
 	prompt := "  What is foo?   "
 
-	_, err := NewLineEntity(response, prompt, true)
+	_, err := NewLineEntity(response, prompt, true, nil)
 
 	assert.Error(t, err)
 }

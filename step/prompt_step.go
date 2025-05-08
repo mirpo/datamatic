@@ -34,9 +34,8 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 	for i < maxResult {
 		log.Info().Msgf("Running step '%s' (type: '%s'), iteration [%d]", step.Name, step.Type, i)
 
-		prompt := step.Prompt
+		promptBuilder := promptbuilder.NewPromptBuilder(step.Prompt)
 		hasSchemaSchema := step.JSONSchema.HasSchemaDefinition()
-		placeholderValues := map[string]interface{}{}
 
 		if hasSchemaSchema {
 			jsonSchemaAsText, err := step.JSONSchema.MarshalToJSONText()
@@ -45,19 +44,32 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 				break
 			}
 
-			placeholderValues["SYSTEM"] = map[string]interface{}{
-				"JSON_SCHEMA": jsonSchemaAsText,
-			}
+			promptBuilder.AddValue("-", "SYSTEM", "JSON_SCHEMA", jsonSchemaAsText)
+		}
 
-			prompt, err = promptbuilder.GetCompiledPrompt(prompt, placeholderValues)
-			if err != nil {
-				log.Error().Err(err).Msg("failed to get compiled prompt")
-				break
+		if promptBuilder.HasPlaceholders() {
+			placeholders := promptBuilder.GetPlaceholders()
+			for _, placeholder := range placeholders {
+				refStep := cfg.GetStepByName(placeholder.Step)
+				lineValue, err := refStep.GetValue(outputFolder, i, placeholder.Key)
+				if err != nil {
+					log.Error().Err(err).Msg("failed to read value from the ref step")
+					break
+				}
+
+				log.Debug().Msgf("placeholder: %+v, read line: '%s'", placeholder, lineValue)
+				promptBuilder.AddValue(lineValue.ID, placeholder.Step, placeholder.Key, lineValue.Response)
 			}
 		}
 
+		userPrompt, err := promptBuilder.BuildPrompt()
+		if err != nil {
+			log.Error().Err(err).Msg("failed to build user prompt")
+			break
+		}
+
 		response, err := provider.Generate(ctx, llm.GenerateRequest{
-			UserMessage:   prompt,
+			UserMessage:   userPrompt,
 			SystemMessage: step.SystemPrompt,
 			IsJSON:        hasSchemaSchema,
 			JSONSchema:    step.JSONSchema,
@@ -85,7 +97,7 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 
 		log.Info().Msgf("Response from LLM: '%s'", response.Text)
 
-		lineEntity, err := jsonl.NewLineEntity(response.Text, step.Prompt, hasSchemaSchema)
+		lineEntity, err := jsonl.NewLineEntity(response.Text, userPrompt, hasSchemaSchema, promptBuilder.GetValues())
 		if err != nil {
 			log.Err(err).Msgf("got invalid JSON: %+v", response.Text)
 			continue
