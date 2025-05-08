@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/mirpo/datamatic/llm"
+	"github.com/mirpo/datamatic/promptbuilder"
 )
 
 func validateVersion(version string) error {
@@ -214,6 +215,34 @@ func (c *Config) Validate() error {
 
 			if strings.Contains(step.Prompt, "{{.SYSTEM.JSON_SCHEMA}}") && !step.JSONSchema.ValidateRequiredProperties() {
 				return fmt.Errorf("step '%s': JSON schema is required when using '{{.SYSTEM.JSON_SCHEMA}}' in the prompt", step.Name)
+			}
+
+			promptBuilder := promptbuilder.NewPromptBuilder(step.Prompt)
+			if promptBuilder.HasPlaceholders() {
+				placeholders := promptBuilder.GetPlaceholders()
+				for _, val := range placeholders {
+					if !stepNames[val.Step] {
+						return fmt.Errorf("placeholder has a references to unknown or not previous steps, step: %s, placeholder: %+v", step.Name, val)
+					}
+
+					// JSON key
+					if len(val.Key) > 0 {
+						if strings.Contains(val.Key, ".") {
+							return fmt.Errorf("placeholders currently support only one level of nesting, step: %s, placeholder: %+v", step.Name, val)
+						}
+
+						refStep := c.GetStepByName(val.Step)
+						if refStep.Type == PromptStepType {
+							if !refStep.JSONSchema.HasSchemaDefinition() {
+								return fmt.Errorf("step %s must have JSON schema, key: %s", val.Step, val.Key)
+							}
+
+							if !refStep.JSONSchema.HasRequiredProperty(val.Key) {
+								return fmt.Errorf("'%s' key must be defined in step %s in JSON schema as a property and required", val.Key, val.Step)
+							}
+						}
+					}
+				}
 			}
 
 			llmProvider, modelName, err := getModelDetails(*step)

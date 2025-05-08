@@ -1,6 +1,6 @@
-# Simple JSON generation using Ollama and LM Studio
+# Complex JSON generation with linked steps using Ollama and LM Studio
 
-Example shows simple JSON dataset generation using Ollama and LM Studio
+Example shows complex JSON dataset generation by linked steps using Ollama and LM Studio
 
 ## Requirements
 

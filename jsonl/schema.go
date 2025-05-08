@@ -3,6 +3,7 @@ package jsonl
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 )
 
 type JSONSchema struct {
@@ -86,6 +87,15 @@ func (j *JSONSchema) validateAgainstSchema(data map[string]interface{}) error {
 	}
 
 	return nil
+}
+
+func (j *JSONSchema) HasRequiredProperty(name string) bool {
+	_, exist := j.Properties[name]
+	if !exist {
+		return false
+	}
+
+	return slices.Contains(j.Required, name)
 }
 
 func validateType(value interface{}, schema Property) error {

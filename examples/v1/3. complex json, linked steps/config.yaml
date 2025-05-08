@@ -1,0 +1,60 @@
+version: 1.0
+steps:
+  - name: about_country
+    model: ollama:llama3.2
+    maxResults: 3
+    modelConfig:
+      temperature: 0.9
+    prompt: |
+      Provide up-to-date information about a randomly selected country, including its name, population, land area, UN membership status, capital city, GDP per capita, official languages, and year of independence. Return the data in a structured JSON format according to the schema below.
+    jsonSchema:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        population:
+          type: integer
+          minimum: 1
+          maximum: 2000000000
+        totalCountryArea:
+          type: number
+          minimum: 1
+          maximum: 20000000
+        isUNMember:
+          type: boolean
+        capitalCity:
+          type: string
+          minLength: 1
+          maxLength: 100
+        gdpPerCapita:
+          type: number
+          minimum: 1
+          maximum: 200000
+        languages:
+          type: array
+          items:
+            type: string
+        independenceYear:
+          type: integer
+          minimum: 1
+          maximum: 2025
+      required:
+        - name
+        - population
+        - totalCountryArea
+        - isUNMember
+        - capitalCity
+        - gdpPerCapita
+        - languages
+        - independenceYear
+
+  - name: text_about_country
+    model: ollama:llama3.2
+    maxResults: 3
+    modelConfig:
+      temperature: 0.9
+      maxTokens: 5000
+    prompt: |
+      Write nice tourist brochure about country {{.about_country.name}}, which capital is {{.about_country.capitalCity}}, area {{.about_country.totalCountryArea}}, independenceYear: {{.about_country.independenceYear}} and official languages are {{.about_country.languages}}.

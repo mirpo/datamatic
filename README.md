@@ -7,6 +7,7 @@ Generate high-quality synthetic data using local Large Language Models (LLMs)
 - LLM integration with popular LLM providers and all models they have under the hood (thanks all for the great tools!):
   - [Ollama](https://ollama.com/download)
   - [LM Studio](https://lmstudio.ai/download)
+  - Support for other LLMs is planned.
 - Customizable text and JSON generation.
 
 ## ⚠️ Important note
@@ -91,6 +92,7 @@ type LineEntity struct {
 	Format   string      `json:"format"`
 	Prompt   string      `json:"prompt"`
 	Response interface{} `json:"response"`
+	Values   interface{} `json:"values"`
 }
 ```
 
@@ -98,17 +100,26 @@ type LineEntity struct {
   - Format can be: text/JSON.
   - In case of text, response is a text.
   - In case of JSON, response is a JSON object.
+  - When steps are linked, `values` contains values from linked steps for traceability.
 
 ### Examples of JSONl results
 
 **Text line**:
+
 ```json
-{"id":"b8f4ffbd-0d68-4caf-b2a4-6d4840a7df18","format":"text","prompt":"Generate a catchy and one unique news title. Come up with a wildly different and surprising news headline. Return only one news title per request, without any extra thinking.","response":"BIGFOOT CONFIRMED AS NEW CEO OF MAJOR TECH COMPANY IN SHOCKING STOCK MARKET SWOOP"}
+{"id":"469cfc97-04de-47f6-a2b7-f8a31a3f893e","format":"text","prompt":"Generate a catchy and one unique news title. Come up with a wildly different and surprising news headline. Return only one news title per request, without any extra thinking.","response":"GIANT PURPLE PINEAPPLE DISAPPEARS FROM FRENCH QUARTER, LEAVING TOURISTS BAFFLED AND DELICIOUS-SMELLING CLOUD IN ITS WAKE.","values":[]}
 ```
 
 **JSON line**:
+
 ```json
-{"id":"7eb40ee7-fca2-4f5e-bd28-5bdb0d86ebcc","format":"json","prompt":"Generate a catchy and one unique news title. Come up with a wildly different and surprising news headline. Return only one news title per request, without any extra thinking.","response":{"tags":["robot","insects","bees","honey","pollination"],"title":"Robot Bees: The Buzz in Sustainable Agriculture"}}
+{"id":"edfdef51-6025-442b-8df2-91159edde0c7","format":"json","prompt":"Provide up-to-date information about a randomly selected country, including its name, population, land area, UN membership status, capital city, GDP per capita, official languages, and year of independence. Return the data in a structured JSON format according to the schema below.","response":{"capitalCity":"Bishkek","gdpPerCapita":1643.8,"independenceYear":1991,"isUNMember":true,"languages":["Kyrgyz","Russian"],"name":"Kyrgyzstan","population":6786000,"totalCountryArea":199900},"values":[]}
+```
+
+With values from linked steps:
+
+```json
+{"id":"1b9872d3-4eab-486c-924f-0ff74e18d3d6","format":"text","prompt":"Write nice tourist brochure about country Kyrgyzstan, which capital is Bishkek, area 199900, independenceYear: 1991 and official languages are Kyrgyz, Russian.","response":"...**A Brief History**\n\nKyrgyzstan declared its independence on August 31, 1991...","values":[{"id":"edfdef51-6025-442b-8df2-91159edde0c7","complexKey":"about_country.independenceYear","content":"1991"},{"id":"edfdef51-6025-442b-8df2-91159edde0c7","complexKey":"about_country.languages","content":"Kyrgyz, Russian"},{"id":"edfdef51-6025-442b-8df2-91159edde0c7","complexKey":"about_country.name","content":"Kyrgyzstan"},{"id":"edfdef51-6025-442b-8df2-91159edde0c7","complexKey":"about_country.capitalCity","content":"Bishkek"},{"id":"edfdef51-6025-442b-8df2-91159edde0c7","complexKey":"about_country.totalCountryArea","content":"199900"}]}
 ```
 
 ## CLI Flags
@@ -133,7 +144,8 @@ Usage of datamatic:
 
 ## More examples
 
-| Name                                                                                                                                 | Provider (-s)     |
-| ------------------------------------------------------------------------------------------------------------------------------------ | ----------------- |
-| [Simple text generation using Ollama and LM Studio](./examples/v1/1.%20simple%20text%20generation,%20not%20linked%20steps/README.md) | Ollama, LM Studio |
-| [Simple JSON generation using Ollama and LM Studio](./examples/v1/2.%20simple%20json%20generation,%20not%20linked%20steps/README.md) | Ollama, LM Studio |
+| Name                                                                                                                          | Provider (-s)     |
+| ----------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| [Simple text generation, not linked steps](./examples/v1/1.%20simple%20text%20generation,%20not%20linked%20steps/config.yaml) | Ollama, LM Studio |
+| [Simple JSON generation, not linked steps](./examples/v1/2.%20simple%20json%20generation,%20not%20linked%20steps/config.yaml) | Ollama, LM Studio |
+| [Complex JSON generation, linked steps](./examples/v1/3.%20complex%20json,%20linked%20steps/config.yaml)                      | Ollama            |
