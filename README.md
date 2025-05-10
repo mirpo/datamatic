@@ -31,24 +31,25 @@ Before using this tool for synthetic data generation, please:
 
 ## Installation
 
-### From Source
+### Homebrew
 
-```bash
-# Clone the repository
-git clone https://github.com/mirpo/datamatic
-cd datamatic
-
-# Build the binary
-go build -o datamatic
-
-# Move to your PATH (optional)
-sudo mv datamatic /usr/local/bin/
+```shell
+brew tap mirpo/homebrew-tools
+brew install datamatic
 ```
 
 ### Using Go Install
 
-```bash
+```shell
 go install github.com/mirpo/datamatic@latest
+```
+
+### From source
+
+```bash
+git clone https://github.com/mirpo/datamatic.git
+cd datamatic
+make build
 ```
 
 ## Quick Start
