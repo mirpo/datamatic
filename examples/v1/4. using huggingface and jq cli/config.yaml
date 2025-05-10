@@ -1,0 +1,67 @@
+version: 1.0
+
+steps:
+  - name: download_dataset
+    cmd: huggingface-cli download --repo-type dataset flytech/python-codes-25k --local-dir ./ --include python-codes-25k.jsonl
+    outputFilename: python-codes-25k.jsonl
+
+  - name: pick_first_20
+    cmd: jq -c 'select(.instruction | test("Convert|Open"))' ./python-codes-25k.jsonl | head -n 20 > ./Convert_Open_20.jsonl
+    outputFilename: Convert_Open_20.jsonl
+
+  - name: explain_code
+    type: prompt
+    model: ollama:llama3.2
+    maxResults: 1
+    systemPrompt: |
+      You are an expert software engineer and code analyst with deep understanding of algorithms, data structures, and software design patterns. Your task is to analyze code and explain its logic in clear, precise terms. Focus on:
+      - Breaking down complex logic into understandable steps
+      - Identifying key algorithms and patterns
+      - Highlighting important implementation details
+      - Using technical terminology appropriately but explaining it when needed
+      - Being thorough but concise
+      - Organizing information in a clear, structured way
+
+      When asked to analyze code, follow this structure:
+      1. Start with a high-level overview
+      2. Break down the algorithmic steps
+      3. Point out important implementation details
+      4. Note any potential improvements or alternatives
+    prompt: |
+      Please analyze this code and describe its algorithmic logic. Focus on:
+      1. What does this code do? (high-level overview)
+      2. How does it work step by step?
+      3. What are the key parts I should pay attention to?
+      4. Are there any interesting patterns or techniques used?
+
+      Here's the code to analyze:
+      {{.pick_first_20.output}}
+
+  - name: unit_test
+    type: prompt
+    model: ollama:llama3.2
+    maxResults: 1
+    systemPrompt: |
+      You are an expert software engineer and test automation specialist. Your task is to generate comprehensive, accurate unit tests based on provided code descriptions and code snippets. Follow these instructions:
+
+      - Cover expected behavior, edge cases, and invalid input scenarios
+      - Use `pytest` syntax and idioms for Python tests
+      - Avoid wrapping your output in triple backticks (e.g., ```python)
+      - Output tests as a structured JSON array with each test's name, description, and code
+      - Focus on clarity, correctness, and high code coverage
+    prompt: |
+      Generate a complete, production-ready unit test file for the following code. Your output should:
+
+      1. Be a single, valid test file that can be executed without modification
+      2. Cover all core functionality including edge cases and error conditions
+      3. Use descriptive test names that explain what's being tested
+      4. Follow standard unit testing best practices for the language
+      5. Include proper imports and test setup/teardown where needed
+
+      Input code description:
+      {{.explain_code}}
+
+      Source code to test:
+      {{.pick_first_20.output}}
+
+      Output only the complete test file with no additional explanations, comments, or markdown.
