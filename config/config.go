@@ -2,16 +2,15 @@ package config
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/mirpo/datamatic/fs"
 	"github.com/mirpo/datamatic/jsonl"
 	"github.com/mirpo/datamatic/llm"
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -26,6 +25,7 @@ func NewConfig() *Config {
 		OutputFolder:     "dataset",
 		HTTPTimeout:      300,
 		ValidateResponse: true,
+		SkipCliWarning:   false,
 	}
 }
 
@@ -36,6 +36,7 @@ type Config struct {
 	OutputFolder     string
 	HTTPTimeout      int
 	ValidateResponse bool
+	SkipCliWarning   bool
 	Version          string `yaml:"version"`
 	Steps            []Step `yaml:"steps"`
 }
@@ -134,6 +135,10 @@ func convertJSONValueToStringReflected(value interface{}) string {
 	}
 }
 
+func uuidFromString(input string) string {
+	return uuid.NewMD5(uuid.NameSpaceOID, []byte(input)).String()
+}
+
 func GetFieldAsString(data map[string]interface{}, key string) (string, error) {
 	value, exists := data[key]
 	if !exists {
@@ -148,35 +153,54 @@ func (s *Step) GetValue(outputFolder string, lineNumber int, attrKey string) (*L
 		return nil, err
 	}
 
-	if s.Type == PromptStepType {
-		var decodedLine jsonl.LineEntity
-		err = json.Unmarshal([]byte(line), &decodedLine)
-		if err != nil {
-			log.Err(err).Msgf("failed to parse data JSON from line '%s'", line)
-			return nil, err
+	switch s.Type {
+	case CliStepType:
+		var decoded map[string]interface{}
+		if err := json.Unmarshal([]byte(line), &decoded); err != nil {
+			return nil, fmt.Errorf("CLI step: failed to parse JSON from line %d: %w", lineNumber, err)
 		}
 
-		var val string
-		hasSchemaSchema := s.JSONSchema.HasSchemaDefinition()
-		if hasSchemaSchema {
-			data, ok := decodedLine.Response.(map[string]interface{})
-			if !ok {
-				return nil, errors.New("failed to cast Response to JSON")
-			}
-
-			val, err = GetFieldAsString(data, attrKey)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get %s attrKey as text", attrKey)
-			}
-		} else {
-			val = decodedLine.Response.(string)
+		value, err := GetFieldAsString(decoded, attrKey)
+		if err != nil {
+			return nil, fmt.Errorf("CLI step: missing or invalid '%s' field: %w", attrKey, err)
 		}
 
 		return &LineValue{
-			ID:       decodedLine.ID,
-			Response: val,
+			ID:       uuidFromString(value),
+			Response: value,
 		}, nil
-	}
 
-	return nil, nil
+	case PromptStepType:
+		var decoded jsonl.LineEntity
+		if err := json.Unmarshal([]byte(line), &decoded); err != nil {
+			return nil, fmt.Errorf("prompt step: failed to parse JSON from line %d: %w", lineNumber, err)
+		}
+
+		var value string
+		if !s.JSONSchema.HasSchemaDefinition() {
+			str, ok := decoded.Response.(string)
+			if !ok {
+				return nil, fmt.Errorf("prompt step: expected string response, got %T", decoded.Response)
+			}
+			value = str
+		} else {
+			data, ok := decoded.Response.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("prompt step: expected map response, got %T", decoded.Response)
+			}
+
+			value, err = GetFieldAsString(data, attrKey)
+			if err != nil {
+				return nil, fmt.Errorf("prompt step: missing or invalid '%s' field", attrKey)
+			}
+		}
+
+		return &LineValue{
+			ID:       decoded.ID,
+			Response: value,
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported step type '%s'", s.Type)
+	}
 }

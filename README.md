@@ -9,8 +9,12 @@ Generate high-quality synthetic data using local Large Language Models (LLMs)
   - [LM Studio](https://lmstudio.ai/download)
   - Support for other LLMs is planned.
 - Customizable text and JSON generation.
+- Multi step chaining.
+- Use any CLI as a step. For example:
+  - Load datasets from [Huggingface](https://huggingface.co/datasets).
+  - Run [jq](https://github.com/jqlang/jq) to transform data between steps.
 
-## ⚠️ Important note
+## ⚠️ Important notes
 
 Before using this tool for synthetic data generation, please:
 
@@ -134,6 +138,8 @@ Usage of datamatic:
         Enable pretty logging, JSON when false (default true)
   -output string
         Output folder path (default "dataset")
+  -skip-cli-warning
+        Skip external CLI warning (default true)
   -validate-response
         Validate JSON response from server to match the schema (default true)
   -verbose

@@ -72,7 +72,7 @@ func getModelDetails(step Step) (llm.ProviderType, string, error) {
 
 	result := strings.SplitN(step.Model, ":", 2)
 	if len(result) != 2 {
-		return llm.ProviderUnknown, "", fmt.Errorf("model should follow pattern 'provider:model', examples: 'ollama:llama3.1'")
+		return llm.ProviderUnknown, "", fmt.Errorf("model should follow pattern 'provider:model', examples: 'ollama:llama3.2'")
 	}
 
 	providerStr := result[0]
@@ -183,6 +183,7 @@ func (c *Config) Validate() error {
 	}
 
 	stepNames := map[string]bool{}
+	cliCalls := []string{}
 
 	for index := range c.Steps {
 		step := &c.Steps[index]
@@ -205,6 +206,23 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("step '%s': %w", step.Name, err)
 		}
 		step.Type = stepType
+
+		if stepType == CliStepType {
+			cliCalls = append(cliCalls, fmt.Sprintf("- %s", step.Cmd))
+
+			if step.OutputFilename == "" {
+				return fmt.Errorf("step '%s': output filename is mandatory for external CLI", step.Name)
+			}
+
+			if err := isValidName(step.OutputFilename); err != nil {
+				return fmt.Errorf("step '%s': invalid output filename '%s': %w", step.Name, step.OutputFilename, err)
+			}
+
+			if !strings.Contains(step.Cmd, step.OutputFilename) {
+				return fmt.Errorf("step '%s': output filename should match output result of external CLI; cmd: [%s], output file: %s",
+					step.Name, step.Cmd, step.OutputFilename)
+			}
+		}
 
 		if stepType == PromptStepType {
 			if step.JSONSchema.HasSchemaDefinition() {
@@ -265,13 +283,18 @@ func (c *Config) Validate() error {
 					return fmt.Errorf("step '%s': invalid output filename '%s': %w", step.Name, step.OutputFilename, err)
 				}
 			}
-
-			fullOutputPath, err := getFullOutputPath(*step, c.OutputFolder)
-			if err != nil {
-				return fmt.Errorf("step '%s': failed to get full output path: %w", step.Name, err)
-			}
-			step.OutputFilename = fullOutputPath
 		}
+
+		fullOutputPath, err := getFullOutputPath(*step, c.OutputFolder)
+		if err != nil {
+			return fmt.Errorf("step '%s': failed to get full output path: %w", step.Name, err)
+		}
+		step.OutputFilename = fullOutputPath
+	}
+
+	if !c.SkipCliWarning && len(cliCalls) > 0 {
+		fmt.Printf("⚠️ WARNING: External application call detected! The author assumes no responsibility for execution results. Please verify all external calls before proceeding. Use at your own risk. Calls: \n%s\n", strings.Join(cliCalls, "\n"))
+		fmt.Scanln() //nolint:golint,errcheck
 	}
 
 	slog.Debug("config validation successful")

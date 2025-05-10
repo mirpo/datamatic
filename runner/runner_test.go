@@ -30,6 +30,7 @@ func TestValidateConfigFromExamples(t *testing.T) {
 			assert.NoError(t, err, "Failed to unmarshal YAML: %s", path)
 
 			cfg.OutputFolder = "test"
+			cfg.SkipCliWarning = true
 
 			err = cfg.Validate()
 			assert.NoError(t, err, "Validation failed for file: %s", path)

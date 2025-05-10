@@ -2,7 +2,7 @@ version: 1.0
 
 steps:
   - name: generate_titles_simple_ollama
-    model: ollama:llama3.1
+    model: ollama:llama3.2
     prompt: |
       Generate a catchy and one unique news title. Come up with a wildly different and surprising news headline. Return only one news title per request, without any extra thinking.
 
