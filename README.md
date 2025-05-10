@@ -58,7 +58,7 @@ go install github.com/mirpo/datamatic@latest
 version: 1.0
 steps:
   - name: generate_titles
-    model: ollama:llama3.1
+    model: ollama:llama3.2
     prompt: |
       Generate a catchy and one unique news title. Come up with a wildly different and surprising news headline. Return only one news title per request, without any extra thinking.
     jsonSchema:
@@ -155,3 +155,4 @@ Usage of datamatic:
 | [Simple text generation, not linked steps](./examples/v1/1.%20simple%20text%20generation,%20not%20linked%20steps/config.yaml) | Ollama, LM Studio |
 | [Simple JSON generation, not linked steps](./examples/v1/2.%20simple%20json%20generation,%20not%20linked%20steps/config.yaml) | Ollama, LM Studio |
 | [Complex JSON generation, linked steps](./examples/v1/3.%20complex%20json,%20linked%20steps/config.yaml)                      | Ollama            |
+| [Using huggingface dataset and jq cli, linked steps ](./examples/v1/4.%20using%20huggingface%20and%20jq%20cli/config.yaml)    | Ollama            |
