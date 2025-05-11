@@ -1,0 +1,165 @@
+version: 1.0
+
+steps:
+  - name: generate_subtopics
+    model: ollama:llama3.2
+    prompt: |
+      I want to create a synthetic dataset of natural language and Git commands. Based on this context, give me subtopics 30 to cover what needs to be covered when working with Git.
+      The list must be without numbers, and without any description of the subtopics. The subtopics should be separated by a comma. There must be no other text than the list.
+    maxResults: 1
+    jsonSchema:
+      type: object
+      properties:
+        subtopics:
+          type: array
+          minItems: 30
+          maxItems: 30
+          items:
+            type: string
+      required:
+        - subtopics
+
+  - name: split_into_unique_subtopics
+    type: cli
+    cmd: |
+      cat ./generate_subtopics.jsonl | jq -c '.response.subtopics[]' | sort | uniq | jq -c '{id: . | @base64, topic: .}' > ./split_into_unique_subtopics.jsonl
+    outputFilename: split_into_unique_subtopics.jsonl
+
+  - name: generate_instructions
+    model: ollama:llama3.2
+    prompt: |
+      The objective is to create a dataset of user instructions in natural language that should be returned by Git commands.
+      Given a topic in Git, generate 100 possible concise instructions that could be given to an AI assistant about that topic.
+      Write some of these instructions as if given by someone with limited knowledge of Git terminologies and knowledge, 
+      like a beginner programmer. Your response should be in a list format.
+
+      The topic is: {{.split_into_unique_subtopics.topic}}
+      The list must be without numbers. The questions/instructions should be separated by a newline character. There must be no other text than the list.
+    modelConfig:
+      temperature: 0.9
+      maxTokens: 5000
+    maxResults: 1 # 30 # in first step we generate 30 subtopics, for each we try to generate 100 instructions
+    jsonSchema:
+      type: object
+      properties:
+        instructions:
+          type: array
+          items:
+            type: string
+      required:
+        - instructions
+
+  - name: split_into_unique_instructions
+    type: cli
+    cmd: |
+      cat ./generate_instructions.jsonl | jq -c '.response.instructions[]' | sort | uniq | jq -c '{id: . | @base64, instruction: .}' > ./split_into_unique_instructions.jsonl
+    outputFilename: split_into_unique_instructions.jsonl
+
+  - name: generate_answer
+    model: ollama:llama3.2
+    prompt: |
+      Given an question/instruction related to Git, generate a response that could be given.
+      Keep the response on-topic, informative, concise.
+
+      The user prompt is: "{{.split_into_unique_instructions.instruction}}"
+    maxResults: 1
+
+  - name: instruction_response
+    type: cli
+    cmd: |
+      cat ./generate_answer.jsonl | jq -c ''{instruction: (.values[] | select(.complexKey == "split_into_unique_instructions.instruction") | .content), response: .response}''> ./instruction_response.jsonl
+    outputFilename: instruction_response.jsonl
+
+  - name: rate
+    model: ollama:llama3.2
+    systemPrompt: |
+      You are an expert evaluator specializing in Git documentation and instruction assessment. Your task is to analyze instruction-response pairs related to Git usage and provide numerical scores across five key dimensions. Each evaluation should be thorough, consistent, and based on clear criteria.
+      Evaluation Criteria
+
+      Helpfulness (0-10):
+
+      How well does the response address the user's needs?
+      Does it provide practical, actionable information?
+      Are there useful examples or explanations?
+      Does it anticipate potential issues or edge cases?
+
+
+      Correctness (0-10):
+
+      Is the technical information accurate?
+      Are Git commands and concepts explained correctly?
+      Are there any errors or misleading information?
+      Does it follow Git best practices?
+
+
+      Coherence (0-10):
+
+      Is the response well-structured and logical?
+      Does it flow naturally from one point to the next?
+      Are concepts introduced in a sensible order?
+      Is the language clear and consistent?
+
+
+      Complexity (0-10):
+
+      How advanced is the Git knowledge required?
+      Does it match the complexity level of the question?
+      Is technical jargon used appropriately?
+      Is the difficulty level appropriate for the target audience?
+
+
+      Verbosity (0-10):
+
+      Is the length appropriate for the content?
+      Is the explanation concise yet complete?
+      Are there unnecessary repetitions or tangents?
+      Is the information density appropriate?
+    prompt: |
+      Please evaluate the following Git instruction-response pair and provide scores for helpfulness, correctness, coherence, complexity, and verbosity on a scale of 0-10:
+
+      INSTRUCTION:
+      {{.instruction_response.instruction}}
+
+      RESPONSE:
+      {{.instruction_response.response}}
+
+      Please provide your evaluation in the JSON format specified below, with a brief justification for each score.
+    modelConfig:
+      temperature: 0.9
+      maxTokens: 5000
+    maxResults: 1 # 30 # in first step we generate 30 subtopics, for each we try to generate 100 instructions
+    jsonSchema:
+      type: object
+      properties:
+        helpfulness:
+          type: integer
+          minimum: 0
+          maximum: 10
+        correctness:
+          type: integer
+          minimum: 0
+          maximum: 10
+        coherence:
+          type: integer
+          minimum: 0
+          maximum: 10
+        complexity:
+          type: integer
+          minimum: 0
+          maximum: 10
+        verbosity:
+          type: integer
+          minimum: 0
+          maximum: 10
+      required:
+        - helpfulness
+        - correctness
+        - coherence
+        - complexity
+        - verbosity
+
+  - name: result
+    type: cli
+    cmd: |
+      cat ./rate.jsonl | jq -c '{instruction: (.values[] | select(.complexKey == "instruction_response.instruction") | .content), response: (.values[] | select(.complexKey == "instruction_response.response") | .content), evaluation: .response}' > result.jsonl
+    outputFilename: result.jsonl

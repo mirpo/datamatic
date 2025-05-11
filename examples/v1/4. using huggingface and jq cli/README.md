@@ -14,4 +14,4 @@ Install:
 
 ## Run dataset generation
 
-`datamatic --config ./using\ cli\ and\ huggingface\ datasets\ and\ lmstudio\ and\ ollama.yaml --verbose --log-pretty`
+`datamatic --config ./config.yaml --verbose`

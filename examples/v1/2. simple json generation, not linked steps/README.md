@@ -14,4 +14,4 @@ Install:
 
 ## Run dataset generation
 
-`datamatic --config ./simple\ text\ ollama.yaml --verbose`
+`datamatic --config ./config.yaml --verbose`

@@ -151,9 +151,12 @@ Usage of datamatic:
 
 ## More examples
 
-| Name                                                                                                                          | Provider (-s)     |
-| ----------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| [Simple text generation, not linked steps](./examples/v1/1.%20simple%20text%20generation,%20not%20linked%20steps/config.yaml) | Ollama, LM Studio |
-| [Simple JSON generation, not linked steps](./examples/v1/2.%20simple%20json%20generation,%20not%20linked%20steps/config.yaml) | Ollama, LM Studio |
-| [Complex JSON generation, linked steps](./examples/v1/3.%20complex%20json,%20linked%20steps/config.yaml)                      | Ollama            |
-| [Using huggingface dataset and jq cli, linked steps ](./examples/v1/4.%20using%20huggingface%20and%20jq%20cli/config.yaml)    | Ollama            |
+| Name                                                                                                                                                                     | Provider (-s)     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------- |
+| [Simple text generation, not linked steps](./examples/v1/1.%20simple%20text%20generation,%20not%20linked%20steps/README.md)                                              | Ollama, LM Studio |
+| [Simple JSON generation, not linked steps](./examples/v1/2.%20simple%20json%20generation,%20not%20linked%20steps/README.md)                                              | Ollama, LM Studio |
+| [Complex JSON generation, linked steps](./examples/v1/3.%20complex%20json,%20linked%20steps/README.md)                                                                   | Ollama            |
+| [Using Huggingface dataset and jq cli, linked steps](./examples/v1/4.%20using%20huggingface%20and%20jq%20cli/README.md)                                                  | Ollama            |
+| [Complex dataset using DuckDb, Huggingface and LM studio](./examples/v1/5.%20using%20duckdb%20to%20convert%20parquet%20huggingface%20dataset%20and%20lmstudio/README.md) | LM Studio         |
+| [Git dataset](./examples/v1/6.%20git%20dataset/README.md)                                                                                                                | Ollama            |
+| [Creating dataset for fine-tuning](./examples/v1/7.%20fine-tuning%20dataset/README.md)                                                                                   | Ollama            |
