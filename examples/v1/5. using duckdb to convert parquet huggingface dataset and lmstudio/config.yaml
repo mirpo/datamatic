@@ -1,0 +1,80 @@
+version: 1.0
+
+steps:
+  - name: download_dataset
+    type: cli
+    cmd: huggingface-cli download --repo-type dataset AI-MO/NuminaMath-CoT --local-dir ./ --include data/test-00000-of-00001.parquet
+    outputFilename: test-00000-of-00001.parquet
+
+  - name: convert_to_jsonl
+    type: cli
+    cmd: duckdb -c "COPY (SELECT * FROM read_parquet('./data/test-00000-of-00001.parquet')) TO 'output.json' (FORMAT JSON);"
+    outputFilename: output.json
+
+  - name: synthetic_math
+    type: cli
+    cmd: jq -c 'select(.source | test("synthetic_math"))' ./output.json | head -n 100 > ./synthetic_math_100.jsonl
+    outputFilename: synthetic_math_100.jsonl
+
+  - name: explain_math
+    type: prompt
+    model: lmstudio:hermes-3-llama-3.2-3b
+    maxResults: 10
+    systemPrompt: |
+      You are a specialized mathematics analysis assistant designed to break down and explain mathematical problems and solutions. Your primary functions include:
+
+      📘 Problem Analysis
+      - Break down complex problems into fundamental components
+      - Identify key mathematical concepts and principles
+      - Recognize patterns and relationships within the problem
+      - Flag potential areas of difficulty or common misconceptions
+
+      ✅ Solution Verification
+      - Verify mathematical accuracy and logical flow
+      - Check for computational and conceptual errors
+      - Ensure all steps are clearly justified
+      - Confirm that the solution addresses all aspects of the problem
+
+      🧠 Explanation Generation
+      - Provide clear, step-by-step explanations
+      - Use precise mathematical terminology
+      - Include visual aids or diagrams when beneficial
+      - Relate concepts to real-world applications when relevant
+
+      🎓 Educational Support
+      - Highlight teachable moments and key learning objectives
+      - Suggest alternative solution paths
+      - Provide similar practice problems
+      - Offer study strategies for mastering related problems
+
+    prompt: |
+      PROBLEM:
+      {{.synthetic_math.problem}}
+
+      GIVEN SOLUTION:
+      {{.synthetic_math.solution}}
+
+      YOUR TASKS:
+      Please analyze the problem and solution using the following structure:
+
+      1. 🧩 **Problem Breakdown**
+        - Identify key components and mathematical concepts
+        - Outline the skills required to solve it
+        - Highlight any potential conceptual or procedural challenges
+
+      2. 🔍 **Solution Analysis**
+        - Verify the correctness of each step
+        - Point out any logical gaps, errors, or ambiguities
+        - Evaluate clarity and efficiency of the approach used
+
+      3. ✏️ **Detailed Explanation**
+        - Provide a step-by-step walkthrough of the solution
+        - Justify each step mathematically
+        - Include diagrams or visuals where useful
+        - Propose and explain any viable alternative methods
+
+      4. 📚 **Learning Points**
+        - Summarize the key concepts and skills involved
+        - Mention common pitfalls or misconceptions to avoid
+        - Suggest related problems for further practice
+        - Offer tips or resources for deeper understanding

@@ -1,0 +1,113 @@
+version: 1.0
+
+steps:
+  - name: download_the_doc
+    type: cli
+    cmd: curl https://raw.githubusercontent.com/mirpo/chopdoc/refs/heads/main/tests/pg_essay.txt -O
+    outputFilename: pg_essay.txt
+
+  - name: chopdoc_by_sentence
+    type: cli
+    cmd: chopdoc --input pg_essay.txt --output pg_essay.jsonl --method sentence --size 10 --overlap 2
+    outputFilename: pg_essay.jsonl
+
+  - name: questions_per_chunk
+    model: ollama:deepseek-r1
+    maxResults: 3
+    prompt: |
+      For the following text chunk:
+      {{.chopdoc_by_sentence.chunk}}
+
+      Generate **3 questions** based on different levels of cognitive thinking:
+
+      1. **Understanding Level**
+        - Focus on basic facts and concepts
+        - Use "What", "Who", "When", or "Where" style questions
+        - Goal: Ensure clear identification and comprehension
+
+      2. **Analysis Level**
+        - Explore relationships, causes, and implications
+        - Use "How" or "Why" questions
+        - Goal: Examine reasoning and connections within the content
+
+      3. **Synthesis Level**
+        - Apply or extend ideas creatively
+        - Use "What if" or "How might" questions
+        - Goal: Encourage integration, problem-solving, or imaginative application
+
+      For each question, also include:
+      - **Text evidence**: A sentence or phrase from the chunk that supports or relates to the question
+
+    jsonSchema:
+      type: object
+      properties:
+        questions:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: object
+            properties:
+              question:
+                type: string
+              textEvidence:
+                type: string
+            required:
+              - question
+              - textEvidence
+      required:
+        - questions
+
+  - name: flatten_question_chunk
+    type: cli
+    cmd: |
+      cat ./questions_per_chunk.jsonl | jq -c '(.values[] | select(.complexKey == "chopdoc_by_sentence.chunk") | .content) as $chunk | .response.questions[] | { question: .question, chunk: $chunk, textEvidence: .textEvidence}' > flatten_question_chunk.jsonl
+    outputFilename: flatten_question_chunk.jsonl
+
+  - name: validate_questions
+    model: ollama:deepseek-r1
+    maxResults: 3
+    prompt: |
+      Evaluate the following question based on its alignment with the provided text chunk. Assess whether the question accurately reflects key information and if the supplied text evidence supports it effectively.
+
+      ---
+      **Question:**  
+      {{.flatten_question_chunk.question}}
+
+      **Text Chunk:**  
+      {{.flatten_question_chunk.chunk}}
+
+      **Text Evidence (if provided):**  
+      {{.flatten_question_chunk.textEvidence}}
+      ---
+
+      **Evaluation Criteria:**
+
+      1. **Relevance** – Does the question reflect the main idea or key details of the chunk?
+      2. **Accuracy** – Is the question factually correct based on the chunk?
+      3. **Depth** – Does the question match its intended cognitive level (Understanding, Analysis, or Synthesis)?
+      4. **Evidence Match** – If text evidence is provided, does it directly support the question?
+
+      ---
+      **Rating Scale (1–10):**
+
+      - **1–3 (Poor):** Irrelevant, inaccurate, or unsupported.
+      - **4–6 (Fair):** Some relevance or accuracy, but lacks clarity, depth, or strong support.
+      - **7–9 (Good):** Generally accurate and relevant with reasonable support.
+      - **10 (Excellent):** Highly accurate, deeply relevant, and strongly backed by the text evidence.
+
+    jsonSchema:
+      type: object
+      properties:
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 10
+      required:
+        - rating
+
+  - name: result_filtered
+    type: cli
+    cmd: |
+      cat ./validate_questions.jsonl | jq -c '. | select(.response.rating >= 7)' > result_filtered.jsonl
+    outputFilename: result_filtered.jsonl

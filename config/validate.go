@@ -293,7 +293,7 @@ func (c *Config) Validate() error {
 	}
 
 	if !c.SkipCliWarning && len(cliCalls) > 0 {
-		fmt.Printf("⚠️ WARNING: External application call detected! The author assumes no responsibility for execution results. Please verify all external calls before proceeding. Use at your own risk. Calls: \n%s\n", strings.Join(cliCalls, "\n"))
+		fmt.Printf("⚠️ WARNING: External application call detected! The author assumes no responsibility for execution results. Please verify all external calls before proceeding. Use at your own risk.\n\nCalls: \n%s\n\nPress Enter to continue", strings.Join(cliCalls, "\n"))
 		fmt.Scanln() //nolint:golint,errcheck
 	}
 
