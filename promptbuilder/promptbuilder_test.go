@@ -225,12 +225,12 @@ func TestPromptBuilder_GetValues(t *testing.T) {
 	builder.AddValue("3", "SYSTEM", "version", "v1.0")
 	builder.AddValue("4", "INPUT", "query", "search term")
 
-	expected := []ValueShort{
-		{ID: "1", ComplexKey: "USER.name", Content: "John Doe"},
-		{ID: "2", ComplexKey: "USER.email", Content: "john.doe@example.com"},
-		{ID: "4", ComplexKey: "INPUT.query", Content: "search term"},
+	expected := map[string]ValueShort{
+		".USER.email":  {ID: "2", Content: "john.doe@example.com"},
+		".USER.name":   {ID: "1", Content: "John Doe"},
+		".INPUT.query": {ID: "4", Content: "search term"},
 	}
 
 	actual := builder.GetValues()
-	assert.ElementsMatch(t, expected, actual)
+	assert.Equal(t, expected, actual)
 }

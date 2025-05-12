@@ -67,7 +67,7 @@ steps:
   - name: instruction_response
     type: cli
     cmd: |
-      cat ./generate_answer.jsonl | jq -c ''{instruction: (.values[] | select(.complexKey == "split_into_unique_instructions.instruction") | .content), response: .response}''> ./instruction_response.jsonl
+      cat ./generate_answer.jsonl | jq -c '{instruction: .values.".split_into_unique_instructions.instruction".content, response: .response}' > ./instruction_response.jsonl
     outputFilename: instruction_response.jsonl
 
   - name: rate
@@ -161,5 +161,5 @@ steps:
   - name: result
     type: cli
     cmd: |
-      cat ./rate.jsonl | jq -c '{instruction: (.values[] | select(.complexKey == "instruction_response.instruction") | .content), response: (.values[] | select(.complexKey == "instruction_response.response") | .content), evaluation: .response}' > result.jsonl
+      cat ./rate.jsonl | jq -c '{instruction: .values.".instruction_response.response".content, response: .values.".instruction_response.response".content, evaluation: .response}' > result.jsonl
     outputFilename: result.jsonl

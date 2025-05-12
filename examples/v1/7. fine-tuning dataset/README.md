@@ -8,7 +8,7 @@ Install:
 
 - `datamatic`
 - [Ollama](https://ollama.com/download)
-- Install model: `ollama run deepseek-r1`
+- Install model: `ollama run deepseek-r1:1.5b`
 - Install chopdoc to split the document: 
   ```shell
   brew tap mirpo/homebrew-tools

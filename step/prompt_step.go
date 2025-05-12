@@ -97,7 +97,7 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 
 		log.Info().Msgf("Response from LLM: '%s'", response.Text)
 
-		lineEntity, err := jsonl.NewLineEntity(response.Text, userPrompt, hasSchemaSchema, promptBuilder.GetValues())
+		lineEntity, err := jsonl.NewLineEntity(response.Text, step.Prompt, hasSchemaSchema, promptBuilder.GetValues())
 		if err != nil {
 			log.Err(err).Msgf("got invalid JSON: %+v", response.Text)
 			continue
