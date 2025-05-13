@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/mirpo/datamatic/promptbuilder"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -73,7 +74,18 @@ func TestNewTextLineEntityWithValues(t *testing.T) {
 	response := "```json\n{\"foo\":\"bar\"}\n```"
 	prompt := "  What is foo?   "
 
-	entity, _ := NewLineEntity(response, prompt, false, []string{"123", "456"})
+	values := map[string]promptbuilder.ValueShort{
+		"flatten_question_chunk.rate": {
+			ID:      "123",
+			Content: 9,
+		},
+		"flatten_question_chunk.question": {
+			ID:      "456",
+			Content: "Super question",
+		},
+	}
+
+	entity, _ := NewLineEntity(response, prompt, false, values)
 
 	assert.NotEmpty(t, entity.ID)
 	assert.True(t, isValidUUID(entity.ID))
@@ -82,7 +94,16 @@ func TestNewTextLineEntityWithValues(t *testing.T) {
 
 	assert.Equal(t, "What is foo?", entity.Prompt)
 	assert.Equal(t, `{"foo":"bar"}`, entity.Response)
-	assert.Equal(t, []string{"123", "456"}, entity.Values)
+	assert.Equal(t, map[string]promptbuilder.ValueShort{
+		"flatten_question_chunk.rate": {
+			ID:      "123",
+			Content: 9,
+		},
+		"flatten_question_chunk.question": {
+			ID:      "456",
+			Content: "Super question",
+		},
+	}, entity.Values)
 }
 
 func TestNewJSONLineEntity(t *testing.T) {

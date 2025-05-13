@@ -5,14 +5,15 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/mirpo/datamatic/promptbuilder"
 )
 
 type LineEntity struct {
-	ID       string      `json:"id"`
-	Format   string      `json:"format"`
-	Prompt   string      `json:"prompt"`
-	Response interface{} `json:"response"`
-	Values   interface{} `json:"values,omitempty"`
+	ID       string                              `json:"id"`
+	Format   string                              `json:"format"`
+	Prompt   string                              `json:"prompt"`
+	Response interface{}                         `json:"response"`
+	Values   map[string]promptbuilder.ValueShort `json:"values,omitempty"`
 }
 
 func cleanResponse(input string) string {
@@ -29,7 +30,7 @@ func cleanResponse(input string) string {
 	return input
 }
 
-func NewLineEntity(response string, prompt string, isJSON bool, values interface{}) (LineEntity, error) {
+func NewLineEntity(response string, prompt string, isJSON bool, values map[string]promptbuilder.ValueShort) (LineEntity, error) {
 	cleanedResponse := cleanResponse(response)
 
 	format := "text"

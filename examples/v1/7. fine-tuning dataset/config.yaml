@@ -12,7 +12,7 @@ steps:
     outputFilename: pg_essay.jsonl
 
   - name: questions_per_chunk
-    model: ollama:deepseek-r1
+    model: ollama:deepseek-r1:1.5b
     maxResults: 3
     prompt: |
       For the following text chunk:
@@ -61,11 +61,11 @@ steps:
   - name: flatten_question_chunk
     type: cli
     cmd: |
-      cat ./questions_per_chunk.jsonl | jq -c '(.values[] | select(.complexKey == "chopdoc_by_sentence.chunk") | .content) as $chunk | .response.questions[] | { question: .question, chunk: $chunk, textEvidence: .textEvidence}' > flatten_question_chunk.jsonl
+      cat ./questions_per_chunk.jsonl | jq -c '.values.".chopdoc_by_sentence.chunk".content as $chunk | .response.questions[] | { question: .question, chunk: $chunk, textEvidence: .textEvidence}' > flatten_question_chunk.jsonl
     outputFilename: flatten_question_chunk.jsonl
 
   - name: validate_questions
-    model: ollama:deepseek-r1
+    model: ollama:deepseek-r1:1.5b
     maxResults: 3
     prompt: |
       Evaluate the following question based on its alignment with the provided text chunk. Assess whether the question accurately reflects key information and if the supplied text evidence supports it effectively.

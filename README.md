@@ -112,19 +112,35 @@ type LineEntity struct {
 **Text line**:
 
 ```json
-{"id":"469cfc97-04de-47f6-a2b7-f8a31a3f893e","format":"text","prompt":"Generate a catchy and one unique news title. Come up with a wildly different and surprising news headline. Return only one news title per request, without any extra thinking.","response":"GIANT PURPLE PINEAPPLE DISAPPEARS FROM FRENCH QUARTER, LEAVING TOURISTS BAFFLED AND DELICIOUS-SMELLING CLOUD IN ITS WAKE.","values":[]}
+{
+  "id":"38082542-f352-44d2-88e9-6d68d28dcac4"
+  "format":"text",
+  "prompt":"Generate a catchy and one unique news title. Come up with a wildly different and surprising news headline. Return only one news title per request, without any extra thinking.",
+  "response":"BREAKING: Giant Squid Found Wearing Tiny Top Hat and monocle in Remote Arctic Location"
+}
 ```
 
 **JSON line**:
 
 ```json
-{"id":"edfdef51-6025-442b-8df2-91159edde0c7","format":"json","prompt":"Provide up-to-date information about a randomly selected country, including its name, population, land area, UN membership status, capital city, GDP per capita, official languages, and year of independence. Return the data in a structured JSON format according to the schema below.","response":{"capitalCity":"Bishkek","gdpPerCapita":1643.8,"independenceYear":1991,"isUNMember":true,"languages":["Kyrgyz","Russian"],"name":"Kyrgyzstan","population":6786000,"totalCountryArea":199900},"values":[]}
+{
+  "id":"cc437b10-63c6-443a-9b3e-a7d6c51fc0a0",
+  "format":"json",
+  "prompt":"Provide up-to-date information about a randomly selected country, including its name, population, land area, UN membership status, capital city, GDP per capita, official languages, and year of independence. Return the data in a structured JSON format according to the schema below.",
+  "response":{"capitalCity":"Bishkek","gdpPerCapita":1700,"independenceYear":1991,"isUNMember":true,"languages":["Kyr Kyrgyz","Russian"],"name":"Kyrgyzstan","population":6184000,"totalCountryArea":199912}
+}
 ```
 
 With values from linked steps:
 
 ```json
-{"id":"1b9872d3-4eab-486c-924f-0ff74e18d3d6","format":"text","prompt":"Write nice tourist brochure about country Kyrgyzstan, which capital is Bishkek, area 199900, independenceYear: 1991 and official languages are Kyrgyz, Russian.","response":"...**A Brief History**\n\nKyrgyzstan declared its independence on August 31, 1991...","values":[{"id":"edfdef51-6025-442b-8df2-91159edde0c7","complexKey":"about_country.independenceYear","content":"1991"},{"id":"edfdef51-6025-442b-8df2-91159edde0c7","complexKey":"about_country.languages","content":"Kyrgyz, Russian"},{"id":"edfdef51-6025-442b-8df2-91159edde0c7","complexKey":"about_country.name","content":"Kyrgyzstan"},{"id":"edfdef51-6025-442b-8df2-91159edde0c7","complexKey":"about_country.capitalCity","content":"Bishkek"},{"id":"edfdef51-6025-442b-8df2-91159edde0c7","complexKey":"about_country.totalCountryArea","content":"199900"}]}
+{
+  "id":"dc140355-6c41-4ce7-9127-b8145cf1a23e",
+  "format":"text",
+  "prompt":"Write nice tourist brochure about country {{.about_country.name}}, which capital is {{.about_country.capitalCity}}, area {{.about_country.totalCountryArea}}, independenceYear: {{.about_country.independenceYear}} and official languages are {{.about_country.languages}}.",
+  "response":"**Discover the Hidden Gem of Central Asia: Kyrgyzstan**\n\nTucked away in the heart of Central Asia, Kyrgyzstan is a land of breathtaking beauty, rich history, and warm hospitality. Our capital city, Bishkek, is a bustling metropolis surrounded by the stunning Tian Shan mountains, waiting to be explored.\n\n**A Brief History**\n\nKyrgyzstan gained its independence on August 31, 1991...",
+  "values":{".about_country.capitalCity":{"id":"cc437b10-63c6-443a-9b3e-a7d6c51fc0a0","content":"Bishkek"},".about_country.independenceYear":{"id":"cc437b10-63c6-443a-9b3e-a7d6c51fc0a0","content":"1991"},".about_country.languages":{"id":"cc437b10-63c6-443a-9b3e-a7d6c51fc0a0","content":"Kyr Kyrgyz, Russian"},".about_country.name":{"id":"cc437b10-63c6-443a-9b3e-a7d6c51fc0a0","content":"Kyrgyzstan"},".about_country.totalCountryArea":{"id":"cc437b10-63c6-443a-9b3e-a7d6c51fc0a0","content":"199912"}}
+}
 ```
 
 ## CLI Flags

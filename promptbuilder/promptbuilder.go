@@ -18,9 +18,8 @@ type Value struct {
 }
 
 type ValueShort struct {
-	ID         string      `json:"id"`
-	ComplexKey string      `json:"complexKey"`
-	Content    interface{} `json:"content"`
+	ID      string      `json:"id"`
+	Content interface{} `json:"content"`
 }
 
 type PromptBuilder struct {
@@ -132,20 +131,20 @@ func (pb *PromptBuilder) HasPlaceholders() bool {
 	return len(pb.placeholders) > 0
 }
 
-func (pb *PromptBuilder) GetValues() []ValueShort {
-	shortValues := []ValueShort{}
+func (pb *PromptBuilder) GetValues() map[string]ValueShort {
+	resultValues := map[string]ValueShort{}
 
 	for _, value := range pb.newValues {
 		if strings.HasPrefix(value.Step, "SYSTEM") {
 			continue
 		}
 
-		shortValues = append(shortValues, ValueShort{
-			ID:         value.ID,
-			ComplexKey: strings.Join([]string{value.Step, value.Key}, "."),
-			Content:    value.Content,
-		})
+		key := strings.Join([]string{"." + value.Step, value.Key}, ".")
+		resultValues[key] = ValueShort{
+			ID:      value.ID,
+			Content: value.Content,
+		}
 	}
 
-	return shortValues
+	return resultValues
 }
