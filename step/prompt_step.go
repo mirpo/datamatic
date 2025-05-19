@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/mirpo/datamatic/config"
+	"github.com/mirpo/datamatic/fs"
 	"github.com/mirpo/datamatic/httpclient"
 	"github.com/mirpo/datamatic/jsonl"
 	"github.com/mirpo/datamatic/llm"
@@ -68,11 +69,29 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 			break
 		}
 
+		var base64Image string
+		if step.HasImages() {
+			imagePath, err := fs.PickImageFile(step.ImagePath, i)
+			if err != nil {
+				log.Error().Err(err).Msgf("failed to find images by pattern: %s, err: %s", step.ImagePath, err)
+				break
+			}
+
+			base64Image, err = fs.ImageToBase64(imagePath)
+			if err != nil {
+				log.Error().Err(err).Msgf("failed to get base64 of image: %s, err: %s", imagePath, err)
+				break
+			}
+
+			promptBuilder.AddValue(base64Image[:15], step.Name, "image", imagePath)
+		}
+
 		response, err := provider.Generate(ctx, llm.GenerateRequest{
 			UserMessage:   userPrompt,
 			SystemMessage: step.SystemPrompt,
 			IsJSON:        hasSchemaSchema,
 			JSONSchema:    step.JSONSchema,
+			Base64Image:   base64Image,
 		})
 		if err != nil {
 			var errCustom *httpclient.HTTPError

@@ -290,6 +290,14 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("step '%s': failed to get full output path: %w", step.Name, err)
 		}
 		step.OutputFilename = fullOutputPath
+
+		if step.HasImages() {
+			step.ImagePath = strings.TrimSpace(step.ImagePath)
+
+			if !filepath.IsAbs(step.ImagePath) {
+				step.ImagePath = filepath.Join(c.OutputFolder, step.ImagePath)
+			}
+		}
 	}
 
 	if !c.SkipCliWarning && len(cliCalls) > 0 {

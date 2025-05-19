@@ -33,6 +33,7 @@ type GenerateRequest struct {
 	SystemMessage string
 	IsJSON        bool
 	JSONSchema    jsonl.JSONSchema
+	Base64Image   string
 }
 
 type GenerateResponse struct {

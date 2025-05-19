@@ -41,8 +41,9 @@ type ollamaReqOptions struct {
 }
 
 type ollamaMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role    string    `json:"role"`
+	Content string    `json:"content"`
+	Images  *[]string `json:"images,omitempty"`
 }
 
 type ollamaChatResponse struct {
@@ -62,10 +63,18 @@ func (p *OllamaProvider) Generate(ctx context.Context, request GenerateRequest) 
 	}
 
 	msgs := []ollamaMessage{}
+
 	if request.SystemMessage != "" {
 		msgs = append(msgs, ollamaMessage{Role: "system", Content: request.SystemMessage})
 	}
+
 	userMsg := ollamaMessage{Role: "user", Content: request.UserMessage}
+	if len(request.Base64Image) > 0 {
+		images := []string{
+			request.Base64Image,
+		}
+		userMsg.Images = &images
+	}
 	msgs = append(msgs, userMsg)
 	req.Messages = msgs
 

@@ -13,21 +13,22 @@ Generate high-quality synthetic data using local Large Language Models (LLMs)
 - Use any CLI as a step. For example:
   - Load datasets from [Huggingface](https://huggingface.co/datasets).
   - Run [jq](https://github.com/jqlang/jq) to transform data between steps.
+- Image analysis using visual models.
 
 ## ⚠️ Important notes
 
-Before using this tool for synthetic data generation, please:
+Before using this tool for synthetic data generation, please ensure you:
 
-1. Review the licenses of the specific LLM models you plan to use
-2. Check the model's terms of use regarding synthetic data generation
-3. Be aware that some models may have restrictions on:
-   - Commercial use of generated data
-   - Generation of certain types of content
-   - Usage in specific industries or applications
-4. Verify the quality and accuracy of generated data before using it in production
-5. Consider potential biases in the generated data
+1. Review the licenses for the specific LLM models you plan to use.
+2. Check the models' terms of service regarding synthetic data generation.
+3. Be aware of potential restrictions, which may include limitations on:
+  - Commercial use of generated data.
+  - Generating specific content types.
+  - Usage in certain industries or applications.
+4. Verify the quality and accuracy of generated data before using it in production.
+5. Consider potential biases in the generated data.
 
-**Note**: The responsibility for checking and complying with model licenses and terms of use lies with the end user. This tool is provided as-is, and we recommend thoroughly reviewing the licensing terms of each model before deployment.
+**Important**: The end user is responsible for checking and complying with model licenses and terms. This tool is provided "as-is," and we strongly recommend reviewing the licensing terms of each model before deployment.
 
 ## Installation
 
@@ -176,3 +177,4 @@ Usage of datamatic:
 | [Complex dataset using DuckDb, Huggingface and LM studio](./examples/v1/5.%20using%20duckdb%20to%20convert%20parquet%20huggingface%20dataset%20and%20lmstudio/README.md) | LM Studio         |
 | [Git dataset](./examples/v1/6.%20git%20dataset/README.md)                                                                                                                | Ollama            |
 | [Creating dataset for fine-tuning](./examples/v1/7.%20fine-tuning%20dataset/README.md)                                                                                   | Ollama            |
+| [Creating dataset using vision model](./examples/v1/8.%20hugginface%20images%20and%20qwen2.5vl%20or%20gemma3/README.md)                                                  | Ollama, LM Studio |
