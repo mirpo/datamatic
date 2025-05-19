@@ -60,6 +60,7 @@ type Step struct {
 	ModelConfig    ModelConfig      `yaml:"modelConfig"`
 	OutputFilename string           `yaml:"outputFilename"`
 	JSONSchema     jsonl.JSONSchema `yaml:"jsonSchema"`
+	ImagePath      string           `yaml:"imagePath"`
 }
 
 type ModelConfig struct {
@@ -203,4 +204,8 @@ func (s *Step) GetValue(outputFolder string, lineNumber int, attrKey string) (*L
 	default:
 		return nil, fmt.Errorf("unsupported step type '%s'", s.Type)
 	}
+}
+
+func (s *Step) HasImages() bool {
+	return len(s.ImagePath) > 0
 }

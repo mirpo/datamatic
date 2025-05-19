@@ -9,7 +9,7 @@ Install:
 - `datamatic`
 - [Ollama](https://ollama.com/download)
 - [LM Studio](https://lmstudio.ai/download)
-- Install model: `ollama run llama3.2`
+- Install model: `ollama pull llama3.2`
 - Open LM Studio, find and download `hermes-3-llama-3.2-3b`
 
 ## Run dataset generation

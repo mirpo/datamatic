@@ -50,6 +50,21 @@ func NewLmStudioProvider(config ProviderConfig) *LmStudioProvider {
 	}
 }
 
+type lmStudioMessage struct {
+	Role    string      `json:"role"`
+	Content interface{} `json:"content"`
+}
+
+type lmStudioContentPart struct {
+	Type     string           `json:"type"`
+	Text     string           `json:"text,omitempty"`
+	ImageURL lmStudioImageURL `json:"image_url"`
+}
+
+type lmStudioImageURL struct {
+	URL string `json:"url"`
+}
+
 type lmStudioChatRequest struct {
 	Model          string            `json:"model"`
 	Messages       []lmStudioMessage `json:"messages"`
@@ -57,11 +72,6 @@ type lmStudioChatRequest struct {
 	MaxTokens      *int              `json:"max_tokens,omitempty"`
 	Stream         bool              `json:"stream"`
 	ResponseFormat *ResponseFormat   `json:"response_format,omitempty"`
-}
-
-type lmStudioMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
 }
 
 type lmStudioChatResponse struct {
@@ -93,8 +103,34 @@ func (p *LmStudioProvider) Generate(ctx context.Context, request GenerateRequest
 	if request.SystemMessage != "" {
 		msgs = append(msgs, lmStudioMessage{Role: "system", Content: request.SystemMessage})
 	}
-	userMsg := lmStudioMessage{Role: "user", Content: request.UserMessage}
-	msgs = append(msgs, userMsg)
+
+	userMessage := lmStudioMessage{Role: "user"}
+
+	// text request
+	if len(request.Base64Image) == 0 {
+		userMessage.Content = request.UserMessage
+	} else {
+		contentParts := []lmStudioContentPart{}
+
+		// first text part
+		contentParts = append(contentParts, lmStudioContentPart{
+			Type: "text",
+			Text: request.UserMessage,
+		})
+
+		// image part
+		imageURL := fmt.Sprintf("data:image/jpeg;base64,%s", request.Base64Image)
+		contentParts = append(contentParts, lmStudioContentPart{
+			Type: "image_url",
+			ImageURL: lmStudioImageURL{
+				URL: imageURL,
+			},
+		})
+
+		userMessage.Content = contentParts
+	}
+
+	msgs = append(msgs, userMessage)
 	req.Messages = msgs
 
 	if request.IsJSON {
@@ -111,7 +147,7 @@ func (p *LmStudioProvider) Generate(ctx context.Context, request GenerateRequest
 	}
 
 	if llmResponse.Model != p.config.ModelName {
-		return nil, fmt.Errorf("llm: lmstudio: model mismatch: expected %s, got %s", p.config.ModelName, llmResponse.Model)
+		log.Warn().Msgf("LM Studio response: model mismatch: expected %s, got %s", p.config.ModelName, llmResponse.Model)
 	}
 
 	log.Debug().Msgf("LM Studio response: model=%s, object=%+v", llmResponse.Model, llmResponse)
@@ -120,7 +156,12 @@ func (p *LmStudioProvider) Generate(ctx context.Context, request GenerateRequest
 		return nil, fmt.Errorf("llm: lmstudio: received no choices in response")
 	}
 
+	responseContent, ok := llmResponse.Choices[0].Message.Content.(string)
+	if !ok {
+		return nil, fmt.Errorf("llm: lmstudio: response message content is not a string")
+	}
+
 	return &GenerateResponse{
-		Text: llmResponse.Choices[0].Message.Content,
+		Text: responseContent,
 	}, nil
 }

@@ -10,7 +10,7 @@ Install:
 
 - `datamatic`
 - [Ollama](https://ollama.com/download)
-- Install model: `ollama run llama3.2`
+- Install model: `ollama pull llama3.2`
 
 ## Run dataset generation
 
