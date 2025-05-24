@@ -226,9 +226,9 @@ func TestPromptBuilder_GetValues(t *testing.T) {
 	builder.AddValue("4", "INPUT", "query", "search term")
 
 	expected := map[string]ValueShort{
-		".USER.email":  {ID: "2", Content: "john.doe@example.com"},
-		".USER.name":   {ID: "1", Content: "John Doe"},
-		".INPUT.query": {ID: "4", Content: "search term"},
+		".USER.email":  {ID: "2", Value: "john.doe@example.com"},
+		".USER.name":   {ID: "1", Value: "John Doe"},
+		".INPUT.query": {ID: "4", Value: "search term"},
 	}
 
 	actual := builder.GetValues()

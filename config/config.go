@@ -50,17 +50,18 @@ const (
 )
 
 type Step struct {
-	Type           StepType
-	Name           string           `yaml:"name"`
-	Model          string           `yaml:"model"`
-	Prompt         string           `yaml:"prompt"`
-	Cmd            string           `yaml:"cmd"`
-	SystemPrompt   string           `yaml:"systemPrompt"`
-	MaxResults     int              `yaml:"maxResults"`
-	ModelConfig    ModelConfig      `yaml:"modelConfig"`
-	OutputFilename string           `yaml:"outputFilename"`
-	JSONSchema     jsonl.JSONSchema `yaml:"jsonSchema"`
-	ImagePath      string           `yaml:"imagePath"`
+	Type               StepType
+	Name               string           `yaml:"name"`
+	Model              string           `yaml:"model"`
+	Prompt             string           `yaml:"prompt"`
+	Cmd                string           `yaml:"cmd"`
+	SystemPrompt       string           `yaml:"systemPrompt"`
+	MaxResults         interface{}      `yaml:"maxResults"`
+	ModelConfig        ModelConfig      `yaml:"modelConfig"`
+	OutputFilename     string           `yaml:"outputFilename"`
+	JSONSchema         jsonl.JSONSchema `yaml:"jsonSchema"`
+	ImagePath          string           `yaml:"imagePath"`
+	ResolvedMaxResults int
 }
 
 type ModelConfig struct {

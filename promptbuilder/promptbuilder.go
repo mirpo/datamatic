@@ -18,8 +18,8 @@ type Value struct {
 }
 
 type ValueShort struct {
-	ID      string      `json:"id"`
-	Content interface{} `json:"content"`
+	ID    string      `json:"id"`
+	Value interface{} `json:"value"`
 }
 
 type PromptBuilder struct {
@@ -141,8 +141,8 @@ func (pb *PromptBuilder) GetValues() map[string]ValueShort {
 
 		key := strings.Join([]string{"." + value.Step, value.Key}, ".")
 		resultValues[key] = ValueShort{
-			ID:      value.ID,
-			Content: value.Content,
+			ID:    value.ID,
+			Value: value.Content,
 		}
 	}
 

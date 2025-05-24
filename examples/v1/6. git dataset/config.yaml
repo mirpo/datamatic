@@ -4,8 +4,8 @@ steps:
   - name: generate_subtopics
     model: ollama:llama3.2
     prompt: |
-      I want to create a synthetic dataset of natural language and Git commands. Based on this context, give me subtopics 30 to cover what needs to be covered when working with Git.
-      The list must be without numbers, and without any description of the subtopics. The subtopics should be separated by a comma. There must be no other text than the list.
+      I am building a dataset of Git-related questions and commands. List exactly 30 distinct subtopics that comprehensively cover core and advanced Git usage. Do not number the subtopics. Separate them only with commas, with no additional text or formatting.
+      Each subtopic should be a short phrase, and they should be relevant to Git commands, concepts, or workflows. The subtopics should be diverse and cover various aspects of Git, including but not limited to version control, branching, merging, rebasing, conflict resolution, and collaboration.
     maxResults: 1
     jsonSchema:
       type: object
@@ -28,17 +28,17 @@ steps:
   - name: generate_instructions
     model: ollama:llama3.2
     prompt: |
-      The objective is to create a dataset of user instructions in natural language that should be returned by Git commands.
-      Given a topic in Git, generate 100 possible concise instructions that could be given to an AI assistant about that topic.
-      Write some of these instructions as if given by someone with limited knowledge of Git terminologies and knowledge, 
-      like a beginner programmer. Your response should be in a list format.
+      Generate list of 100 concise user instructions about the following Git topic: {{.split_into_unique_subtopics.topic}}.
+      These instructions list will be used to train an AI assistant.
 
-      The topic is: {{.split_into_unique_subtopics.topic}}
-      The list must be without numbers. The questions/instructions should be separated by a newline character. There must be no other text than the list.
+      - 70% of the instructions should reflect beginner-level understanding, using casual or non-technical phrasing.
+      - 30% should reflect intermediate to advanced users, including Git jargon where appropriate.
+      - Keep each instruction brief and focused.
+      - Do not number the items. Separate each instruction with a newline. Return only the list.
     modelConfig:
       temperature: 0.9
       maxTokens: 5000
-    maxResults: 1 # 30 # in first step we generate 30 subtopics, for each we try to generate 100 instructions
+    maxResults: split_into_unique_subtopics.$length # for each unique subtopic generate N instructions
     jsonSchema:
       type: object
       properties:
@@ -58,16 +58,20 @@ steps:
   - name: generate_answer
     model: ollama:llama3.2
     prompt: |
-      Given an question/instruction related to Git, generate a response that could be given.
-      Keep the response on-topic, informative, concise.
+      Given the user instruction related to Git below, generate a clear, accurate, and concise response.
 
-      The user prompt is: "{{.split_into_unique_instructions.instruction}}"
-    maxResults: 1
+      - Include actual Git commands where appropriate.
+      - Provide examples for complex tasks.
+      - Keep the tone friendly, but not overly verbose.
+      - Avoid unnecessary tangents or deep Git internals unless the instruction explicitly requires it.
+
+      Instruction: "{{.split_into_unique_instructions.instruction}}"
+    maxResults: split_into_unique_instructions.$length
 
   - name: instruction_response
     type: cli
     cmd: |
-      cat ./generate_answer.jsonl | jq -c '{instruction: .values.".split_into_unique_instructions.instruction".content, response: .response}' > ./instruction_response.jsonl
+      cat ./generate_answer.jsonl | jq -c '{instruction: .values.".split_into_unique_instructions.instruction".value, response: .response}' > ./instruction_response.jsonl
     outputFilename: instruction_response.jsonl
 
   - name: rate
@@ -127,7 +131,7 @@ steps:
     modelConfig:
       temperature: 0.9
       maxTokens: 5000
-    maxResults: 1 # 30 # in first step we generate 30 subtopics, for each we try to generate 100 instructions
+    maxResults: instruction_response.$length # for each instruction-response pair generate an evaluation
     jsonSchema:
       type: object
       properties:
@@ -161,5 +165,5 @@ steps:
   - name: result
     type: cli
     cmd: |
-      cat ./rate.jsonl | jq -c '{instruction: .values.".instruction_response.response".content, response: .values.".instruction_response.response".content, evaluation: .response}' > result.jsonl
+      cat ./rate.jsonl | jq -c '{instruction: .values.".instruction_response.response".value, response: .values.".instruction_response.response".value, evaluation: .response}' > result.jsonl
     outputFilename: result.jsonl

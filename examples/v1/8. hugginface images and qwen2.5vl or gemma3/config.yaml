@@ -18,7 +18,7 @@ steps:
     type: prompt
     model: ollama:qwen2.5vl:3b
     # model: lmstudio:gemma-3-4b-it
-    maxResults: 10
+    maxResults: download_dataset.$length # number of images
     prompt: |
       Image contains mathematical formula. Convert to Latex. Don't add any extra information
     imagePath: |
@@ -28,7 +28,7 @@ steps:
     type: prompt
     model: ollama:qwen2.5vl:3b
     # model: lmstudio:gemma-3-4b-it
-    maxResults: 10
+    maxResults: analyze_math_image.$length # use the result length of the referenced step
     prompt: |
       Given the following formula, break down the steps needed to understand or solve it. Start by identifying the type of mathematical expression it is (e.g., complex numbers, exponential form, etc.), then explain each term and operation, and proceed to derive or simplify as appropriate. Show your reasoning at each step. Format your response in clear Markdown, using headings, bullet points, and LaTeX for math where helpful.
       Formula: {{.analyze_math_image}}

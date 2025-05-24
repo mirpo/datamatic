@@ -2,7 +2,7 @@ version: 1.0
 steps:
   - name: about_country
     model: ollama:llama3.2
-    maxResults: 3
+    maxResults: 10
     modelConfig:
       temperature: 0.9
     prompt: |
@@ -52,7 +52,7 @@ steps:
 
   - name: text_about_country
     model: ollama:llama3.2
-    maxResults: 3
+    maxResults: about_country.$length # use the result length of the referenced step
     modelConfig:
       temperature: 0.9
       maxTokens: 5000

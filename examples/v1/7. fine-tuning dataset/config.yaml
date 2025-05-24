@@ -13,30 +13,35 @@ steps:
 
   - name: questions_per_chunk
     model: ollama:deepseek-r1:1.5b
-    maxResults: 3
+    maxResults: chopdoc_by_sentence.$length # for each chunk generate 3 questions
     prompt: |
-      For the following text chunk:
+      For the following text chunk, generate exactly **3 questions**, each based on a different level of cognitive thinking. For each question, you must also provide direct text evidence from the chunk that supports or relates to the question.
+
+      **Text Chunk:**
       {{.chopdoc_by_sentence.chunk}}
 
-      Generate **3 questions** based on different levels of cognitive thinking:
+      ---
+      **Question Generation Guidelines:**
 
       1. **Understanding Level**
-        - Focus on basic facts and concepts
-        - Use "What", "Who", "When", or "Where" style questions
-        - Goal: Ensure clear identification and comprehension
+        - Focus on basic facts and concepts.
+        - Use "What", "Who", "When", or "Where" style questions.
+        - Goal: Ensure clear identification and comprehension.
 
       2. **Analysis Level**
-        - Explore relationships, causes, and implications
-        - Use "How" or "Why" questions
-        - Goal: Examine reasoning and connections within the content
+        - Explore relationships, causes, and implications.
+        - Use "How" or "Why" questions.
+        - Goal: Examine reasoning and connections within the content.
 
       3. **Synthesis Level**
-        - Apply or extend ideas creatively
-        - Use "What if" or "How might" questions
-        - Goal: Encourage integration, problem-solving, or imaginative application
+        - Apply or extend ideas creatively, or propose solutions.
+        - Use "What if", "How might", or "Suggest a solution" style questions.
+        - Goal: Encourage integration, problem-solving, or imaginative application.
+      ---
+      **Output Format:**
+      Provide your response as a JSON object with a single top-level key `questions`, which contains an array of exactly three question objects. Each question object must have two keys: `question` (string) and `textEvidence` (string). The `textEvidence` should be a concise sentence or phrase directly from the provided chunk.
 
-      For each question, also include:
-      - **Text evidence**: A sentence or phrase from the chunk that supports or relates to the question
+      Do not include any conversational text or explanations outside of the JSON.
 
     jsonSchema:
       type: object
@@ -61,40 +66,44 @@ steps:
   - name: flatten_question_chunk
     type: cli
     cmd: |
-      cat ./questions_per_chunk.jsonl | jq -c '.values.".chopdoc_by_sentence.chunk".content as $chunk | .response.questions[] | { question: .question, chunk: $chunk, textEvidence: .textEvidence}' > flatten_question_chunk.jsonl
+      cat ./questions_per_chunk.jsonl | jq -c '.values.".chopdoc_by_sentence.chunk".value as $chunk | .response.questions[] | { question: .question, chunk: $chunk, textEvidence: .textEvidence}' > flatten_question_chunk.jsonl
     outputFilename: flatten_question_chunk.jsonl
 
   - name: validate_questions
     model: ollama:deepseek-r1:1.5b
-    maxResults: 3
+    maxResults: flatten_question_chunk.$length # for each question chunk validate
     prompt: |
-      Evaluate the following question based on its alignment with the provided text chunk. Assess whether the question accurately reflects key information and if the supplied text evidence supports it effectively.
+      prompt: |
+      Evaluate the provided question based *solely* on its alignment with the accompanying text chunk and the effectiveness of the supplied text evidence. Your assessment should be rigorous, ensuring accuracy and relevance to the given content.
 
       ---
-      **Question:**  
+      **Question:**
       {{.flatten_question_chunk.question}}
 
-      **Text Chunk:**  
+      **Text Chunk:**
       {{.flatten_question_chunk.chunk}}
 
-      **Text Evidence (if provided):**  
+      **Text Evidence (if provided):**
       {{.flatten_question_chunk.textEvidence}}
       ---
 
       **Evaluation Criteria:**
-
-      1. **Relevance** – Does the question reflect the main idea or key details of the chunk?
-      2. **Accuracy** – Is the question factually correct based on the chunk?
-      3. **Depth** – Does the question match its intended cognitive level (Understanding, Analysis, or Synthesis)?
-      4. **Evidence Match** – If text evidence is provided, does it directly support the question?
+      1. **Relevance** – Does the question directly reflect the main idea or key details of the chunk? Is it pertinent to the content?
+      2. **Accuracy** – Is the question factually correct and answerable based *only* on the information present in the chunk?
+      3. **Depth** – Does the question effectively align with a higher cognitive level (e.g., Understanding, Analysis, or Synthesis) if implied by its structure, even if the original level wasn't explicitly stated here?
+      4. **Evidence Match** – If text evidence is provided, does it directly and strongly support or relate to the question being asked?
 
       ---
       **Rating Scale (1–10):**
+      - **1–3 (Poor):** Irrelevant, factually incorrect, or unsupported by the text. The evidence, if present, does not match.
+      - **4–6 (Fair):** Some relevance or accuracy, but may lack clarity, depth, or strong supporting evidence.
+      - **7–9 (Good):** Generally accurate and relevant, with reasonable depth and supportive evidence.
+      - **10 (Excellent):** Highly accurate, deeply relevant to the chunk, insightful, and strongly and directly backed by the provided text evidence.
 
-      - **1–3 (Poor):** Irrelevant, inaccurate, or unsupported.
-      - **4–6 (Fair):** Some relevance or accuracy, but lacks clarity, depth, or strong support.
-      - **7–9 (Good):** Generally accurate and relevant with reasonable support.
-      - **10 (Excellent):** Highly accurate, deeply relevant, and strongly backed by the text evidence.
+      ---
+      **Output Format:**
+      Provide your response as a JSON object containing a single key `rating`, with an integer value between 1 and 10, representing your overall assessment.
+      Do not include any additional text or explanations.
 
     jsonSchema:
       type: object
@@ -106,8 +115,8 @@ steps:
       required:
         - rating
 
-  - name: result_filtered
+  - name: filter_with_high_rating
     type: cli
     cmd: |
-      cat ./validate_questions.jsonl | jq -c '. | select(.response.rating >= 7)' > result_filtered.jsonl
-    outputFilename: result_filtered.jsonl
+      cat ./validate_questions.jsonl | jq -c '. | select(.response.rating >= 7)' > filter_with_high_rating.jsonl
+    outputFilename: filter_with_high_rating.jsonl

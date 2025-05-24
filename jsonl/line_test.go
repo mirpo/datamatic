@@ -76,12 +76,12 @@ func TestNewTextLineEntityWithValues(t *testing.T) {
 
 	values := map[string]promptbuilder.ValueShort{
 		"flatten_question_chunk.rate": {
-			ID:      "123",
-			Content: 9,
+			ID:    "123",
+			Value: 9,
 		},
 		"flatten_question_chunk.question": {
-			ID:      "456",
-			Content: "Super question",
+			ID:    "456",
+			Value: "Super question",
 		},
 	}
 
@@ -96,12 +96,12 @@ func TestNewTextLineEntityWithValues(t *testing.T) {
 	assert.Equal(t, `{"foo":"bar"}`, entity.Response)
 	assert.Equal(t, map[string]promptbuilder.ValueShort{
 		"flatten_question_chunk.rate": {
-			ID:      "123",
-			Content: 9,
+			ID:    "123",
+			Value: 9,
 		},
 		"flatten_question_chunk.question": {
-			ID:      "456",
-			Content: "Super question",
+			ID:    "456",
+			Value: "Super question",
 		},
 	}, entity.Values)
 }
