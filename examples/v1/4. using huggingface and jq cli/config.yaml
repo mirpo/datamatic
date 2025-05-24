@@ -12,7 +12,7 @@ steps:
   - name: explain_code
     type: prompt
     model: ollama:llama3.2
-    maxResults: 1
+    maxResults: pick_first_20.$length # use the result length of the referenced step
     systemPrompt: |
       You are an expert software engineer and code analyst with deep understanding of algorithms, data structures, and software design patterns. Your task is to analyze code and explain its logic in clear, precise terms. Focus on:
       - Breaking down complex logic into understandable steps
@@ -40,7 +40,7 @@ steps:
   - name: unit_test
     type: prompt
     model: ollama:llama3.2
-    maxResults: 1
+    maxResults: explain_code.$length # use the result length of the referenced step
     systemPrompt: |
       You are an expert software engineer and test automation specialist. Your task is to generate comprehensive, accurate unit tests based on provided code descriptions and code snippets. Follow these instructions:
 

@@ -47,3 +47,23 @@ func ReadLineFromFile(path string, lineNumber int) (string, error) {
 func normalizeIndex(index, length int) int {
 	return (index%length + length) % length
 }
+
+func CountLinesInFile(filePath string) (int, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to open file %s: %w", filePath, err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	lineCount := 0
+	for scanner.Scan() {
+		lineCount++
+	}
+
+	if err := scanner.Err(); err != nil {
+		return 0, fmt.Errorf("error while reading file %s: %w", filePath, err)
+	}
+
+	return lineCount, nil
+}

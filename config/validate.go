@@ -165,6 +165,40 @@ func validateAndAbsOutputFolder(outputFolder string) (string, error) {
 	return absOutputFolder, nil
 }
 
+func validateAndSetMaxResults(step *Step, stepNames map[string]bool) error {
+	switch v := step.MaxResults.(type) {
+	case nil:
+		step.MaxResults = DefaultStepMinMaxResults
+		return nil
+
+	case string:
+		if v == "" {
+			step.MaxResults = DefaultStepMinMaxResults
+			return nil
+		}
+
+		if strings.HasSuffix(v, ".$length") {
+			stepName := strings.TrimSuffix(v, ".$length")
+			if !stepNames[stepName] {
+				return fmt.Errorf("maxResults reference to unknown step '%s'", stepName)
+			}
+			return nil
+		}
+
+		return fmt.Errorf("invalid string format for maxResults: '%s'", v)
+
+	case int:
+		if v <= 0 {
+			step.MaxResults = DefaultStepMinMaxResults
+		} else {
+			step.MaxResults = v
+		}
+		return nil
+	}
+
+	return fmt.Errorf("maxResults unsupported type '%T'", step.MaxResults)
+}
+
 func (c *Config) Validate() error {
 	slog.Debug("start config validation")
 
@@ -274,8 +308,8 @@ func (c *Config) Validate() error {
 				return fmt.Errorf("step '%s': model config validation failed: %w", step.Name, err)
 			}
 
-			if step.MaxResults <= 0 {
-				step.MaxResults = DefaultStepMinMaxResults
+			if err := validateAndSetMaxResults(step, stepNames); err != nil {
+				return fmt.Errorf("step '%s': maxResults validation failed: %w", step.Name, err)
 			}
 
 			if len(step.OutputFilename) > 0 {

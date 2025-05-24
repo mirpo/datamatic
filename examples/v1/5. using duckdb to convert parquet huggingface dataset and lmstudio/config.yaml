@@ -19,7 +19,7 @@ steps:
   - name: explain_math
     type: prompt
     model: lmstudio:hermes-3-llama-3.2-3b
-    maxResults: 10
+    maxResults: synthetic_math.$length # use the result length of the referenced step
     systemPrompt: |
       You are a specialized mathematics analysis assistant designed to break down and explain mathematical problems and solutions. Your primary functions include:
 

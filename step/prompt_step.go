@@ -17,7 +17,7 @@ import (
 type PromptStep struct{}
 
 func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.Step, outputFolder string) error {
-	maxResult := step.MaxResults
+	maxResult := step.ResolvedMaxResults
 	i := 0
 
 	writer, err := jsonl.NewWriter(step.OutputFilename)
@@ -116,7 +116,7 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 
 		log.Info().Msgf("Response from LLM: '%s'", response.Text)
 
-		lineEntity, err := jsonl.NewLineEntity(response.Text, step.Prompt, hasSchemaSchema, promptBuilder.GetValues())
+		lineEntity, err := jsonl.NewLineEntity(response.Text, userPrompt, hasSchemaSchema, promptBuilder.GetValues())
 		if err != nil {
 			log.Err(err).Msgf("got invalid JSON: %+v", response.Text)
 			continue

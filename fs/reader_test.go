@@ -86,3 +86,32 @@ func TestReadLineFromFile_FileNotExist(t *testing.T) {
 	assert.Error(t, err)
 	assert.True(t, os.IsNotExist(err), "Expected 'file not exist' error, but got: %v", err)
 }
+
+func TestCountLinesInFile(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		expected int
+	}{
+		{"empty file", "", 0},
+		{"one line", "hello", 1},
+		{"multiple lines", "line1\nline2\nline3", 3},
+		{"trailing newline", "line1\nline2\n", 2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpFile, err := os.CreateTemp("", "testfile")
+			assert.NoError(t, err)
+			defer os.Remove(tmpFile.Name())
+
+			_, err = tmpFile.WriteString(tt.content)
+			assert.NoError(t, err)
+			tmpFile.Close()
+
+			count, err := CountLinesInFile(tmpFile.Name())
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, count)
+		})
+	}
+}

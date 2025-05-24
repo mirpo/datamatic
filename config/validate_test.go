@@ -292,7 +292,7 @@ func TestValidateConfig(t *testing.T) {
 					Name:       "step3_default_maxresults",
 					Model:      "lmstudio:dummy",
 					Prompt:     "Another prompt.",
-					MaxResults: 0,
+					MaxResults: 1,
 				},
 			},
 		}
@@ -303,34 +303,30 @@ func TestValidateConfig(t *testing.T) {
 		err := cfg.Validate()
 		assert.NoError(t, err)
 
-		// Verify injected values for step1 (explicit values)
 		assert.Equal(t, PromptStepType, cfg.Steps[0].Type)
 		assert.Equal(t, llm.ProviderOllama, cfg.Steps[0].ModelConfig.ModelProvider)
 		assert.Equal(t, "llama3.1", cfg.Steps[0].ModelConfig.ModelName)
-		assert.Equal(t, 10, cfg.Steps[0].MaxResults) // Should remain 10
+		assert.Equal(t, 10, cfg.Steps[0].MaxResults)
 
-		// Verify injected values for step2 (CLI)
 		assert.Equal(t, PromptStepType, cfg.Steps[1].Type)
-		assert.Equal(t, llm.ProviderOllama, cfg.Steps[1].ModelConfig.ModelProvider) // Assuming Model is required
-		assert.Equal(t, "dummy", cfg.Steps[1].ModelConfig.ModelName)                // Assuming Model is required
-		assert.Equal(t, DefaultStepMinMaxResults, cfg.Steps[1].MaxResults)          // MaxResults defaulted to 3
+		assert.Equal(t, llm.ProviderOllama, cfg.Steps[1].ModelConfig.ModelProvider)
+		assert.Equal(t, "dummy", cfg.Steps[1].ModelConfig.ModelName)
+		assert.Equal(t, DefaultStepMinMaxResults, cfg.Steps[1].MaxResults)
 
-		// Verify injected values for step3 (MaxResults default)
 		assert.Equal(t, PromptStepType, cfg.Steps[2].Type)
 		assert.Equal(t, llm.ProviderLmStudio, cfg.Steps[2].ModelConfig.ModelProvider)
 		assert.Equal(t, "dummy", cfg.Steps[2].ModelConfig.ModelName)
-		assert.Equal(t, DefaultStepMinMaxResults, cfg.Steps[2].MaxResults) // Should be defaulted to 3
+		assert.Equal(t, 1, cfg.Steps[2].MaxResults)
 
-		// Verify injected full output paths (absolute and joined)
 		absOutputFolder, _ := filepath.Abs("my_output")
 		assert.Equal(t, filepath.Join(absOutputFolder, "step1.jsonl"), cfg.Steps[0].OutputFilename)
-		assert.Equal(t, filepath.Join(absOutputFolder, "step2_cli.jsonl"), cfg.Steps[1].OutputFilename) // Default filename from name
+		assert.Equal(t, filepath.Join(absOutputFolder, "step2_cli.jsonl"), cfg.Steps[1].OutputFilename)
 		assert.Equal(t, filepath.Join(absOutputFolder, "step3_default_maxresults.jsonl"), cfg.Steps[2].OutputFilename)
 	})
 
 	t.Run("Empty Steps", func(t *testing.T) {
 		cfg := validConfig()
-		cfg.Steps = []Step{} // Empty slice
+		cfg.Steps = []Step{}
 		err := cfg.Validate()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "at least one step is required")
@@ -338,7 +334,7 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("Duplicate Step Names", func(t *testing.T) {
 		cfg := validConfig()
-		cfg.Steps = append(cfg.Steps, cfg.Steps[0]) // Add step1 again
+		cfg.Steps = append(cfg.Steps, cfg.Steps[0])
 		err := cfg.Validate()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "duplicate step name found: 'step1'")
@@ -354,7 +350,7 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("Step With Both Prompt and Cmd", func(t *testing.T) {
 		cfg := validConfig()
-		cfg.Steps[0].Cmd = "a command" // Add Cmd to step1
+		cfg.Steps[0].Cmd = "a command"
 		err := cfg.Validate()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "step 'step1': either 'prompt' or 'cmd' should be defined, not both")
@@ -362,7 +358,7 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("Step With Neither Prompt nor Cmd", func(t *testing.T) {
 		cfg := validConfig()
-		cfg.Steps[0].Prompt = "" // Remove Prompt from step1
+		cfg.Steps[0].Prompt = ""
 		err := cfg.Validate()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "step 'step1': either 'prompt' or 'cmd' must be defined")
@@ -421,14 +417,50 @@ func TestValidateConfig(t *testing.T) {
 		cfg := validConfig()
 
 		cfg.Steps[0].MaxResults = 10
-		cfg.Steps[1].MaxResults = 0
+		cfg.Steps[1].MaxResults = nil
 		cfg.Steps[2].MaxResults = -5
 
 		err := cfg.Validate()
 		assert.NoError(t, err)
 
 		assert.Equal(t, 10, cfg.Steps[0].MaxResults, "step with MaxResults > 0 should keep its value")
-		assert.Equal(t, DefaultStepMinMaxResults, cfg.Steps[1].MaxResults, "step with MaxResults = 0 should default")
+		assert.Equal(t, DefaultStepMinMaxResults, cfg.Steps[1].MaxResults, "step with MaxResults = nil should default")
 		assert.Equal(t, DefaultStepMinMaxResults, cfg.Steps[2].MaxResults, "step with MaxResults < 0 should default")
 	})
+}
+
+func TestValidateAndSetMaxResults(t *testing.T) {
+	stepNames := map[string]bool{"foo": true, "bar": true}
+	defaultVal := DefaultStepMinMaxResults
+
+	tests := []struct {
+		name        string
+		input       interface{}
+		expected    interface{}
+		expectError bool
+	}{
+		{"nil input", nil, defaultVal, false},
+		{"empty string", "", defaultVal, false},
+		{"valid step reference", "foo.$length", nil, false},
+		{"invalid step reference", "unknown.$length", nil, true},
+		{"invalid string", "invalid", nil, true},
+		{"zero int", 0, defaultVal, false},
+		{"positive int", 5, 5, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			step := &Step{MaxResults: tt.input}
+			err := validateAndSetMaxResults(step, stepNames)
+
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if tt.expected != nil {
+					assert.Equal(t, tt.expected, step.MaxResults)
+				}
+			}
+		})
+	}
 }
