@@ -1,6 +1,6 @@
-# Complex JSON generation with linked steps using Ollama and LM Studio
+# Complex JSON generation with linked steps using Ollama
 
-Example shows complex JSON dataset generation by linked steps using Ollama and LM Studio
+Example shows complex JSON dataset generation by linked steps using Ollama
 
 ## Requirements
 
@@ -8,9 +8,7 @@ Install:
 
 - `datamatic`
 - [Ollama](https://ollama.com/download)
-- [LM Studio](https://lmstudio.ai/download)
 - Install model: `ollama pull llama3.2`
-- Open LM Studio, find and download `hermes-3-llama-3.2-3b`
 
 ## Run dataset generation
 
