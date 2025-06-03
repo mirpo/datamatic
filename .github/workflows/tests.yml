@@ -38,3 +38,20 @@ jobs:
 
       - name: Build
         run: make build
+
+      - name: Check datamatic version
+        run: |
+          ./datamatic --version
+
+      - name: Setup Ollama
+        if: runner.os == 'Linux'
+        uses: ai-action/setup-ollama@v1
+
+      - name: Run datamatic with ollama
+        if: runner.os == 'Linux'
+        run: |
+          ollama pull llama3.2
+          # for simplicity, we set maxResults == 1
+          sed -i -e 's/maxResults: 10/maxResults: 1/g' ./examples/v1/3.\ complex\ json,\ linked\ steps/config.yaml
+          ./datamatic --config ./examples/v1/3.\ complex\ json,\ linked\ steps/config.yaml --verbose
+          cat ./dataset/text_about_country.jsonl | jq
