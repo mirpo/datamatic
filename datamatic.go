@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/gookit/goutil/dump"
+	"github.com/goforj/godump"
 	"github.com/mirpo/datamatic/config"
 	"github.com/mirpo/datamatic/logger"
 	"github.com/mirpo/datamatic/runner"
@@ -64,7 +64,7 @@ func main() {
 	}
 
 	if cfg.Verbose {
-		dump.P(cfg)
+		godump.Dump(cfg)
 	}
 
 	r := runner.NewRunner(cfg)
