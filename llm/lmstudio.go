@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/mirpo/datamatic/httpclient"
-	"github.com/mirpo/datamatic/jsonl"
 	"github.com/rs/zerolog/log"
 )
 
@@ -15,28 +14,6 @@ const DefaultLmStudioBaseURL = "http://localhost:1234/v1"
 type LmStudioProvider struct {
 	config ProviderConfig
 	client *httpclient.Client
-}
-
-type ResponseJSONSchema struct {
-	Name   string           `json:"name"`
-	Strict bool             `json:"strict"`
-	Schema jsonl.JSONSchema `json:"schema"`
-}
-
-type ResponseFormat struct {
-	Type       string             `json:"type,omitempty"`
-	JSONSchema ResponseJSONSchema `json:"json_schema,omitempty"`
-}
-
-func NewResponseFormat(jsonSchema jsonl.JSONSchema) ResponseFormat {
-	return ResponseFormat{
-		Type: "json_schema",
-		JSONSchema: ResponseJSONSchema{
-			Name:   "json_schema",
-			Strict: true,
-			Schema: jsonSchema,
-		},
-	}
 }
 
 func NewLmStudioProvider(config ProviderConfig) *LmStudioProvider {

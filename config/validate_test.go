@@ -90,6 +90,7 @@ func TestGetModelDetails(t *testing.T) {
 	}{
 		{"Valid Ollama", Step{Model: "ollama:llama3.1"}, llm.ProviderOllama, "llama3.1", false, ""},
 		{"Valid LmStudio", Step{Model: "lmstudio:meta-llama/Llama-3-8B-Instruct"}, llm.ProviderLmStudio, "meta-llama/Llama-3-8B-Instruct", false, ""},
+		{"Valid OpenAI", Step{Model: "openai:gpt-4"}, llm.ProviderOpenAI, "gpt-4", false, ""},
 		{"Empty Model", Step{Model: ""}, llm.ProviderUnknown, "", true, "model definition can't be empty"},
 		{"Missing Colon", Step{Model: "ollamallama3.1"}, llm.ProviderUnknown, "", true, "model should follow pattern"},
 		{"Extra Colon", Step{Model: "ollama:model:extra"}, llm.ProviderOllama, "model:extra", false, ""},
