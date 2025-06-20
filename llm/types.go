@@ -11,6 +11,7 @@ type ProviderType string
 const (
 	ProviderOllama   ProviderType = "ollama"
 	ProviderLmStudio ProviderType = "lmstudio"
+	ProviderOpenAI   ProviderType = "openai"
 	ProviderUnknown  ProviderType = "unknown"
 )
 
