@@ -37,6 +37,10 @@ func (j *JSONSchema) MarshalToJSONText() (string, error) {
 	return string(jsonSchemaBytes), nil
 }
 
+func (j *JSONSchema) MarshalJSON() ([]byte, error) {
+	return json.Marshal(*j)
+}
+
 func (j *JSONSchema) HasSchemaDefinition() bool {
 	return len(j.Properties) > 0 || len(j.Required) > 0
 }
