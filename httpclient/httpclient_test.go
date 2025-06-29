@@ -135,3 +135,61 @@ func TestClient_Post_ErrorJoiningURL(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "error joining URL")
 }
+
+func TestHTTPError_IsRetryable(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		expected   bool
+	}{
+		{"429 Too Many Requests - retryable", http.StatusTooManyRequests, true},
+		{"500 Internal Server Error - retryable", http.StatusInternalServerError, true},
+		{"502 Bad Gateway - retryable", http.StatusBadGateway, true},
+		{"503 Service Unavailable - retryable", http.StatusServiceUnavailable, true},
+		{"504 Gateway Timeout - retryable", http.StatusGatewayTimeout, true},
+		{"400 Bad Request - not retryable", http.StatusBadRequest, false},
+		{"401 Unauthorized - not retryable", http.StatusUnauthorized, false},
+		{"404 Not Found - not retryable", http.StatusNotFound, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := &HTTPError{StatusCode: tt.statusCode}
+			assert.Equal(t, tt.expected, err.IsRetryable())
+		})
+	}
+}
+
+func TestHTTPError_IsPermanent(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		expected   bool
+	}{
+		{"400 Bad Request - permanent", http.StatusBadRequest, true},
+		{"401 Unauthorized - permanent", http.StatusUnauthorized, true},
+		{"403 Forbidden - permanent", http.StatusForbidden, true},
+		{"404 Not Found - permanent", http.StatusNotFound, true},
+		{"405 Method Not Allowed - permanent", http.StatusMethodNotAllowed, true},
+		{"406 Not Acceptable - permanent", http.StatusNotAcceptable, true},
+		{"409 Conflict - permanent", http.StatusConflict, true},
+		{"422 Unprocessable Entity - permanent", http.StatusUnprocessableEntity, true},
+		{"429 Too Many Requests - not permanent", http.StatusTooManyRequests, false},
+		{"500 Internal Server Error - not permanent", http.StatusInternalServerError, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := &HTTPError{StatusCode: tt.statusCode}
+			assert.Equal(t, tt.expected, err.IsPermanent())
+		})
+	}
+}
+
+func TestHTTPError_IsRateLimited(t *testing.T) {
+	err := &HTTPError{StatusCode: http.StatusTooManyRequests}
+	assert.True(t, err.IsRateLimited())
+
+	err = &HTTPError{StatusCode: http.StatusInternalServerError}
+	assert.False(t, err.IsRateLimited())
+}

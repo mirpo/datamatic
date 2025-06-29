@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/mirpo/datamatic/fs"
@@ -26,6 +27,7 @@ func NewConfig() *Config {
 		HTTPTimeout:      300,
 		ValidateResponse: true,
 		SkipCliWarning:   false,
+		RetryConfig:      NewDefaultRetryConfig(),
 	}
 }
 
@@ -37,8 +39,9 @@ type Config struct {
 	HTTPTimeout      int
 	ValidateResponse bool
 	SkipCliWarning   bool
-	Version          string `yaml:"version"`
-	Steps            []Step `yaml:"steps"`
+	Version          string      `yaml:"version"`
+	Steps            []Step      `yaml:"steps"`
+	RetryConfig      RetryConfig `yaml:"retryConfig"`
 }
 
 type StepType string
@@ -70,6 +73,24 @@ type ModelConfig struct {
 	BaseURL       string   `yaml:"baseUrl"`
 	Temperature   *float64 `yaml:"temperature"`
 	MaxTokens     *int     `yaml:"maxTokens"`
+}
+
+type RetryConfig struct {
+	MaxAttempts       int           `yaml:"maxAttempts"`
+	InitialDelay      time.Duration `yaml:"initialDelay"`
+	MaxDelay          time.Duration `yaml:"maxDelay"`
+	BackoffMultiplier float64       `yaml:"backoffMultiplier"`
+	Enabled           bool          `yaml:"enabled"`
+}
+
+func NewDefaultRetryConfig() RetryConfig {
+	return RetryConfig{
+		MaxAttempts:       3,
+		InitialDelay:      1 * time.Second,
+		MaxDelay:          10 * time.Second,
+		BackoffMultiplier: 2.0,
+		Enabled:           true,
+	}
 }
 
 type LineValue struct {
