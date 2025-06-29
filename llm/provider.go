@@ -14,6 +14,8 @@ func NewProvider(config ProviderConfig) (Provider, error) {
 		return NewOllamaProvider(config), nil
 	case ProviderLmStudio:
 		return NewLmStudioProvider(config), nil
+	case ProviderOpenAI:
+		return NewOpenAIProvider(config), nil
 	case ProviderUnknown:
 		return nil, fmt.Errorf("llm: provider type 'unknown' is not supported")
 	default:

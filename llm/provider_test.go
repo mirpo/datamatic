@@ -20,6 +20,12 @@ func TestNewProvider(t *testing.T) {
 		assert.NotNil(t, provider)
 	})
 
+	t.Run("returns OpenAI provider", func(t *testing.T) {
+		provider, err := NewProvider(ProviderConfig{ProviderType: ProviderOpenAI})
+		assert.NoError(t, err)
+		assert.NotNil(t, provider)
+	})
+
 	t.Run("returns error for unknown provider", func(t *testing.T) {
 		provider, err := NewProvider(ProviderConfig{ProviderType: ProviderUnknown})
 		assert.Nil(t, provider)
