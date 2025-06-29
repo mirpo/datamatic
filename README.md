@@ -14,6 +14,7 @@ Generate high-quality synthetic data using local Large Language Models (LLMs)
   - Load datasets from [Huggingface](https://huggingface.co/datasets).
   - Run [jq](https://github.com/jqlang/jq) to transform data between steps.
 - Image analysis using visual models.
+- Automatic retry logic with smart error handling for improved reliability.
 
 ## ⚠️ Important notes
 

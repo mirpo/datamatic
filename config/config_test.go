@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/mirpo/datamatic/llm"
 	"github.com/stretchr/testify/assert"
@@ -27,6 +28,11 @@ func TestNewConfig(t *testing.T) {
 	assert.Equal(t, 300, cfg.HTTPTimeout)
 	assert.Equal(t, "", cfg.Version)
 	assert.Nil(t, cfg.Steps)
+	assert.True(t, cfg.RetryConfig.Enabled)
+	assert.Equal(t, 3, cfg.RetryConfig.MaxAttempts)
+	assert.Equal(t, time.Second, cfg.RetryConfig.InitialDelay)
+	assert.Equal(t, 10*time.Second, cfg.RetryConfig.MaxDelay)
+	assert.Equal(t, 2.0, cfg.RetryConfig.BackoffMultiplier)
 }
 
 func TestGetProviderConfig(t *testing.T) {
@@ -194,4 +200,20 @@ func TestUUIDFromString(t *testing.T) {
 			t.Errorf("UUIDFromString(%q) = %v; want %v", tt.input, got, tt.expected)
 		}
 	}
+}
+
+func TestRetryConfig(t *testing.T) {
+	cfg := RetryConfig{
+		MaxAttempts:       5,
+		InitialDelay:      2 * time.Second,
+		MaxDelay:          30 * time.Second,
+		BackoffMultiplier: 1.5,
+		Enabled:           false,
+	}
+
+	assert.False(t, cfg.Enabled)
+	assert.Equal(t, 5, cfg.MaxAttempts)
+	assert.Equal(t, 2*time.Second, cfg.InitialDelay)
+	assert.Equal(t, 30*time.Second, cfg.MaxDelay)
+	assert.Equal(t, 1.5, cfg.BackoffMultiplier)
 }

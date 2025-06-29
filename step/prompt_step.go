@@ -3,8 +3,10 @@ package step
 import (
 	"context"
 	"errors"
-	"os"
+	"fmt"
+	"net"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/mirpo/datamatic/config"
 	"github.com/mirpo/datamatic/fs"
 	"github.com/mirpo/datamatic/httpclient"
@@ -16,20 +18,81 @@ import (
 
 type PromptStep struct{}
 
+func (p *PromptStep) retryLLMGeneration(ctx context.Context, cfg *config.Config, provider llm.Provider, req llm.GenerateRequest, response **llm.GenerateResponse) error {
+	if !cfg.RetryConfig.Enabled {
+		resp, err := provider.Generate(ctx, req)
+		if err != nil {
+			return err
+		}
+		*response = resp
+		return nil
+	}
+
+	retryFn := func() error {
+		resp, err := provider.Generate(ctx, req)
+		if err == nil {
+			*response = resp
+			return nil
+		}
+
+		if p.shouldRetry(err) {
+			log.Warn().Err(err).Msg("LLM generation failed, will retry")
+			return err
+		}
+
+		log.Error().Err(err).Msg("LLM generation failed with permanent error")
+		return retry.Unrecoverable(err)
+	}
+
+	return retry.Do(
+		retryFn,
+		retry.Attempts(uint(cfg.RetryConfig.MaxAttempts)),
+		retry.Delay(cfg.RetryConfig.InitialDelay),
+		retry.MaxDelay(cfg.RetryConfig.MaxDelay),
+		retry.DelayType(retry.BackOffDelay),
+		retry.Context(ctx),
+		retry.OnRetry(func(n uint, err error) {
+			log.Info().Msgf("Retry attempt %d/%d after error: %v", n+1, cfg.RetryConfig.MaxAttempts, err)
+		}),
+	)
+}
+
+func (p *PromptStep) shouldRetry(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var httpErr *httpclient.HTTPError
+	if errors.As(err, &httpErr) {
+		if httpErr.IsPermanent() {
+			return false
+		}
+		if httpErr.IsRetryable() {
+			return true
+		}
+	}
+
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+
+	return false
+}
+
 func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.Step, outputFolder string) error {
 	maxResult := step.ResolvedMaxResults
 	i := 0
 
 	writer, err := jsonl.NewWriter(step.OutputFilename)
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed to create JSONL writer")
-		return err
+		return fmt.Errorf("failed to create JSONL writer: %w", err)
 	}
 	defer writer.Close()
 
 	provider, err := llm.NewProvider(step.GetProviderConfig(cfg.HTTPTimeout))
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed to create LLM provider")
+		return fmt.Errorf("failed to create LLM provider: %w", err)
 	}
 
 	for i < maxResult {
@@ -86,23 +149,16 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 			promptBuilder.AddValue(base64Image[:15], step.Name, "image", imagePath)
 		}
 
-		response, err := provider.Generate(ctx, llm.GenerateRequest{
+		var response *llm.GenerateResponse
+		err = p.retryLLMGeneration(ctx, cfg, provider, llm.GenerateRequest{
 			UserMessage:   userPrompt,
 			SystemMessage: step.SystemPrompt,
 			IsJSON:        hasSchemaSchema,
 			JSONSchema:    step.JSONSchema,
 			Base64Image:   base64Image,
-		})
+		}, &response)
 		if err != nil {
-			var errCustom *httpclient.HTTPError
-			if errors.As(err, &errCustom) {
-				log.Error().Err(err).Msgf("model %s is not found, please check %s provider config", step.ModelConfig.ModelName, step.ModelConfig.ModelProvider)
-				os.Exit(1)
-			}
-
-			// TODO add max retries based on the error, model not found - exit
-			log.Error().Err(err).Msg("failed to get response from LLM")
-			break
+			return fmt.Errorf("failed to get response from LLM after retries: %w", err)
 		}
 
 		if cfg.ValidateResponse && hasSchemaSchema {

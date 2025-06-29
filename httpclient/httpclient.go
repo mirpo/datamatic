@@ -27,6 +27,39 @@ func (h *HTTPError) NotFound() bool {
 	return h.StatusCode == http.StatusNotFound
 }
 
+func (h *HTTPError) IsRetryable() bool {
+	switch h.StatusCode {
+	case http.StatusTooManyRequests, // 429
+		http.StatusInternalServerError, // 500
+		http.StatusBadGateway,          // 502
+		http.StatusServiceUnavailable,  // 503
+		http.StatusGatewayTimeout:      // 504
+		return true
+	default:
+		return false
+	}
+}
+
+func (h *HTTPError) IsPermanent() bool {
+	switch h.StatusCode {
+	case http.StatusBadRequest, // 400
+		http.StatusUnauthorized,        // 401
+		http.StatusForbidden,           // 403
+		http.StatusNotFound,            // 404
+		http.StatusMethodNotAllowed,    // 405
+		http.StatusNotAcceptable,       // 406
+		http.StatusConflict,            // 409
+		http.StatusUnprocessableEntity: // 422
+		return true
+	default:
+		return false
+	}
+}
+
+func (h *HTTPError) IsRateLimited() bool {
+	return h.StatusCode == http.StatusTooManyRequests
+}
+
 type Client struct {
 	AuthToken  string
 	BaseURL    string
