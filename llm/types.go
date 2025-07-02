@@ -9,10 +9,11 @@ import (
 type ProviderType string
 
 const (
-	ProviderOllama   ProviderType = "ollama"
-	ProviderLmStudio ProviderType = "lmstudio"
-	ProviderOpenAI   ProviderType = "openai"
-	ProviderUnknown  ProviderType = "unknown"
+	ProviderOllama     ProviderType = "ollama"
+	ProviderLmStudio   ProviderType = "lmstudio"
+	ProviderOpenAI     ProviderType = "openai"
+	ProviderOpenRouter ProviderType = "openrouter"
+	ProviderUnknown    ProviderType = "unknown"
 )
 
 type ProviderConfig struct {
