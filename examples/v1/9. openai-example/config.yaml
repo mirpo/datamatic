@@ -1,0 +1,48 @@
+version: 1.0
+
+steps:
+  - name: openai_story_titles
+    model: openai:gpt-4
+    systemPrompt: |
+      You are a helpful assistant that generates creative story titles.
+    prompt: |
+      Generate a unique and creative title for a science fiction story.
+      The title should be intriguing and capture the reader's attention.
+    maxResults: 5
+    modelConfig:
+      temperature: 0.7
+      maxTokens: 100
+
+  - name: generate_with_openai_json
+    model: openai:o4-mini
+    systemPrompt: |
+      You are an AI assistant that generates structured data about fictional characters.
+    prompt: |
+      Create a fictional character profile with the following information:
+      - Name (first and last)
+      - Age (between 25-65)
+      - Occupation
+      - Brief backstory (2-3 sentences)
+    maxResults: 3
+    modelConfig:
+      temperature: 0.8
+    jsonSchema:
+      type: object
+      properties:
+        name:
+          type: string
+          description: "Full name of the character"
+        age:
+          type: integer
+          description: "Age of the character"
+        occupation:
+          type: string
+          description: "Character's job or profession"
+        backstory:
+          type: string
+          description: "Brief background story of the character"
+      required:
+        - name
+        - age
+        - occupation
+        - backstory

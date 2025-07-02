@@ -7,7 +7,7 @@ Generate high-quality synthetic data using local Large Language Models (LLMs)
 - LLM integration with popular LLM providers and all models they have under the hood (thanks all for the great tools!):
   - [Ollama](https://ollama.com/download)
   - [LM Studio](https://lmstudio.ai/download)
-  - Support for other LLMs is planned.
+  - [OpenAI](https://openai.com/)
 - Customizable text and JSON generation.
 - Multi step chaining.
 - Use any CLI as a step. For example:
@@ -88,6 +88,12 @@ or to enable debug messages
 ```bash
 datamatic -config news_titles.yaml -verbose
 ```
+
+For OpenAI, update the model in your config:
+```yaml
+model: openai:gpt-4o-mini
+```
+And set your API key: `export OPENAI_API_KEY=sk-...`
 
 ## Output format
 
@@ -179,3 +185,4 @@ Usage of datamatic:
 | [Git dataset](./examples/v1/6.%20git%20dataset/README.md)                                                                                                                | Ollama            |
 | [Creating dataset for fine-tuning](./examples/v1/7.%20fine-tuning%20dataset/README.md)                                                                                   | Ollama            |
 | [Creating dataset using vision model](./examples/v1/8.%20hugginface%20images%20and%20qwen2.5vl%20or%20gemma3/README.md)                                                  | Ollama, LM Studio |
+| [Using OpenAI provider](./examples/v1/9.%20openai-example/README.md)                                                                                                     | OpenAI            |
