@@ -1,36 +1,33 @@
 # datamatic
 
-Generate high-quality synthetic data using local Large Language Models (LLMs)
+[![Tests](https://github.com/mirpo/datamatic/actions/workflows/tests.yml/badge.svg)](https://github.com/mirpo/datamatic/actions/workflows/tests.yml)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/mirpo/datamatic)](https://golang.org/)
+[![Release](https://img.shields.io/github/v/release/mirpo/datamatic)](https://github.com/mirpo/datamatic/releases)
+[![License](https://img.shields.io/github/license/mirpo/datamatic)](https://github.com/mirpo/datamatic/blob/main/LICENSE)
+
+**Generate high-quality synthetic data using local Large Language Models**
+
+A powerful CLI tool for creating structured datasets with local LLMs, supporting JSON schema validation, multi-step chaining, and various AI providers.
 
 ## Features
 
-- LLM integration with popular LLM providers and all models they have under the hood (thanks all for the great tools!):
-  - [Ollama](https://ollama.com/download)
-  - [LM Studio](https://lmstudio.ai/download)
-  - [OpenAI](https://openai.com/)
-  - [OpenRouter](https://openrouter.ai/)
-- Customizable text and JSON generation.
-- Multi step chaining.
-- Use any CLI as a step. For example:
-  - Load datasets from [Huggingface](https://huggingface.co/datasets).
-  - Run [jq](https://github.com/jqlang/jq) to transform data between steps.
-- Image analysis using visual models.
-- Automatic retry logic with smart error handling for improved reliability.
+### 🤖 AI Provider Support
+- **[Ollama](https://ollama.com/download)** - Local model inference
+- **[LM Studio](https://lmstudio.ai/download)** - Local model management
+- **[OpenAI](https://openai.com/)** - Cloud-based models
+- **[OpenRouter](https://openrouter.ai/)** - Multi-provider access
 
-## ⚠️ Important notes
+### 📊 Data Generation
+- **JSON Schema Validation** - Structured output with type safety
+- **Text Generation** - Flexible content creation
+- **Multi-step Chaining** - Link generation steps together
+- **Image Analysis** - Visual model integration
 
-Before using this tool for synthetic data generation, please ensure you:
-
-1. Review the licenses for the specific LLM models you plan to use.
-2. Check the models' terms of service regarding synthetic data generation.
-3. Be aware of potential restrictions, which may include limitations on:
-  - Commercial use of generated data.
-  - Generating specific content types.
-  - Usage in certain industries or applications.
-4. Verify the quality and accuracy of generated data before using it in production.
-5. Consider potential biases in the generated data.
-
-**Important**: The end user is responsible for checking and complying with model licenses and terms. This tool is provided "as-is," and we strongly recommend reviewing the licensing terms of each model before deployment.
+### 🔧 Extensibility
+- **CLI Integration** - Use any command-line tool as a step
+- **Dataset Loading** - Import from [Huggingface](https://huggingface.co/datasets)
+- **Data Transformation** - Built-in [jq](https://github.com/jqlang/jq) support
+- **Retry Logic** - Smart error handling and recovery
 
 ## Installation
 
@@ -57,14 +54,15 @@ make build
 
 ## Quick Start
 
-1. Create a configuration file `news_titles.yaml`:
+Create a configuration file and run datamatic:
+
 ```yaml
+# config.yaml
 version: 1.0
 steps:
   - name: generate_titles
     model: ollama:llama3.2
-    prompt: |
-      Generate a catchy and one unique news title. Come up with a wildly different and surprising news headline. Return only one news title per request, without any extra thinking.
+    prompt: Generate a catchy news title
     jsonSchema:
       type: object
       properties:
@@ -79,26 +77,21 @@ steps:
         - tags
 ```
 
-2. Run the generation:
 ```bash
-datamatic -config news_titles.yaml
+# Generate data
+datamatic -config config.yaml
+
+# With debug output
+datamatic -config config.yaml -verbose -log-pretty
 ```
 
-or to enable debug messages
+**Other providers:**
+- OpenAI: `model: openai:gpt-4o-mini` + `export OPENAI_API_KEY=sk-...`
+- OpenRouter: `model: openrouter:meta-llama/llama-3.2-3b` + `export OPENROUTER_API_KEY=sk-...`
 
-```bash
-datamatic -config news_titles.yaml -verbose
-```
+## Output Format
 
-For OpenAI, update the model in your config:
-```yaml
-model: openai:gpt-4o-mini
-```
-And set your API key: `export OPENAI_API_KEY=sk-...`
-
-## Output format
-
-`Datamatic` outputs in JSONl. Structure can be found in `jsonl/line.go`.
+Datamatic outputs structured data in JSONl format:
 
 ```go
 type LineEntity struct {
@@ -110,11 +103,9 @@ type LineEntity struct {
 }
 ```
 
-**Important notes:**
-  - Format can be: text/JSON.
-  - In case of text, response is a text.
-  - In case of JSON, response is a JSON object.
-  - When steps are linked, `values` contains values from linked steps for traceability.
+- **Format**: `text` or `json`
+- **Response**: Generated content (text string or JSON object)
+- **Values**: Linked step values for traceability
 
 ### Examples of JSONl results
 
@@ -152,10 +143,12 @@ With values from linked steps:
 }
 ```
 
-## CLI Flags
+## CLI Reference
 
-```
-Usage of datamatic:
+```bash
+datamatic [OPTIONS]
+
+Options:
   -config string
         Config file path
   -http-timeout int
@@ -165,7 +158,7 @@ Usage of datamatic:
   -output string
         Output folder path (default "dataset")
   -skip-cli-warning
-        Skip external CLI warning (default true)
+        Skip external CLI warning
   -validate-response
         Validate JSON response from server to match the schema (default true)
   -verbose
@@ -174,16 +167,16 @@ Usage of datamatic:
         Get current version of datamatic
 ```
 
-## More examples
+## Examples
 
-| Name                                                                                                                                                                     | Provider (-s)     |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------- |
-| [Simple text generation, not linked steps](./examples/v1/1.%20simple%20text%20generation,%20not%20linked%20steps/README.md)                                              | Ollama, LM Studio |
-| [Simple JSON generation, not linked steps](./examples/v1/2.%20simple%20json%20generation,%20not%20linked%20steps/README.md)                                              | Ollama, LM Studio |
-| [Complex JSON generation, linked steps](./examples/v1/3.%20complex%20json,%20linked%20steps/README.md)                                                                   | Ollama            |
-| [Using Huggingface dataset and jq cli, linked steps](./examples/v1/4.%20using%20huggingface%20and%20jq%20cli/README.md)                                                  | Ollama            |
-| [Complex dataset using DuckDb, Huggingface and LM studio](./examples/v1/5.%20using%20duckdb%20to%20convert%20parquet%20huggingface%20dataset%20and%20lmstudio/README.md) | LM Studio         |
-| [Git dataset](./examples/v1/6.%20git%20dataset/README.md)                                                                                                                | Ollama            |
-| [Creating dataset for fine-tuning](./examples/v1/7.%20fine-tuning%20dataset/README.md)                                                                                   | Ollama            |
-| [Creating dataset using vision model](./examples/v1/8.%20hugginface%20images%20and%20qwen2.5vl%20or%20gemma3/README.md)                                                  | Ollama, LM Studio |
-| [Using OpenAI provider](./examples/v1/9.%20openai-example/README.md)                                                                                                     | OpenAI            |
+| Example                                                                                                                             | Description                | Provider          |
+| ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | ----------------- |
+| [Simple Text](./examples/v1/1.%20simple%20text%20generation,%20not%20linked%20steps/README.md)                                      | Basic text generation      | Ollama, LM Studio |
+| [Simple JSON](./examples/v1/2.%20simple%20json%20generation,%20not%20linked%20steps/README.md)                                      | Basic JSON generation      | Ollama, LM Studio |
+| [Linked Steps](./examples/v1/3.%20complex%20json,%20linked%20steps/README.md)                                                       | Multi-step JSON generation | Ollama            |
+| [Huggingface + jq](./examples/v1/4.%20using%20huggingface%20and%20jq%20cli/README.md)                                               | Dataset transformation     | Ollama            |
+| [DuckDB Integration](./examples/v1/5.%20using%20duckdb%20to%20convert%20parquet%20huggingface%20dataset%20and%20lmstudio/README.md) | Complex data processing    | LM Studio         |
+| [Git Dataset](./examples/v1/6.%20git%20dataset/README.md)                                                                           | Version control data       | Ollama            |
+| [Fine-tuning Data](./examples/v1/7.%20fine-tuning%20dataset/README.md)                                                              | Training dataset creation  | Ollama            |
+| [Vision Models](./examples/v1/8.%20hugginface%20images%20and%20qwen2.5vl%20or%20gemma3/README.md)                                   | Image analysis             | Ollama, LM Studio |
+| [OpenAI](./examples/v1/9.%20openai-example/README.md)                                                                               | Cloud provider usage       | OpenAI            |
