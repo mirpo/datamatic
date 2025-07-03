@@ -13,6 +13,7 @@ const (
 	ProviderLmStudio   ProviderType = "lmstudio"
 	ProviderOpenAI     ProviderType = "openai"
 	ProviderOpenRouter ProviderType = "openrouter"
+	ProviderGemini     ProviderType = "gemini"
 	ProviderUnknown    ProviderType = "unknown"
 )
 

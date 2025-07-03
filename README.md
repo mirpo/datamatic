@@ -16,6 +16,7 @@ A powerful CLI tool for creating structured datasets with local LLMs, supporting
 - **[LM Studio](https://lmstudio.ai/download)** - Local model management
 - **[OpenAI](https://openai.com/)** - Cloud-based models
 - **[OpenRouter](https://openrouter.ai/)** - Multi-provider access
+- **[Gemini](https://deepmind.google/models/gemini/)** - Gemini is a family of multimodal large language models (LLMs) developed by Google DeepMind
 
 ### 📊 Data Generation
 - **JSON Schema Validation** - Structured output with type safety
@@ -88,6 +89,7 @@ datamatic -config config.yaml -verbose -log-pretty
 **Other providers:**
 - OpenAI: `model: openai:gpt-4o-mini` + `export OPENAI_API_KEY=sk-...`
 - OpenRouter: `model: openrouter:meta-llama/llama-3.2-3b` + `export OPENROUTER_API_KEY=sk-...`
+- Gemini: `model: gemini:gemini-2.0-flash` + `export GEMINI_API_KEY=...`
 
 ## Output Format
 
@@ -180,3 +182,4 @@ Options:
 | [Fine-tuning Data](./examples/v1/7.%20fine-tuning%20dataset/README.md)                                                              | Training dataset creation  | Ollama            |
 | [Vision Models](./examples/v1/8.%20hugginface%20images%20and%20qwen2.5vl%20or%20gemma3/README.md)                                   | Image analysis             | Ollama, LM Studio |
 | [OpenAI](./examples/v1/9.%20openai-example/README.md)                                                                               | Cloud provider usage       | OpenAI            |
+| [Gemini](./examples/v1/10.%20openrouter-example/README.md)                                                                          | Cloud provider usage       | Gemini            |
