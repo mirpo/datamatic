@@ -80,7 +80,7 @@ func getModelDetails(step Step) (llm.ProviderType, string, error) {
 
 	providerType := llm.ProviderType(providerStr)
 	switch providerType {
-	case llm.ProviderOllama, llm.ProviderLmStudio, llm.ProviderOpenAI, llm.ProviderOpenRouter:
+	case llm.ProviderOllama, llm.ProviderLmStudio, llm.ProviderOpenAI, llm.ProviderOpenRouter, llm.ProviderGemini:
 	default:
 		return llm.ProviderUnknown, "", fmt.Errorf("unsupported provider: %s", providerStr)
 	}

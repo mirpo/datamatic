@@ -30,6 +30,14 @@ func NewProvider(config ProviderConfig) (Provider, error) {
 		config.AuthToken = token
 		config.BaseURL = "https://openrouter.ai/api/v1"
 		return NewOpenAIProvider(config), nil
+	case ProviderGemini:
+		token := os.Getenv("GEMINI_API_KEY")
+		if token == "" {
+			return nil, fmt.Errorf("llm: GEMINI_API_KEY environment variable is not set")
+		}
+		config.AuthToken = token
+		config.BaseURL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+		return NewOpenAIProvider(config), nil
 	case ProviderUnknown:
 		return nil, fmt.Errorf("llm: provider type 'unknown' is not supported")
 	default:
