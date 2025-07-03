@@ -9,6 +9,7 @@ Generate high-quality synthetic data using local Large Language Models (LLMs)
   - [LM Studio](https://lmstudio.ai/download)
   - [OpenAI](https://openai.com/)
   - [OpenRouter](https://openrouter.ai/)
+  - [Gemini](https://deepmind.google/models/gemini/)
 - Customizable text and JSON generation.
 - Multi step chaining.
 - Use any CLI as a step. For example:

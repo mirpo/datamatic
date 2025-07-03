@@ -35,6 +35,13 @@ func TestNewProvider(t *testing.T) {
 		assert.NotNil(t, provider)
 	})
 
+	t.Run("returns Gemini provider", func(t *testing.T) {
+		os.Setenv("GEMINI_API_KEY", "test-key")
+		provider, err := NewProvider(ProviderConfig{ProviderType: ProviderGemini})
+		assert.NoError(t, err)
+		assert.NotNil(t, provider)
+	})
+
 	t.Run("returns error for unknown provider", func(t *testing.T) {
 		provider, err := NewProvider(ProviderConfig{ProviderType: ProviderUnknown})
 		assert.Nil(t, provider)
