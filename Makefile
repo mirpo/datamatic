@@ -18,3 +18,6 @@ lint-fix:
 
 coverage: test
 	go tool cover -html=coverage.out
+
+deadcode:
+	go tool deadcode ./...
