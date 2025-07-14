@@ -21,23 +21,6 @@ func TestNewWriter(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestWriteStringLine(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "test*.jsonl")
-	assert.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-
-	writer, err := NewWriter(tmpFile.Name())
-	assert.NoError(t, err)
-	defer writer.Close()
-
-	err = writer.WriteStringLine("hello world")
-	assert.NoError(t, err)
-
-	content, err := os.ReadFile(tmpFile.Name())
-	assert.NoError(t, err)
-	assert.Equal(t, "hello world\n", string(content))
-}
-
 func TestWriteLine(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test*.jsonl")
 	assert.NoError(t, err)

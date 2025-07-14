@@ -23,15 +23,6 @@ func NewWriter(path string) (*Writer, error) {
 	return &Writer{file: file}, nil
 }
 
-func (w *Writer) WriteStringLine(line string) error {
-	log.Debug().Msgf("writing raw data: %s", line)
-
-	if _, err := w.file.WriteString(line + "\n"); err != nil {
-		return fmt.Errorf("failed to write string line to file: %w", err)
-	}
-	return nil
-}
-
 func (w *Writer) WriteLine(entity LineEntity) error {
 	jsonData, err := json.Marshal(entity)
 	if err != nil {
