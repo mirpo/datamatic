@@ -40,17 +40,6 @@ type ResponseFormat struct {
 	JSONSchema ResponseJSONSchema `json:"json_schema,omitempty"`
 }
 
-func NewResponseFormat(jsonSchema jsonl.JSONSchema) ResponseFormat {
-	return ResponseFormat{
-		Type: "json_schema",
-		JSONSchema: ResponseJSONSchema{
-			Name:   "json_schema",
-			Strict: true,
-			Schema: jsonSchema,
-		},
-	}
-}
-
 func (p *OpenAIProvider) Generate(ctx context.Context, request GenerateRequest) (*GenerateResponse, error) {
 	req := openai.ChatCompletionRequest{
 		Model:  p.config.ModelName,
