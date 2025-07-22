@@ -9,11 +9,11 @@ import (
 	"github.com/avast/retry-go/v4"
 	"github.com/mirpo/datamatic/config"
 	"github.com/mirpo/datamatic/fs"
-	"github.com/mirpo/datamatic/httpclient"
 	"github.com/mirpo/datamatic/jsonl"
 	"github.com/mirpo/datamatic/llm"
 	"github.com/mirpo/datamatic/promptbuilder"
 	"github.com/rs/zerolog/log"
+	"github.com/sashabaranov/go-openai"
 )
 
 type PromptStep struct{}
@@ -62,13 +62,19 @@ func (p *PromptStep) shouldRetry(err error) bool {
 		return false
 	}
 
-	var httpErr *httpclient.HTTPError
-	if errors.As(err, &httpErr) {
-		if httpErr.IsPermanent() {
+	var apiErr *openai.RequestError
+	log.Debug().Msgf("LLM error: %v", err)
+	if errors.As(err, &apiErr) {
+		switch apiErr.HTTPStatusCode {
+		case 401, 403: // Unauthorized or Forbidden
+			log.Error().Msgf("Permanent API error (status %d): %s", apiErr.HTTPStatusCode, apiErr.Error())
 			return false
-		}
-		if httpErr.IsRetryable() {
+		case 429, 500, 502, 503, 504: // Retryable errors
+			log.Error().Msgf("Retryable API error (status %d): %s", apiErr.HTTPStatusCode, apiErr.Error())
 			return true
+		case 400, 404, 422: // Permanent errors
+			log.Error().Msgf("Permanent API error (status %d): %s", apiErr.HTTPStatusCode, apiErr.Error())
+			return false
 		}
 	}
 

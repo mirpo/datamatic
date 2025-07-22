@@ -2,7 +2,7 @@ version: 1.0
 
 steps:
   - name: openrouter_story_titles
-    model: openrouter:openai/o4-mini
+    model: openrouter:openai/gpt-3.5-turbo
     systemPrompt: |
       You are a helpful assistant that generates creative story titles.
     prompt: |

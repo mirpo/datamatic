@@ -48,8 +48,12 @@ func TestPromptStep_RetryIntegration_RetryableError(t *testing.T) {
 		// Success on third attempt
 		w.WriteHeader(http.StatusOK)
 		response := map[string]interface{}{
-			"message": map[string]interface{}{
-				"content": "Test response",
+			"choices": []map[string]interface{}{
+				{
+					"message": map[string]interface{}{
+						"content": "Test response",
+					},
+				},
 			},
 		}
 		_ = json.NewEncoder(w).Encode(response)
@@ -78,8 +82,12 @@ func TestPromptStep_RetryIntegration_RateLimitError(t *testing.T) {
 		// Success on second attempt
 		w.WriteHeader(http.StatusOK)
 		response := map[string]interface{}{
-			"message": map[string]interface{}{
-				"content": "Test response",
+			"choices": []map[string]interface{}{
+				{
+					"message": map[string]interface{}{
+						"content": "Test response",
+					},
+				},
 			},
 		}
 		_ = json.NewEncoder(w).Encode(response)
@@ -150,8 +158,12 @@ func TestPromptStep_RetryIntegration_BackoffTiming(t *testing.T) {
 		// Success on third attempt
 		w.WriteHeader(http.StatusOK)
 		response := map[string]interface{}{
-			"message": map[string]interface{}{
-				"content": "Test response",
+			"choices": []map[string]interface{}{
+				{
+					"message": map[string]interface{}{
+						"content": "Test response",
+					},
+				},
 			},
 		}
 		_ = json.NewEncoder(w).Encode(response)

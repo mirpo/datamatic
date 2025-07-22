@@ -12,9 +12,15 @@ func NewProvider(config ProviderConfig) (Provider, error) {
 
 	switch config.ProviderType {
 	case ProviderOllama:
-		return NewOllamaProvider(config), nil
+		if config.BaseURL == "" {
+			config.BaseURL = "http://localhost:11434/v1"
+		}
+		return NewOpenAIProvider(config), nil
 	case ProviderLmStudio:
-		return NewLmStudioProvider(config), nil
+		if config.BaseURL == "" {
+			config.BaseURL = "http://127.0.0.1:1234/v1"
+		}
+		return NewOpenAIProvider(config), nil
 	case ProviderOpenAI:
 		token := os.Getenv("OPENAI_API_KEY")
 		if token == "" {
@@ -28,7 +34,9 @@ func NewProvider(config ProviderConfig) (Provider, error) {
 			return nil, fmt.Errorf("llm: OPENROUTER_API_KEY environment variable is not set")
 		}
 		config.AuthToken = token
-		config.BaseURL = "https://openrouter.ai/api/v1"
+		if config.BaseURL == "" {
+			config.BaseURL = "https://openrouter.ai/api/v1"
+		}
 		return NewOpenAIProvider(config), nil
 	case ProviderGemini:
 		token := os.Getenv("GEMINI_API_KEY")
@@ -36,7 +44,9 @@ func NewProvider(config ProviderConfig) (Provider, error) {
 			return nil, fmt.Errorf("llm: GEMINI_API_KEY environment variable is not set")
 		}
 		config.AuthToken = token
-		config.BaseURL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+		if config.BaseURL == "" {
+			config.BaseURL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+		}
 		return NewOpenAIProvider(config), nil
 	case ProviderUnknown:
 		return nil, fmt.Errorf("llm: provider type 'unknown' is not supported")
