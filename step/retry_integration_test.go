@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/mirpo/datamatic/config"
-	"github.com/mirpo/datamatic/jsonl"
+	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/mirpo/datamatic/llm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -224,6 +224,6 @@ func createTestStep(baseURL string) config.Step {
 			ModelName:     "test-model",
 			BaseURL:       baseURL,
 		},
-		JSONSchema: jsonl.JSONSchema{},
+		JSONSchema: jsonschema.JSONSchema{},
 	}
 }

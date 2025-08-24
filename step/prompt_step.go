@@ -10,6 +10,7 @@ import (
 	"github.com/mirpo/datamatic/config"
 	"github.com/mirpo/datamatic/fs"
 	"github.com/mirpo/datamatic/jsonl"
+	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/mirpo/datamatic/llm"
 	"github.com/mirpo/datamatic/promptbuilder"
 	"github.com/rs/zerolog/log"
@@ -101,14 +102,18 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 		return fmt.Errorf("failed to create LLM provider: %w", err)
 	}
 
+	configValidator := jsonschema.NewConfigValidator()
+	schemaMarshaler := jsonschema.NewSchemaMarshaler()
+	responseValidator := jsonschema.NewResponseValidator()
+
 	for i < maxResult {
 		log.Info().Msgf("Running step '%s' (type: '%s'), iteration [%d]", step.Name, step.Type, i)
 
 		promptBuilder := promptbuilder.NewPromptBuilder(step.Prompt)
-		hasSchemaSchema := step.JSONSchema.HasSchemaDefinition()
+		hasSchemaSchema := configValidator.HasSchemaDefinition(step.JSONSchema)
 
 		if hasSchemaSchema {
-			jsonSchemaAsText, err := step.JSONSchema.MarshalToJSONText()
+			jsonSchemaAsText, err := schemaMarshaler.MarshalToJSONText(step.JSONSchema)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to marshal JSON schema to text")
 				break
@@ -169,7 +174,7 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 
 		if cfg.ValidateResponse && hasSchemaSchema {
 			log.Debug().Msg("Validating response from LLM using JSON schema")
-			err := step.JSONSchema.ValidateJSONText(response.Text)
+			err := responseValidator.ValidateJSONText(step.JSONSchema, response.Text)
 			if err != nil {
 				log.Error().Msgf("JSON response: %s, not following JSON schema: %+v, retrying", response.Text, step.JSONSchema)
 				continue

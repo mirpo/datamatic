@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mirpo/datamatic/jsonl"
+	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/rs/zerolog/log"
 	"github.com/sashabaranov/go-openai"
 )
@@ -30,9 +30,9 @@ func NewOpenAIProvider(config ProviderConfig) *OpenAIProvider {
 }
 
 type ResponseJSONSchema struct {
-	Name   string           `json:"name"`
-	Strict bool             `json:"strict"`
-	Schema jsonl.JSONSchema `json:"schema"`
+	Name   string                `json:"name"`
+	Strict bool                  `json:"strict"`
+	Schema jsonschema.JSONSchema `json:"schema"`
 }
 
 type ResponseFormat struct {

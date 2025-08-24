@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mirpo/datamatic/fs"
 	"github.com/mirpo/datamatic/jsonl"
+	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/mirpo/datamatic/llm"
 )
 
@@ -54,16 +55,16 @@ const (
 
 type Step struct {
 	Type               StepType
-	Name               string           `yaml:"name"`
-	Model              string           `yaml:"model"`
-	Prompt             string           `yaml:"prompt"`
-	Cmd                string           `yaml:"cmd"`
-	SystemPrompt       string           `yaml:"systemPrompt"`
-	MaxResults         interface{}      `yaml:"maxResults"`
-	ModelConfig        ModelConfig      `yaml:"modelConfig"`
-	OutputFilename     string           `yaml:"outputFilename"`
-	JSONSchema         jsonl.JSONSchema `yaml:"jsonSchema"`
-	ImagePath          string           `yaml:"imagePath"`
+	Name               string                `yaml:"name"`
+	Model              string                `yaml:"model"`
+	Prompt             string                `yaml:"prompt"`
+	Cmd                string                `yaml:"cmd"`
+	SystemPrompt       string                `yaml:"systemPrompt"`
+	MaxResults         interface{}           `yaml:"maxResults"`
+	ModelConfig        ModelConfig           `yaml:"modelConfig"`
+	OutputFilename     string                `yaml:"outputFilename"`
+	JSONSchema         jsonschema.JSONSchema `yaml:"jsonSchema"`
+	ImagePath          string                `yaml:"imagePath"`
 	ResolvedMaxResults int
 }
 
@@ -176,6 +177,8 @@ func (s *Step) GetValue(outputFolder string, lineNumber int, attrKey string) (*L
 		return nil, err
 	}
 
+	configValidator := jsonschema.NewConfigValidator()
+
 	switch s.Type {
 	case CliStepType:
 		var decoded map[string]interface{}
@@ -200,7 +203,7 @@ func (s *Step) GetValue(outputFolder string, lineNumber int, attrKey string) (*L
 		}
 
 		var value string
-		if !s.JSONSchema.HasSchemaDefinition() {
+		if !configValidator.HasSchemaDefinition(s.JSONSchema) {
 			str, ok := decoded.Response.(string)
 			if !ok {
 				return nil, fmt.Errorf("prompt step: expected string response, got %T", decoded.Response)

@@ -3,7 +3,7 @@ package llm
 import (
 	"context"
 
-	"github.com/mirpo/datamatic/jsonl"
+	"github.com/mirpo/datamatic/jsonschema"
 )
 
 type ProviderType string
@@ -35,7 +35,7 @@ type GenerateRequest struct {
 	UserMessage   string
 	SystemMessage string
 	IsJSON        bool
-	JSONSchema    jsonl.JSONSchema
+	JSONSchema    jsonschema.JSONSchema
 	Base64Image   string
 }
 

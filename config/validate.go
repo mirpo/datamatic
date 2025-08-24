@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/mirpo/datamatic/llm"
 	"github.com/mirpo/datamatic/promptbuilder"
 )
@@ -218,6 +219,7 @@ func (c *Config) Validate() error {
 
 	stepNames := map[string]bool{}
 	cliCalls := []string{}
+	configValidator := jsonschema.NewConfigValidator()
 
 	for index := range c.Steps {
 		step := &c.Steps[index]
@@ -259,13 +261,13 @@ func (c *Config) Validate() error {
 		}
 
 		if stepType == PromptStepType {
-			if step.JSONSchema.HasSchemaDefinition() {
-				if !step.JSONSchema.ValidateRequiredProperties() {
+			if configValidator.HasSchemaDefinition(step.JSONSchema) {
+				if !configValidator.ValidateRequiredProperties(step.JSONSchema) {
 					return fmt.Errorf("step '%s': invalid schema validation, properties or required are not matching", step.Name)
 				}
 			}
 
-			if strings.Contains(step.Prompt, "{{.SYSTEM.JSON_SCHEMA}}") && !step.JSONSchema.ValidateRequiredProperties() {
+			if strings.Contains(step.Prompt, "{{.SYSTEM.JSON_SCHEMA}}") && !configValidator.ValidateRequiredProperties(step.JSONSchema) {
 				return fmt.Errorf("step '%s': JSON schema is required when using '{{.SYSTEM.JSON_SCHEMA}}' in the prompt", step.Name)
 			}
 
@@ -285,11 +287,11 @@ func (c *Config) Validate() error {
 
 						refStep := c.GetStepByName(val.Step)
 						if refStep.Type == PromptStepType {
-							if !refStep.JSONSchema.HasSchemaDefinition() {
+							if !configValidator.HasSchemaDefinition(refStep.JSONSchema) {
 								return fmt.Errorf("step %s must have JSON schema, key: %s", val.Step, val.Key)
 							}
 
-							if !refStep.JSONSchema.HasRequiredProperty(val.Key) {
+							if !configValidator.HasRequiredProperty(refStep.JSONSchema, val.Key) {
 								return fmt.Errorf("'%s' key must be defined in step %s in JSON schema as a property and required", val.Key, val.Step)
 							}
 						}
