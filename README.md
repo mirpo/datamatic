@@ -76,6 +76,7 @@ steps:
       required:
         - title
         - tags
+      additionalProperties: false  # Reject extra fields (default)
 ```
 
 ```bash
