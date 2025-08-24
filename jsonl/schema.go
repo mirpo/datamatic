@@ -82,11 +82,22 @@ func (j *JSONSchema) validateAgainstSchema(data map[string]interface{}) error {
 	for key, prop := range j.Properties {
 		val, exists := data[key]
 		if !exists {
-			return fmt.Errorf("missing property: %s", key)
+			continue
 		}
 
 		if err := validateType(val, prop); err != nil {
 			return fmt.Errorf("invalid type for field '%s': %v", key, err)
+		}
+	}
+
+	if j.HasSchemaDefinition() && (j.AdditionalProperties == nil || !*j.AdditionalProperties) {
+		for key := range data {
+			if _, exists := j.Properties[key]; !exists {
+				if len(j.Properties) == 0 && slices.Contains(j.Required, key) {
+					continue
+				}
+				return fmt.Errorf("unknown property: %s", key)
+			}
 		}
 	}
 

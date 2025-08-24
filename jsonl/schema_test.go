@@ -314,15 +314,92 @@ func TestValidateJSONText(t *testing.T) {
 				Items: &Property{Type: "string"},
 			},
 		},
+		Required: []string{"tags"},
 	}
 	err = obj.ValidateJSONText(`{"address": {"street": "123 Main St", "city": "New York", "index": 12345}, "tags": ["tag1", "tag2"]}`)
 	assert.NoError(t, err)
 
 	err = obj.ValidateJSONText(`{"address": {"street": "123 Main St", "city": "New York", "index": 12345}, "tags1": ["tag1", "tag2"]}`)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "missing property: tags")
+	assert.Contains(t, err.Error(), "missing required field: tags")
 
 	err = obj.ValidateJSONText(`{"address": {"street": "123 Main St", "city": "New York", "index": "12345"}, "tags": ["tag1", "tag2"]}`)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), `invalid type for field 'address': invalid type for field 'index': expected integer`)
+
+	err = obj.ValidateJSONText(`{"address": {"street": "123 Main St", "city": "New York"}, "tags": ["tag1", "tag2"]}`)
+	assert.NoError(t, err, "Missing optional 'index' property should be allowed")
+
+	medicalSchema := JSONSchema{
+		Type: "object",
+		Properties: map[string]Property{
+			"vital_signs": {
+				Type: "object",
+				Properties: map[string]Property{
+					"blood_pressure":    {Type: "string"},
+					"heart_rate":        {Type: "string"},
+					"temperature":       {Type: "string"},
+					"respiratory_rate":  {Type: "string"},
+					"oxygen_saturation": {Type: "string"},
+				},
+			},
+		},
+		Required: []string{"vital_signs"},
+	}
+	err = medicalSchema.ValidateJSONText(`{"vital_signs": {"blood_pressure": "98/60 mmHg", "heart_rate": "130 bpm", "temperature": "38.5°C"}}`)
+	assert.NoError(t, err, "Missing optional nested properties should be allowed")
+
+	err = medicalSchema.ValidateJSONText(`{"other_field": "value"}`)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "missing required field: vital_signs")
+}
+
+func TestValidateAdditionalProperties(t *testing.T) {
+	// additionalProperties: false - should reject extra fields
+	boolFalse := false
+	strictSchema := JSONSchema{
+		Type: "object",
+		Properties: map[string]Property{
+			"name": {Type: "string"},
+		},
+		Required:             []string{"name"},
+		AdditionalProperties: &boolFalse,
+	}
+	err := strictSchema.ValidateJSONText(`{"name": "John", "extra_field": "should_fail"}`)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown property: extra_field")
+
+	// additionalProperties: true - should allow extra fields
+	boolTrue := true
+	flexibleSchema := JSONSchema{
+		Type: "object",
+		Properties: map[string]Property{
+			"name": {Type: "string"},
+		},
+		Required:             []string{"name"},
+		AdditionalProperties: &boolTrue,
+	}
+	err = flexibleSchema.ValidateJSONText(`{"name": "John", "extra_field": "allowed"}`)
+	assert.NoError(t, err, "Extra fields should be allowed with additionalProperties: true")
+
+	// default (nil) additionalProperties - should reject extra fields
+	defaultSchema := JSONSchema{
+		Type: "object",
+		Properties: map[string]Property{
+			"name": {Type: "string"},
+		},
+		Required: []string{"name"},
+	}
+	err = defaultSchema.ValidateJSONText(`{"name": "John", "extra_field": "should_fail"}`)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown property: extra_field")
+
+	// edge case: schema with only required fields (no properties defined)
+	requiredOnlySchema := JSONSchema{
+		Type:     "object",
+		Required: []string{"field1"},
+	}
+	err = requiredOnlySchema.ValidateJSONText(`{"field1": "value", "extra_field": "should_fail"}`)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown property: extra_field")
 }
