@@ -13,6 +13,7 @@ import (
 	"github.com/mirpo/datamatic/jsonl"
 	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/mirpo/datamatic/llm"
+	"github.com/mirpo/datamatic/retry"
 )
 
 const (
@@ -91,6 +92,15 @@ func NewDefaultRetryConfig() RetryConfig {
 		MaxDelay:          10 * time.Second,
 		BackoffMultiplier: 2.0,
 		Enabled:           true,
+	}
+}
+
+func (rc RetryConfig) ToRetryConfig() retry.Config {
+	return retry.Config{
+		MaxAttempts:       rc.MaxAttempts,
+		InitialDelay:      rc.InitialDelay,
+		MaxDelay:          rc.MaxDelay,
+		BackoffMultiplier: rc.BackoffMultiplier,
 	}
 }
 

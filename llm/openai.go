@@ -108,7 +108,7 @@ func (p *OpenAIProvider) Generate(ctx context.Context, request GenerateRequest) 
 
 	resp, err := p.client.CreateChatCompletion(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("llm: openai: completion request failed: %w", err)
+		return nil, fmt.Errorf("llm: openai: completion request failed: %w", wrapOpenAIError(err))
 	}
 
 	if resp.Model != p.config.ModelName {
