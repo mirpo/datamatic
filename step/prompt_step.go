@@ -65,7 +65,7 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 			placeholders := promptBuilder.GetPlaceholders()
 			for _, placeholder := range placeholders {
 				refStep := cfg.GetStepByName(placeholder.Step)
-				lineValue, err := refStep.GetValue(outputFolder, i, placeholder.Key)
+				lineValue, err := ReadStepValue(*refStep, outputFolder, i, placeholder.Key)
 				if err != nil {
 					log.Error().Err(err).Msg("failed to read value from the ref step")
 					break
