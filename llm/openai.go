@@ -2,9 +2,9 @@ package llm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
-	"github.com/mirpo/datamatic/jsonl"
 	"github.com/rs/zerolog/log"
 	"github.com/sashabaranov/go-openai"
 )
@@ -30,9 +30,9 @@ func NewOpenAIProvider(config ProviderConfig) *OpenAIProvider {
 }
 
 type ResponseJSONSchema struct {
-	Name   string           `json:"name"`
-	Strict bool             `json:"strict"`
-	Schema jsonl.JSONSchema `json:"schema"`
+	Name   string      `json:"name"`
+	Strict bool        `json:"strict"`
+	Schema interface{} `json:"schema"`
 }
 
 type ResponseFormat struct {
@@ -88,13 +88,18 @@ func (p *OpenAIProvider) Generate(ctx context.Context, request GenerateRequest) 
 
 	req.Messages = messages
 
-	if request.IsJSON {
+	if request.IsJSON && request.JSONSchema != nil {
+		rawSchema, err := json.Marshal(request.JSONSchema)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal schema: %w", err)
+		}
+
 		req.ResponseFormat = &openai.ChatCompletionResponseFormat{
 			Type: openai.ChatCompletionResponseFormatTypeJSONSchema,
 			JSONSchema: &openai.ChatCompletionResponseFormatJSONSchema{
 				Name:   "json_schema",
 				Strict: true,
-				Schema: &request.JSONSchema,
+				Schema: json.RawMessage(rawSchema),
 			},
 		}
 	}
@@ -103,7 +108,7 @@ func (p *OpenAIProvider) Generate(ctx context.Context, request GenerateRequest) 
 
 	resp, err := p.client.CreateChatCompletion(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("llm: openai: completion request failed: %w", err)
+		return nil, fmt.Errorf("llm: openai: completion request failed: %w", wrapOpenAIError(err))
 	}
 
 	if resp.Model != p.config.ModelName {
