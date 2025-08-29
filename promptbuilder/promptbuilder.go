@@ -7,6 +7,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/mirpo/datamatic/defaults"
 	"github.com/rs/zerolog/log"
 )
 
@@ -135,7 +136,7 @@ func (pb *PromptBuilder) GetValues() map[string]ValueShort {
 	resultValues := map[string]ValueShort{}
 
 	for _, value := range pb.newValues {
-		if strings.HasPrefix(value.Step, "SYSTEM") {
+		if strings.HasPrefix(value.Step, defaults.SystemStepName) {
 			continue
 		}
 

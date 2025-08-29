@@ -3,6 +3,7 @@ package config
 import (
 	"time"
 
+	"github.com/mirpo/datamatic/defaults"
 	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/mirpo/datamatic/llm"
 	"github.com/mirpo/datamatic/retry"
@@ -17,8 +18,8 @@ func NewConfig() *Config {
 		ConfigFile:       "",
 		Verbose:          false,
 		LogPretty:        true,
-		OutputFolder:     "dataset",
-		HTTPTimeout:      300,
+		OutputFolder:     defaults.OutputFolder,
+		HTTPTimeout:      defaults.HTTPTimeout,
 		ValidateResponse: true,
 		SkipCliWarning:   false,
 		RetryConfig:      NewDefaultRetryConfig(),
@@ -80,8 +81,8 @@ type RetryConfig struct {
 func NewDefaultRetryConfig() RetryConfig {
 	return RetryConfig{
 		MaxAttempts:       3,
-		InitialDelay:      1 * time.Second,
-		MaxDelay:          10 * time.Second,
+		InitialDelay:      defaults.RetryInitialDelay,
+		MaxDelay:          defaults.RetryMaxDelay,
 		BackoffMultiplier: 2.0,
 		Enabled:           true,
 	}

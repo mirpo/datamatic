@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -9,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/mirpo/datamatic/defaults"
 	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/mirpo/datamatic/llm"
 	"github.com/mirpo/datamatic/promptbuilder"
@@ -16,11 +16,11 @@ import (
 
 func validateVersion(version string) error {
 	if version == "" {
-		return errors.New("version is required")
+		return fmt.Errorf("validating config version: %w", ErrVersionRequired)
 	}
 
-	if version != "1.0" {
-		return fmt.Errorf("version '%s' is unsupported", version)
+	if version != defaults.SupportedConfigVersion {
+		return fmt.Errorf("validating config version '%s': %w", version, ErrUnsupportedVersion)
 	}
 
 	return nil
@@ -28,20 +28,20 @@ func validateVersion(version string) error {
 
 func isValidName(name string) error {
 	if len(name) == 0 {
-		return errors.New("filename cannot be empty")
+		return fmt.Errorf("validating filename: %w", ErrFilenameEmpty)
 	}
 
 	if len(name) > 255 {
-		return errors.New("filename exceeds the maximum length of 255 characters")
+		return fmt.Errorf("validating filename '%s': %w", name, ErrFilenameTooLong)
 	}
 
 	illegalChars := regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
 	if illegalChars.MatchString(name) {
-		return errors.New("filename contains invalid characters")
+		return fmt.Errorf("validating filename '%s': %w", name, ErrFilenameInvalidChars)
 	}
 
 	if strings.HasSuffix(name, " ") || (len(name) > 1 && strings.HasSuffix(name, ".")) {
-		return errors.New("filename cannot end with a space or a period (unless the name is just '.')")
+		return fmt.Errorf("validating filename '%s': %w", name, ErrFilenameInvalidSuffix)
 	}
 
 	return nil
@@ -52,11 +52,11 @@ func getStepType(step Step) (StepType, error) {
 	cmdDefined := len(step.Cmd) > 0
 
 	if promptDefined && cmdDefined {
-		return UnknownStepType, errors.New("either 'prompt' or 'cmd' should be defined, not both")
+		return UnknownStepType, fmt.Errorf("validating step type: %w", ErrBothPromptAndCmd)
 	}
 
 	if !promptDefined && !cmdDefined {
-		return UnknownStepType, errors.New("either 'prompt' or 'cmd' must be defined")
+		return UnknownStepType, fmt.Errorf("validating step type: %w", ErrNeitherPromptNorCmd)
 	}
 
 	if promptDefined {
@@ -68,12 +68,12 @@ func getStepType(step Step) (StepType, error) {
 
 func getModelDetails(step Step) (llm.ProviderType, string, error) {
 	if step.Model == "" {
-		return llm.ProviderUnknown, "", errors.New("model definition can't be empty")
+		return llm.ProviderUnknown, "", fmt.Errorf("parsing model definition: %w", ErrModelEmpty)
 	}
 
 	result := strings.SplitN(step.Model, ":", 2)
 	if len(result) != 2 {
-		return llm.ProviderUnknown, "", fmt.Errorf("model should follow pattern 'provider:model', examples: 'ollama:llama3.2'")
+		return llm.ProviderUnknown, "", fmt.Errorf("parsing model '%s': %w", step.Model, ErrModelInvalidFormat)
 	}
 
 	providerStr := result[0]
@@ -87,7 +87,7 @@ func getModelDetails(step Step) (llm.ProviderType, string, error) {
 	}
 
 	if len(modelName) == 0 {
-		return llm.ProviderUnknown, "", errors.New("model name can't be empty")
+		return llm.ProviderUnknown, "", fmt.Errorf("parsing model '%s': %w", step.Model, ErrModelNameEmpty)
 	}
 
 	return providerType, modelName, nil
@@ -100,7 +100,7 @@ func validateURL(input string) error {
 	}
 
 	if parsedURL.Scheme == "" || parsedURL.Host == "" {
-		return errors.New("invalid URL: missing scheme or host")
+		return fmt.Errorf("validating URL '%s': missing scheme or host", input)
 	}
 
 	return nil
@@ -109,13 +109,13 @@ func validateURL(input string) error {
 func validateModelConfig(step ModelConfig) error {
 	if step.Temperature != nil {
 		if *step.Temperature < 0 || *step.Temperature > 1 {
-			return errors.New("temperature must be between 0 and 1")
+			return fmt.Errorf("validating temperature %f: %w", *step.Temperature, ErrTemperatureOutOfRange)
 		}
 	}
 
 	if step.MaxTokens != nil {
 		if *step.MaxTokens <= 0 {
-			return errors.New("maxTokens must be > 0")
+			return fmt.Errorf("validating maxTokens %d: %w", *step.MaxTokens, ErrMaxTokensInvalid)
 		}
 	}
 
@@ -129,7 +129,7 @@ func validateModelConfig(step ModelConfig) error {
 }
 
 func getFullOutputPath(step Step, outputFolder string) (string, error) {
-	extension := ".jsonl"
+	extension := defaults.FileExtension
 
 	filename := step.OutputFilename
 	if len(filename) == 0 {
@@ -151,7 +151,7 @@ func getFullOutputPath(step Step, outputFolder string) (string, error) {
 
 func validateAndAbsOutputFolder(outputFolder string) (string, error) {
 	if len(outputFolder) == 0 {
-		return "", errors.New("output folder is required")
+		return "", fmt.Errorf("validating output folder: %w", ErrOutputFolderRequired)
 	}
 
 	if err := isValidName(outputFolder); err != nil {
@@ -214,7 +214,7 @@ func (c *Config) Validate() error {
 	c.OutputFolder = absOutputFolder
 
 	if len(c.Steps) == 0 {
-		return errors.New("at least one step is required")
+		return fmt.Errorf("validating config steps: %w", ErrAtLeastOneStepRequired)
 	}
 
 	stepNames := map[string]bool{}
@@ -225,15 +225,15 @@ func (c *Config) Validate() error {
 		step := &c.Steps[index]
 
 		if len(step.Name) == 0 {
-			return fmt.Errorf("step at index %d: name can't be empty", index)
+			return fmt.Errorf("step at index %d: %w", index, ErrStepNameEmpty)
 		}
 
-		if strings.ToUpper(step.Name) == "SYSTEM" {
-			return errors.New("using 'SYSTEM as step name is not allowed")
+		if strings.ToUpper(step.Name) == defaults.SystemStepName {
+			return fmt.Errorf("validating step name '%s': %w", step.Name, ErrSystemStepNameNotAllowed)
 		}
 
 		if stepNames[step.Name] {
-			return fmt.Errorf("duplicate step name found: '%s'", step.Name)
+			return fmt.Errorf("validating step '%s': %w", step.Name, ErrDuplicateStepName)
 		}
 		stepNames[step.Name] = true
 

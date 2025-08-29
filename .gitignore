@@ -28,3 +28,6 @@ go.work.sum
 .DS_Store
 dataset*
 datamatic
+
+# tmp
+tmp

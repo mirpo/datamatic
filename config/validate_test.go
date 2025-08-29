@@ -127,8 +127,8 @@ func TestValidateUrl(t *testing.T) {
 		{"Valid With Path", "http://example.com/api/v1", false, ""},
 		{"Valid With Query", "http://example.com?query=test", false, ""},
 		{"Invalid Format", "not a url", true, "invalid URL: parse"},
-		{"Missing Scheme", "localhost:11434", true, "invalid URL: missing scheme or host"},
-		{"Missing Host", "http://", true, "invalid URL: missing scheme or host"},
+		{"Missing Scheme", "localhost:11434", true, "missing scheme or host"},
+		{"Missing Host", "http://", true, "missing scheme or host"},
 		{"Empty", "", true, "invalid URL: parse"},
 	}
 
@@ -338,7 +338,7 @@ func TestValidateConfig(t *testing.T) {
 		cfg.Steps = append(cfg.Steps, cfg.Steps[0])
 		err := cfg.Validate()
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "duplicate step name found: 'step1'")
+		assert.Contains(t, err.Error(), "duplicate step name found")
 	})
 
 	t.Run("Step With Empty Name", func(t *testing.T) {
@@ -346,7 +346,7 @@ func TestValidateConfig(t *testing.T) {
 		cfg.Steps[0].Name = ""
 		err := cfg.Validate()
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "step at index 0: name can't be empty")
+		assert.Contains(t, err.Error(), "step name can't be empty")
 	})
 
 	t.Run("Step With Both Prompt and Cmd", func(t *testing.T) {
@@ -354,7 +354,7 @@ func TestValidateConfig(t *testing.T) {
 		cfg.Steps[0].Cmd = "a command"
 		err := cfg.Validate()
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "step 'step1': either 'prompt' or 'cmd' should be defined, not both")
+		assert.Contains(t, err.Error(), "either 'prompt' or 'cmd' should be defined, not both")
 	})
 
 	t.Run("Step With Neither Prompt nor Cmd", func(t *testing.T) {
@@ -362,7 +362,7 @@ func TestValidateConfig(t *testing.T) {
 		cfg.Steps[0].Prompt = ""
 		err := cfg.Validate()
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "step 'step1': either 'prompt' or 'cmd' must be defined")
+		assert.Contains(t, err.Error(), "either 'prompt' or 'cmd' must be defined")
 	})
 
 	t.Run("Step With Empty Model", func(t *testing.T) {
@@ -370,7 +370,7 @@ func TestValidateConfig(t *testing.T) {
 		cfg.Steps[0].Model = ""
 		err := cfg.Validate()
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "step 'step1': model definition can't be empty")
+		assert.Contains(t, err.Error(), "model definition can't be empty")
 	})
 
 	t.Run("Step With Invalid Model Format", func(t *testing.T) {
@@ -378,7 +378,7 @@ func TestValidateConfig(t *testing.T) {
 		cfg.Steps[0].Model = "invalid-model-string"
 		err := cfg.Validate()
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "step 'step1': model should follow pattern")
+		assert.Contains(t, err.Error(), "model should follow pattern")
 	})
 
 	t.Run("Step With Unsupported Provider", func(t *testing.T) {
@@ -395,7 +395,7 @@ func TestValidateConfig(t *testing.T) {
 		cfg.Steps[0].ModelConfig.Temperature = &tempNeg
 		err := cfg.Validate()
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "step 'step1': model config validation failed: temperature must be between 0 and 1")
+		assert.Contains(t, err.Error(), "temperature must be between 0 and 1")
 	})
 
 	t.Run("Step With Invalid Output Filename", func(t *testing.T) {
@@ -403,7 +403,7 @@ func TestValidateConfig(t *testing.T) {
 		cfg.Steps[0].OutputFilename = "invalid<filename>"
 		err := cfg.Validate()
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "step 'step1': invalid output filename 'invalid<filename>': filename contains invalid characters")
+		assert.Contains(t, err.Error(), "filename contains invalid characters")
 	})
 
 	t.Run("Invalid Output Folder", func(t *testing.T) {

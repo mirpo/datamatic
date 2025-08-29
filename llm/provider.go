@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/mirpo/datamatic/defaults"
 	"github.com/rs/zerolog/log"
 )
 
@@ -13,12 +14,12 @@ func NewProvider(config ProviderConfig) (Provider, error) {
 	switch config.ProviderType {
 	case ProviderOllama:
 		if config.BaseURL == "" {
-			config.BaseURL = "http://localhost:11434/v1"
+			config.BaseURL = defaults.OllamaURL
 		}
 		return NewOpenAIProvider(config), nil
 	case ProviderLmStudio:
 		if config.BaseURL == "" {
-			config.BaseURL = "http://127.0.0.1:1234/v1"
+			config.BaseURL = defaults.LMStudioURL
 		}
 		return NewOpenAIProvider(config), nil
 	case ProviderOpenAI:
@@ -35,7 +36,7 @@ func NewProvider(config ProviderConfig) (Provider, error) {
 		}
 		config.AuthToken = token
 		if config.BaseURL == "" {
-			config.BaseURL = "https://openrouter.ai/api/v1"
+			config.BaseURL = defaults.OpenRouterURL
 		}
 		return NewOpenAIProvider(config), nil
 	case ProviderGemini:
@@ -45,7 +46,7 @@ func NewProvider(config ProviderConfig) (Provider, error) {
 		}
 		config.AuthToken = token
 		if config.BaseURL == "" {
-			config.BaseURL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+			config.BaseURL = defaults.GeminiURL
 		}
 		return NewOpenAIProvider(config), nil
 	case ProviderUnknown:

@@ -2,7 +2,6 @@ package fs
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -41,7 +40,7 @@ func PickImageFile(pattern string, index int) (string, error) {
 	}
 
 	if len(files) == 0 {
-		return "", fmt.Errorf("no files matched pattern: %s", pattern)
+		return "", fmt.Errorf("searching files with pattern %s: %w", pattern, ErrNoMatchingFiles)
 	}
 
 	index = index % len(files)
@@ -53,7 +52,7 @@ func PickImageFile(pattern string, index int) (string, error) {
 
 func ImageToBase64(imagePath string) (string, error) {
 	if imagePath == "" {
-		return "", errors.New("image path is empty")
+		return "", fmt.Errorf("converting image to base64: %w", ErrEmptyImagePath)
 	}
 
 	data, err := os.ReadFile(imagePath)
