@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/mirpo/datamatic/defaults"
 	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/mirpo/datamatic/llm"
 	"github.com/mirpo/datamatic/promptbuilder"
@@ -18,7 +19,7 @@ func validateVersion(version string) error {
 		return fmt.Errorf("validating config version: %w", ErrVersionRequired)
 	}
 
-	if version != "1.0" {
+	if version != defaults.SupportedConfigVersion {
 		return fmt.Errorf("validating config version '%s': %w", version, ErrUnsupportedVersion)
 	}
 
@@ -128,7 +129,7 @@ func validateModelConfig(step ModelConfig) error {
 }
 
 func getFullOutputPath(step Step, outputFolder string) (string, error) {
-	extension := ".jsonl"
+	extension := defaults.FileExtension
 
 	filename := step.OutputFilename
 	if len(filename) == 0 {
@@ -227,7 +228,7 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("step at index %d: %w", index, ErrStepNameEmpty)
 		}
 
-		if strings.ToUpper(step.Name) == "SYSTEM" {
+		if strings.ToUpper(step.Name) == defaults.SystemStepName {
 			return fmt.Errorf("validating step name '%s': %w", step.Name, ErrSystemStepNameNotAllowed)
 		}
 

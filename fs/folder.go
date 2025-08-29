@@ -7,9 +7,9 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-)
 
-const folderPerm = 0o755
+	"github.com/mirpo/datamatic/defaults"
+)
 
 func CreateVersionedFolder(path string) error {
 	if !filepath.IsAbs(path) {
@@ -40,7 +40,7 @@ func CreateVersionedFolder(path string) error {
 }
 
 func createFolder(path string) error {
-	if err := os.MkdirAll(path, folderPerm); err != nil {
+	if err := os.MkdirAll(path, defaults.FolderPerm); err != nil {
 		return fmt.Errorf("failed to create folder %s: %w", path, err)
 	}
 	return nil

@@ -7,6 +7,7 @@ import (
 
 	"github.com/goforj/godump"
 	"github.com/mirpo/datamatic/config"
+	"github.com/mirpo/datamatic/defaults"
 	"github.com/mirpo/datamatic/logger"
 	"github.com/mirpo/datamatic/runner"
 	"github.com/rs/zerolog/log"
@@ -26,8 +27,8 @@ func main() {
 	flag.BoolVar(&cfg.Verbose, "verbose", false, "Enable DEBUG logging level")
 	flag.BoolVar(&cfg.LogPretty, "log-pretty", true, "Enable pretty logging, JSON when false")
 	flag.StringVar(&cfg.ConfigFile, "config", "", "Config file path")
-	flag.StringVar(&cfg.OutputFolder, "output", "dataset", "Output folder path")
-	flag.IntVar(&cfg.HTTPTimeout, "http-timeout", 300, "HTTP timeout: 0 - no timeout, if number - recommended to put high on poor hardware")
+	flag.StringVar(&cfg.OutputFolder, "output", defaults.OutputFolder, "Output folder path")
+	flag.IntVar(&cfg.HTTPTimeout, "http-timeout", defaults.HTTPTimeout, "HTTP timeout: 0 - no timeout, if number - recommended to put high on poor hardware")
 	flag.BoolVar(&cfg.ValidateResponse, "validate-response", true, "Validate JSON response from server to match the schema")
 	flag.BoolVar(&cfg.SkipCliWarning, "skip-cli-warning", false, "Skip external CLI warning")
 

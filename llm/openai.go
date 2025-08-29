@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/mirpo/datamatic/defaults"
 	"github.com/rs/zerolog/log"
 	"github.com/sashabaranov/go-openai"
 )
 
-const DefaultOpenAIBaseURL = "https://api.openai.com/v1"
+const DefaultOpenAIBaseURL = defaults.OpenAIURL
 
 type OpenAIProvider struct {
 	config ProviderConfig

@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/mirpo/datamatic/defaults"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -25,10 +26,10 @@ func TestGetNextFolderVersion(t *testing.T) {
 	tmpDir := t.TempDir()
 	base := "test_folder"
 
-	_ = os.Mkdir(filepath.Join(tmpDir, "test_folder_v1"), folderPerm)
-	_ = os.Mkdir(filepath.Join(tmpDir, "test_folder_v2"), folderPerm)
-	_ = os.Mkdir(filepath.Join(tmpDir, "test_folder_v5"), folderPerm)
-	_ = os.Mkdir(filepath.Join(tmpDir, "test_folder_v19"), folderPerm)
+	_ = os.Mkdir(filepath.Join(tmpDir, "test_folder_v1"), defaults.FolderPerm)
+	_ = os.Mkdir(filepath.Join(tmpDir, "test_folder_v2"), defaults.FolderPerm)
+	_ = os.Mkdir(filepath.Join(tmpDir, "test_folder_v5"), defaults.FolderPerm)
+	_ = os.Mkdir(filepath.Join(tmpDir, "test_folder_v19"), defaults.FolderPerm)
 
 	nextVersion, err := getNextFolderVersion(tmpDir, base)
 	assert.NoError(t, err, "Expected no error when retrieving next folder version")

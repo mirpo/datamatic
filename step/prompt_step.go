@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/mirpo/datamatic/config"
+	"github.com/mirpo/datamatic/defaults"
 	"github.com/mirpo/datamatic/fs"
 	"github.com/mirpo/datamatic/jsonl"
 	"github.com/mirpo/datamatic/jsonschema"
@@ -58,7 +59,7 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 				break
 			}
 
-			promptBuilder.AddValue("-", "SYSTEM", "JSON_SCHEMA", jsonSchemaAsText)
+			promptBuilder.AddValue("-", defaults.SystemStepName, "JSON_SCHEMA", jsonSchemaAsText)
 		}
 
 		if promptBuilder.HasPlaceholders() {
