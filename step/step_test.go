@@ -29,5 +29,5 @@ func TestNewStepRunner_UnsupportedStep(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, runner)
-	assert.EqualError(t, err, "unsupported step type")
+	assert.EqualError(t, err, "creating step runner for type unknown_type: unsupported step type")
 }

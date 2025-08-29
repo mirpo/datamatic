@@ -1,0 +1,31 @@
+package config
+
+import "errors"
+
+var (
+	ErrVersionRequired                = errors.New("version is required")
+	ErrUnsupportedVersion             = errors.New("version is unsupported")
+	ErrFilenameEmpty                  = errors.New("filename cannot be empty")
+	ErrFilenameTooLong                = errors.New("filename exceeds the maximum length of 255 characters")
+	ErrFilenameInvalidChars           = errors.New("filename contains invalid characters")
+	ErrFilenameInvalidSuffix          = errors.New("filename cannot end with a space or a period (unless the name is just '.')")
+	ErrBothPromptAndCmd               = errors.New("either 'prompt' or 'cmd' should be defined, not both")
+	ErrNeitherPromptNorCmd            = errors.New("either 'prompt' or 'cmd' must be defined")
+	ErrModelEmpty                     = errors.New("model definition can't be empty")
+	ErrModelInvalidFormat             = errors.New("model should follow pattern 'provider:model'")
+	ErrModelNameEmpty                 = errors.New("model name can't be empty")
+	ErrTemperatureOutOfRange          = errors.New("temperature must be between 0 and 1")
+	ErrMaxTokensInvalid               = errors.New("maxTokens must be > 0")
+	ErrOutputFolderRequired           = errors.New("output folder is required")
+	ErrAtLeastOneStepRequired         = errors.New("at least one step is required")
+	ErrStepNameEmpty                  = errors.New("step name can't be empty")
+	ErrSystemStepNameNotAllowed       = errors.New("using 'SYSTEM' as step name is not allowed")
+	ErrDuplicateStepName              = errors.New("duplicate step name found")
+	ErrOutputFilenameRequired         = errors.New("output filename is mandatory for external CLI")
+	ErrSchemaPropertiesNotMatching    = errors.New("invalid schema validation, properties or required are not matching")
+	ErrJSONSchemaRequired             = errors.New("JSON schema is required when using '{{.SYSTEM.JSON_SCHEMA}}' in the prompt")
+	ErrPlaceholderUnknownStep         = errors.New("placeholder has a references to unknown or not previous steps")
+	ErrPlaceholderNestedTooDeep       = errors.New("placeholders currently support only one level of nesting")
+	ErrStepMustHaveJSONSchema         = errors.New("step must have JSON schema")
+	ErrKeyMustBeDefinedInJSONSchema   = errors.New("key must be defined in step in JSON schema as a property and required")
+)

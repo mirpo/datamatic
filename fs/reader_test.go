@@ -78,7 +78,7 @@ func TestReadLineFromFile_EmptyFile(t *testing.T) {
 	result, err := ReadLineFromFile(tmpfile.Name(), 0)
 	assert.Error(t, err)
 	assert.Equal(t, "", result)
-	assert.Equal(t, "file is empty", err.Error())
+	assert.Contains(t, err.Error(), "file is empty")
 }
 
 func TestReadLineFromFile_FileNotExist(t *testing.T) {

@@ -18,7 +18,7 @@ func uuidFromString(input string) string {
 func getFieldAsString(data map[string]interface{}, key string) (string, error) {
 	value, exists := data[key]
 	if !exists {
-		return "", fmt.Errorf("key '%s' not found", key)
+		return "", fmt.Errorf("getting field '%s' from data: %w", key, ErrKeyNotFound)
 	}
 	return jsonschema.ConvertValueToString(value), nil
 }

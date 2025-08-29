@@ -2,7 +2,6 @@ package fs
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"os"
 )
@@ -23,7 +22,7 @@ func ReadLineFromFile(path string, lineNumber int) (string, error) {
 		return "", fmt.Errorf("error scanning file to count lines: %w", err)
 	}
 	if lineCount == 0 {
-		return "", errors.New("file is empty")
+		return "", fmt.Errorf("reading line from file %s: %w", path, ErrEmptyFile)
 	}
 
 	effectiveIndex := normalizeIndex(lineNumber, lineCount)
@@ -41,7 +40,7 @@ func ReadLineFromFile(path string, lineNumber int) (string, error) {
 		return "", fmt.Errorf("error scanning file to read target line: %w", err)
 	}
 
-	return "", errors.New("unexpected error: target line not found")
+	return "", fmt.Errorf("reading line %d from file %s: %w", lineNumber, path, ErrTargetLineNotFound)
 }
 
 func normalizeIndex(index, length int) int {

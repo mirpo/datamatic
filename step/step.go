@@ -2,7 +2,7 @@ package step
 
 import (
 	"context"
-	"errors"
+	"fmt"
 
 	"github.com/mirpo/datamatic/config"
 )
@@ -18,6 +18,6 @@ func NewStepRunner(step config.Step) (StepRunner, error) {
 	case config.CliStepType:
 		return &CliStep{}, nil
 	default:
-		return nil, errors.New("unsupported step type")
+		return nil, fmt.Errorf("creating step runner for type %s: %w", step.Type, ErrUnsupportedStepType)
 	}
 }
