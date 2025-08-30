@@ -8,6 +8,7 @@ import (
 	"github.com/goforj/godump"
 	"github.com/mirpo/datamatic/config"
 	"github.com/mirpo/datamatic/defaults"
+	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/mirpo/datamatic/logger"
 	"github.com/mirpo/datamatic/runner"
 	"github.com/rs/zerolog/log"
@@ -57,6 +58,18 @@ func main() {
 	err = yaml.Unmarshal(yamlConfig, &cfg)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Parsing config file")
+	}
+
+	// parse JSON schemas once during config loading
+	marshaler := &jsonschema.SchemaMarshaler{}
+	for i := range cfg.Steps {
+		if cfg.Steps[i].JSONSchemaRaw != nil {
+			parsedSchema, err := marshaler.ParseSchemaFromInterface(cfg.Steps[i].JSONSchemaRaw)
+			if err != nil {
+				log.Fatal().Err(err).Msgf("Invalid JSON schema for step '%s'", cfg.Steps[i].Name)
+			}
+			cfg.Steps[i].JSONSchema = parsedSchema
+		}
 	}
 
 	err = cfg.Validate()

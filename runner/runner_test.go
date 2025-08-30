@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/mirpo/datamatic/config"
+	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
@@ -28,6 +29,16 @@ func TestValidateConfigFromExamples(t *testing.T) {
 			var cfg config.Config
 			err = yaml.Unmarshal(data, &cfg)
 			assert.NoError(t, err, "Failed to unmarshal YAML: %s", path)
+
+			// Parse JSON schemas once during config loading
+			marshaler := &jsonschema.SchemaMarshaler{}
+			for i := range cfg.Steps {
+				if cfg.Steps[i].JSONSchemaRaw != nil {
+					parsedSchema, err := marshaler.ParseSchemaFromInterface(cfg.Steps[i].JSONSchemaRaw)
+					assert.NoError(t, err, "Invalid JSON schema for step '%s' in file: %s", cfg.Steps[i].Name, path)
+					cfg.Steps[i].JSONSchema = parsedSchema
+				}
+			}
 
 			cfg.OutputFolder = "test"
 			cfg.SkipCliWarning = true

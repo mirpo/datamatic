@@ -29,7 +29,7 @@ func ReadStepValue(step config.Step, outputFolder string, lineNumber int, attrKe
 		return nil, err
 	}
 
-	configValidator := jsonschema.NewConfigValidator()
+	configValidator := &jsonschema.ConfigValidator{}
 
 	switch step.Type {
 	case config.CliStepType:

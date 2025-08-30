@@ -7,7 +7,7 @@ import (
 )
 
 func TestResponseValidator_ValidateJSONText(t *testing.T) {
-	validator := NewResponseValidator()
+	validator := &ResponseValidator{}
 
 	schema := JSONSchema{
 		Type: "object",
@@ -58,7 +58,7 @@ func TestResponseValidator_ValidateJSONText(t *testing.T) {
 }
 
 func TestResponseValidator_ValidateEnums(t *testing.T) {
-	validator := NewResponseValidator()
+	validator := &ResponseValidator{}
 
 	schema := JSONSchema{
 		Type: "object",

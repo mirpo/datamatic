@@ -8,10 +8,6 @@ import (
 
 type ResponseValidator struct{}
 
-func NewResponseValidator() *ResponseValidator {
-	return &ResponseValidator{}
-}
-
 func (v *ResponseValidator) ValidateJSONText(schema JSONSchema, input string) error {
 	var data map[string]interface{}
 	if err := json.Unmarshal([]byte(input), &data); err != nil {
@@ -55,14 +51,7 @@ func (v *ResponseValidator) validateAgainstSchema(schema JSONSchema, data map[st
 
 func (v *ResponseValidator) validateType(value interface{}, schema Property) error {
 	if len(schema.Enum) > 0 {
-		found := false
-		for _, enumValue := range schema.Enum {
-			if value == enumValue {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if !slices.Contains(schema.Enum, value) {
 			return fmt.Errorf("value %v is not in enum %v", value, schema.Enum)
 		}
 	}

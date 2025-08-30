@@ -42,9 +42,9 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 		return fmt.Errorf("failed to create LLM provider: %w", err)
 	}
 
-	configValidator := jsonschema.NewConfigValidator()
-	schemaMarshaler := jsonschema.NewSchemaMarshaler()
-	responseValidator := jsonschema.NewResponseValidator()
+	configValidator := &jsonschema.ConfigValidator{}
+	schemaMarshaler := &jsonschema.SchemaMarshaler{}
+	responseValidator := &jsonschema.ResponseValidator{}
 
 	for i < maxResult {
 		log.Info().Msgf("Running step '%s' (type: '%s'), iteration [%d]", step.Name, step.Type, i)

@@ -219,7 +219,7 @@ func (c *Config) Validate() error {
 
 	stepNames := map[string]bool{}
 	cliCalls := []string{}
-	configValidator := jsonschema.NewConfigValidator()
+	configValidator := &jsonschema.ConfigValidator{}
 
 	for index := range c.Steps {
 		step := &c.Steps[index]

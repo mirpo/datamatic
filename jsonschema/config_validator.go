@@ -4,10 +4,6 @@ import "slices"
 
 type ConfigValidator struct{}
 
-func NewConfigValidator() *ConfigValidator {
-	return &ConfigValidator{}
-}
-
 func (v *ConfigValidator) HasSchemaDefinition(schema JSONSchema) bool {
 	return len(schema.Properties) > 0 || len(schema.Required) > 0
 }

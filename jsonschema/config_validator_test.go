@@ -7,7 +7,7 @@ import (
 )
 
 func TestConfigValidator_HasSchemaDefinition(t *testing.T) {
-	validator := NewConfigValidator()
+	validator := &ConfigValidator{}
 
 	tests := []struct {
 		name     string
@@ -46,7 +46,7 @@ func TestConfigValidator_HasSchemaDefinition(t *testing.T) {
 }
 
 func TestConfigValidator_ValidateRequiredProperties(t *testing.T) {
-	validator := NewConfigValidator()
+	validator := &ConfigValidator{}
 
 	tests := []struct {
 		name     string
@@ -89,7 +89,7 @@ func TestConfigValidator_ValidateRequiredProperties(t *testing.T) {
 }
 
 func TestConfigValidator_HasRequiredProperty(t *testing.T) {
-	validator := NewConfigValidator()
+	validator := &ConfigValidator{}
 	schema := JSONSchema{
 		Properties: map[string]Property{
 			"name": {Type: "string"},
