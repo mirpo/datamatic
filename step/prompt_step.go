@@ -2,88 +2,36 @@ package step
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net"
 
-	"github.com/avast/retry-go/v4"
 	"github.com/mirpo/datamatic/config"
 	"github.com/mirpo/datamatic/fs"
 	"github.com/mirpo/datamatic/jsonl"
 	"github.com/mirpo/datamatic/llm"
 	"github.com/mirpo/datamatic/promptbuilder"
+	"github.com/mirpo/datamatic/retry"
 	"github.com/rs/zerolog/log"
-	"github.com/sashabaranov/go-openai"
 )
 
 type PromptStep struct{}
 
 func (p *PromptStep) retryLLMGeneration(ctx context.Context, cfg *config.Config, provider llm.Provider, req llm.GenerateRequest, response **llm.GenerateResponse) error {
-	if !cfg.RetryConfig.Enabled {
-		resp, err := provider.Generate(ctx, req)
-		if err != nil {
-			return err
-		}
-		*response = resp
-		return nil
+	retryConfig := retry.Config{
+		Enabled:           cfg.RetryConfig.Enabled,
+		MaxAttempts:       cfg.RetryConfig.MaxAttempts,
+		InitialDelay:      cfg.RetryConfig.InitialDelay,
+		MaxDelay:          cfg.RetryConfig.MaxDelay,
+		BackoffMultiplier: cfg.RetryConfig.BackoffMultiplier,
 	}
 
-	retryFn := func() error {
+	return retry.Do(ctx, retryConfig, func() error {
 		resp, err := provider.Generate(ctx, req)
 		if err == nil {
 			*response = resp
 			return nil
 		}
-
-		if p.shouldRetry(err) {
-			log.Warn().Err(err).Msg("LLM generation failed, will retry")
-			return err
-		}
-
-		log.Error().Err(err).Msg("LLM generation failed with permanent error")
-		return retry.Unrecoverable(err)
-	}
-
-	return retry.Do(
-		retryFn,
-		retry.Attempts(uint(cfg.RetryConfig.MaxAttempts)),
-		retry.Delay(cfg.RetryConfig.InitialDelay),
-		retry.MaxDelay(cfg.RetryConfig.MaxDelay),
-		retry.DelayType(retry.BackOffDelay),
-		retry.Context(ctx),
-		retry.OnRetry(func(n uint, err error) {
-			log.Info().Msgf("Retry attempt %d/%d after error: %v", n+1, cfg.RetryConfig.MaxAttempts, err)
-		}),
-	)
-}
-
-func (p *PromptStep) shouldRetry(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	var apiErr *openai.RequestError
-	log.Debug().Msgf("LLM error: %v", err)
-	if errors.As(err, &apiErr) {
-		switch apiErr.HTTPStatusCode {
-		case 401, 403: // Unauthorized or Forbidden
-			log.Error().Msgf("Permanent API error (status %d): %s", apiErr.HTTPStatusCode, apiErr.Error())
-			return false
-		case 429, 500, 502, 503, 504: // Retryable errors
-			log.Error().Msgf("Retryable API error (status %d): %s", apiErr.HTTPStatusCode, apiErr.Error())
-			return true
-		case 400, 404, 422: // Permanent errors
-			log.Error().Msgf("Permanent API error (status %d): %s", apiErr.HTTPStatusCode, apiErr.Error())
-			return false
-		}
-	}
-
-	var netErr net.Error
-	if errors.As(err, &netErr) && netErr.Timeout() {
-		return true
-	}
-
-	return false
+		return err
+	}, retry.ShouldRetryHTTPError)
 }
 
 func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.Step, outputFolder string) error {
@@ -121,7 +69,7 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 			placeholders := promptBuilder.GetPlaceholders()
 			for _, placeholder := range placeholders {
 				refStep := cfg.GetStepByName(placeholder.Step)
-				lineValue, err := refStep.GetValue(outputFolder, i, placeholder.Key)
+				lineValue, err := readStepValue(*refStep, outputFolder, i, placeholder.Key)
 				if err != nil {
 					log.Error().Err(err).Msg("failed to read value from the ref step")
 					break
