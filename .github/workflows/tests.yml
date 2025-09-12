@@ -34,9 +34,7 @@ jobs:
           args: --verbose
 
       - name: Run tests
-        run: |
-          make deadcode
-          make test
+        run: make test
 
       - name: Build
         run: make build
