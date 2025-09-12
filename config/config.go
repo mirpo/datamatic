@@ -3,7 +3,7 @@ package config
 import (
 	"time"
 
-	"github.com/mirpo/datamatic/jsonl"
+	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/mirpo/datamatic/llm"
 )
 
@@ -47,17 +47,18 @@ const (
 
 type Step struct {
 	Type               StepType
-	Name               string           `yaml:"name"`
-	Model              string           `yaml:"model"`
-	Prompt             string           `yaml:"prompt"`
-	Cmd                string           `yaml:"cmd"`
-	SystemPrompt       string           `yaml:"systemPrompt"`
-	MaxResults         interface{}      `yaml:"maxResults"`
-	ModelConfig        ModelConfig      `yaml:"modelConfig"`
-	OutputFilename     string           `yaml:"outputFilename"`
-	JSONSchema         jsonl.JSONSchema `yaml:"jsonSchema"`
-	ImagePath          string           `yaml:"imagePath"`
+	Name               string      `yaml:"name"`
+	Model              string      `yaml:"model"`
+	Prompt             string      `yaml:"prompt"`
+	Cmd                string      `yaml:"cmd"`
+	SystemPrompt       string      `yaml:"systemPrompt"`
+	MaxResults         interface{} `yaml:"maxResults"`
+	ModelConfig        ModelConfig `yaml:"modelConfig"`
+	OutputFilename     string      `yaml:"outputFilename"`
+	JSONSchemaRaw      interface{} `yaml:"jsonSchema"`
+	ImagePath          string      `yaml:"imagePath"`
 	ResolvedMaxResults int
+	JSONSchema         jsonschema.Schema
 }
 
 type ModelConfig struct {

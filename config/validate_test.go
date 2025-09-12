@@ -9,6 +9,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Helper function to set step types for testing (normally done in preprocessing)
+func setStepTypesForTesting(cfg *Config) {
+	for i := range cfg.Steps {
+		step := &cfg.Steps[i]
+		if len(step.Prompt) > 0 {
+			step.Type = PromptStepType
+		} else if len(step.Cmd) > 0 {
+			step.Type = CliStepType
+		}
+	}
+}
+
 func TestIsValidFName(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -45,35 +57,6 @@ func TestIsValidFName(t *testing.T) {
 				assert.Contains(t, err.Error(), tt.errMsg)
 			} else {
 				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
-func TestGetStepType(t *testing.T) {
-	tests := []struct {
-		name         string
-		step         Step
-		expectedType StepType
-		wantErr      bool
-		errMsg       string
-	}{
-		{"Prompt Only", Step{Prompt: "a prompt"}, PromptStepType, false, ""},
-		{"Cmd Only", Step{Cmd: "a command"}, CliStepType, false, ""},
-		{"Both", Step{Prompt: "a prompt", Cmd: "a command"}, UnknownStepType, true, "either 'prompt' or 'cmd' should be defined, not both"},
-		{"Neither", Step{}, UnknownStepType, true, "either 'prompt' or 'cmd' must be defined"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			stepType, err := getStepType(tt.step)
-			if tt.wantErr {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errMsg)
-				assert.Equal(t, UnknownStepType, stepType)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedType, stepType)
 			}
 		})
 	}
@@ -301,6 +284,7 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("Valid Config", func(t *testing.T) {
 		cfg := validConfig()
+		setStepTypesForTesting(&cfg)
 		err := cfg.Validate()
 		assert.NoError(t, err)
 
@@ -328,6 +312,7 @@ func TestValidateConfig(t *testing.T) {
 	t.Run("Empty Steps", func(t *testing.T) {
 		cfg := validConfig()
 		cfg.Steps = []Step{}
+		setStepTypesForTesting(&cfg)
 		err := cfg.Validate()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "at least one step is required")
@@ -336,6 +321,7 @@ func TestValidateConfig(t *testing.T) {
 	t.Run("Duplicate Step Names", func(t *testing.T) {
 		cfg := validConfig()
 		cfg.Steps = append(cfg.Steps, cfg.Steps[0])
+		setStepTypesForTesting(&cfg)
 		err := cfg.Validate()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "duplicate step name found: 'step1'")
@@ -344,30 +330,16 @@ func TestValidateConfig(t *testing.T) {
 	t.Run("Step With Empty Name", func(t *testing.T) {
 		cfg := validConfig()
 		cfg.Steps[0].Name = ""
+		setStepTypesForTesting(&cfg)
 		err := cfg.Validate()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "step at index 0: name can't be empty")
 	})
 
-	t.Run("Step With Both Prompt and Cmd", func(t *testing.T) {
-		cfg := validConfig()
-		cfg.Steps[0].Cmd = "a command"
-		err := cfg.Validate()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "step 'step1': either 'prompt' or 'cmd' should be defined, not both")
-	})
-
-	t.Run("Step With Neither Prompt nor Cmd", func(t *testing.T) {
-		cfg := validConfig()
-		cfg.Steps[0].Prompt = ""
-		err := cfg.Validate()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "step 'step1': either 'prompt' or 'cmd' must be defined")
-	})
-
 	t.Run("Step With Empty Model", func(t *testing.T) {
 		cfg := validConfig()
 		cfg.Steps[0].Model = ""
+		setStepTypesForTesting(&cfg)
 		err := cfg.Validate()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "step 'step1': model definition can't be empty")
@@ -376,6 +348,7 @@ func TestValidateConfig(t *testing.T) {
 	t.Run("Step With Invalid Model Format", func(t *testing.T) {
 		cfg := validConfig()
 		cfg.Steps[0].Model = "invalid-model-string"
+		setStepTypesForTesting(&cfg)
 		err := cfg.Validate()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "step 'step1': model should follow pattern")
@@ -384,6 +357,7 @@ func TestValidateConfig(t *testing.T) {
 	t.Run("Step With Unsupported Provider", func(t *testing.T) {
 		cfg := validConfig()
 		cfg.Steps[0].Model = "unsupported:model"
+		setStepTypesForTesting(&cfg)
 		err := cfg.Validate()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "step 'step1': unsupported provider")
@@ -393,6 +367,7 @@ func TestValidateConfig(t *testing.T) {
 		cfg := validConfig()
 		tempNeg := -0.1
 		cfg.Steps[0].ModelConfig.Temperature = &tempNeg
+		setStepTypesForTesting(&cfg)
 		err := cfg.Validate()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "step 'step1': model config validation failed: temperature must be between 0 and 1")
@@ -401,6 +376,7 @@ func TestValidateConfig(t *testing.T) {
 	t.Run("Step With Invalid Output Filename", func(t *testing.T) {
 		cfg := validConfig()
 		cfg.Steps[0].OutputFilename = "invalid<filename>"
+		setStepTypesForTesting(&cfg)
 		err := cfg.Validate()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "step 'step1': invalid output filename 'invalid<filename>': filename contains invalid characters")
@@ -409,6 +385,7 @@ func TestValidateConfig(t *testing.T) {
 	t.Run("Invalid Output Folder", func(t *testing.T) {
 		cfg := validConfig()
 		cfg.OutputFolder = ""
+		setStepTypesForTesting(&cfg)
 		err := cfg.Validate()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "output folder is required")
@@ -416,6 +393,7 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("MaxResults Defaults Correctly", func(t *testing.T) {
 		cfg := validConfig()
+		setStepTypesForTesting(&cfg)
 
 		cfg.Steps[0].MaxResults = 10
 		cfg.Steps[1].MaxResults = nil

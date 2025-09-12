@@ -1,0 +1,144 @@
+version: 1.0
+
+steps:
+  - name: generate_cv
+    model: ollama:llama3.2
+    prompt: |
+      Generate a detailed CV for a Senior Software Engineer with 8-10 years experience.
+
+      Include:
+      - Personal details and professional summary
+      - 4-5 different companies with specific roles, dates (2015-2024), technologies
+      - Mix of startups and established companies
+      - Career progression (Junior → Senior → Lead → Principal)
+      - Education: Computer Science degree + 2-3 certifications
+      - Technical skills in multiple languages/frameworks
+
+      Make it realistic with:
+      - Real company names and locations
+      - Specific project descriptions
+      - Technology stacks (React, Python, AWS, Docker, etc.)
+      - Measurable achievements and impact
+
+      Format as a professional CV text document.
+    maxResults: 3
+    modelConfig:
+      temperature: 0.8
+      maxTokens: 3000
+
+  - name: extract_companies
+    model: ollama:llama3.2
+    maxResults: generate_cv.$length
+    prompt: |
+      Extract all employment information from this CV. Focus on companies, roles, and dates.
+
+      CV Text:
+      {{.generate_cv}}
+
+      Extract each job with:
+      - Company name and location
+      - Job title and employment dates
+      - Duration in months
+      - Key technologies used
+      - Major achievements/responsibilities (max 3)
+    jsonSchema:
+      type: object
+      properties:
+        companies:
+          type: array
+          items:
+            type: object
+            properties:
+              company_name:
+                type: string
+                description: "Official company name"
+              location:
+                type: string
+                description: "City, State/Country"
+              position:
+                type: string
+                description: "Job title/role"
+              start_date:
+                type: string
+                description: "Start date (YYYY-MM format)"
+              end_date:
+                type: string
+                description: "End date (YYYY-MM format or 'Present')"
+              duration_months:
+                type: integer
+                description: "Total duration in months"
+              technologies:
+                type: array
+                items:
+                  type: string
+                description: "Technologies and tools used"
+              achievements:
+                type: array
+                items:
+                  type: string
+                maxItems: 3
+                description: "Key accomplishments and responsibilities"
+            required:
+              - company_name
+              - position
+              - start_date
+              - end_date
+              - duration_months
+              - technologies
+              - achievements
+      required:
+        - companies
+    modelConfig:
+      temperature: 0.1
+
+  - name: extract_courses
+    model: ollama:llama3.2
+    maxResults: generate_cv.$length
+    prompt: |
+      Extract all education and certification information from this CV.
+
+      CV Text: 
+      {{.generate_cv}}
+
+      Find and structure:
+      - University degrees with institutions, graduation years
+      - Professional certifications with issuers and dates
+      - Online courses or bootcamps completed
+      - Technical training programs
+    jsonSchema: |
+      {
+        "type": "object",
+        "properties": {
+          "education": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "degree": {"type": "string", "description": "Degree type (Bachelor's, Master's, PhD, etc.)"},
+                "field": {"type": "string", "description": "Field of study"},
+                "institution": {"type": "string", "description": "University or school name"},
+                "graduation_year": {"type": "integer", "description": "Year of graduation"},
+                "gpa": {"type": "number", "description": "Grade point average", "minimum": 0, "maximum": 4}
+              },
+              "required": ["degree", "field", "institution", "graduation_year"]
+            }
+          },
+          "certifications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {"type": "string", "description": "Certification name"},
+                "issuer": {"type": "string", "description": "Issuing organization"},
+                "issue_date": {"type": "string", "description": "Date issued (YYYY-MM format)"},
+                "expiry_date": {"type": "string", "description": "Expiry date (YYYY-MM format or 'Never')"},
+                "credential_id": {"type": "string", "description": "Credential ID or certificate number"}
+              },
+              "required": ["name", "issuer", "issue_date"]
+            }
+          }
+        },
+        "required": ["education", "certifications"]
+      }
+    modelConfig:
+      temperature: 0.1

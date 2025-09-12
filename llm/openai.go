@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mirpo/datamatic/jsonl"
 	"github.com/rs/zerolog/log"
 	"github.com/sashabaranov/go-openai"
 )
@@ -30,9 +29,9 @@ func NewOpenAIProvider(config ProviderConfig) *OpenAIProvider {
 }
 
 type ResponseJSONSchema struct {
-	Name   string           `json:"name"`
-	Strict bool             `json:"strict"`
-	Schema jsonl.JSONSchema `json:"schema"`
+	Name   string      `json:"name"`
+	Strict bool        `json:"strict"`
+	Schema interface{} `json:"schema"`
 }
 
 type ResponseFormat struct {
@@ -94,7 +93,7 @@ func (p *OpenAIProvider) Generate(ctx context.Context, request GenerateRequest) 
 			JSONSchema: &openai.ChatCompletionResponseFormatJSONSchema{
 				Name:   "json_schema",
 				Strict: true,
-				Schema: &request.JSONSchema,
+				Schema: request.JSONSchema.GetSchema(),
 			},
 		}
 	}
