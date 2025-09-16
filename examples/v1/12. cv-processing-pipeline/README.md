@@ -16,7 +16,7 @@ Install:
 
 ## Features
 
-- **Step 2**: YAML-native schema (clean & readable)
-- **Step 3**: JSON string schema (copy-paste friendly)
+- **Step 2**: YAML-native schema
+- **Step 3**: JSON string schema
 - Multi-step pipeline with `{{.generate_cv}}` references
 - Single file approach (no external schema files)
