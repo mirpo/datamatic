@@ -10,7 +10,6 @@ import (
 	"github.com/mirpo/datamatic/config"
 	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/mirpo/datamatic/llm"
-	"github.com/rs/zerolog/log"
 )
 
 // setStepType determines and sets the step type based on step configuration
@@ -36,7 +35,7 @@ func setStepType(step *config.Step) error {
 }
 
 // PreprocessConfig handles initial config setup: sets step types and processes schemas
-func PreprocessConfig(cfg *config.Config, verbose bool) error {
+func PreprocessConfig(cfg *config.Config) error {
 	// Set step types for all steps
 	for i := range cfg.Steps {
 		step := &cfg.Steps[i]
@@ -48,24 +47,17 @@ func PreprocessConfig(cfg *config.Config, verbose bool) error {
 	// Process JSON schemas for prompt steps
 	for i := range cfg.Steps {
 		step := &cfg.Steps[i]
-		if verbose {
-			log.Debug().Msgf("Checking step '%s': Type=%s, JSONSchemaRaw=%v", step.Name, step.Type, step.JSONSchemaRaw != nil)
-		}
 		if step.Type != config.PromptStepType || step.JSONSchemaRaw == nil {
 			continue
 		}
-		if verbose {
-			log.Debug().Msgf("Processing JSON schema for step '%s'", step.Name)
-		}
+
 		schema, err := jsonschema.LoadSchema(step.JSONSchemaRaw)
 		if err != nil {
 			return fmt.Errorf("processing JSON schema for step '%s': %w", step.Name, err)
 		}
+
 		if schema != nil {
 			step.JSONSchema = *schema
-			if verbose {
-				log.Debug().Msgf("Successfully loaded JSON schema for step '%s'", step.Name)
-			}
 		}
 	}
 
@@ -75,28 +67,17 @@ func PreprocessConfig(cfg *config.Config, verbose bool) error {
 		if step.Type != config.PromptStepType {
 			continue
 		}
-		if verbose {
-			log.Debug().Msgf("Processing model details for step '%s'", step.Name)
-		}
+
 		if err := setModelDetails(step); err != nil {
 			return fmt.Errorf("processing model details for step '%s': %w", step.Name, err)
-		}
-		if verbose {
-			log.Debug().Msgf("Successfully set model provider '%s' and model '%s' for step '%s'", step.ModelConfig.ModelProvider, step.ModelConfig.ModelName, step.Name)
 		}
 	}
 
 	// Set output filenames for all steps
 	for i := range cfg.Steps {
 		step := &cfg.Steps[i]
-		if verbose {
-			log.Debug().Msgf("Processing output filename for step '%s'", step.Name)
-		}
 		if err := setOutputFilename(step, cfg.OutputFolder); err != nil {
 			return fmt.Errorf("step '%s': %w", step.Name, err)
-		}
-		if verbose {
-			log.Debug().Msgf("Successfully set output filename '%s' for step '%s'", step.OutputFilename, step.Name)
 		}
 	}
 
@@ -104,14 +85,8 @@ func PreprocessConfig(cfg *config.Config, verbose bool) error {
 	for i := range cfg.Steps {
 		step := &cfg.Steps[i]
 		if step.HasImages() {
-			if verbose {
-				log.Debug().Msgf("Processing image path for step '%s'", step.Name)
-			}
 			if err := setImagePath(step, cfg.OutputFolder); err != nil {
 				return fmt.Errorf("step '%s': %w", step.Name, err)
-			}
-			if verbose {
-				log.Debug().Msgf("Successfully set image path '%s' for step '%s'", step.ImagePath, step.Name)
 			}
 		}
 	}
@@ -119,14 +94,8 @@ func PreprocessConfig(cfg *config.Config, verbose bool) error {
 	// Set default MaxResults for steps (nil, empty string, int <= 0)
 	for i := range cfg.Steps {
 		step := &cfg.Steps[i]
-		if verbose {
-			log.Debug().Msgf("Processing MaxResults for step '%s'", step.Name)
-		}
 		if err := setMaxResultsDefaults(step); err != nil {
 			return fmt.Errorf("step '%s': %w", step.Name, err)
-		}
-		if verbose {
-			log.Debug().Msgf("Successfully set MaxResults '%v' for step '%s'", step.MaxResults, step.Name)
 		}
 	}
 
@@ -223,18 +192,17 @@ func setMaxResultsDefaults(step *config.Step) error {
 			step.MaxResults = config.DefaultStepMinMaxResults
 			return nil
 		}
-		// Keep dynamic strings (like "foo.$length") for validation phase
+		// check dynamic strings (like "foo.$length") in validation phase
 		return nil
 
 	case int:
 		if v <= 0 {
 			step.MaxResults = config.DefaultStepMinMaxResults
 		}
-		// Keep positive int values as-is
+		// positive int values passed as-is
 		return nil
 
 	default:
-		// Keep other types for validation phase to report proper error
 		return nil
 	}
 }
