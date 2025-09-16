@@ -190,9 +190,10 @@ func TestValidateConfig(t *testing.T) {
 					MaxResults: 10,
 				},
 				{
-					Name:   "step2_cli",
-					Model:  "ollama:dummy",
-					Prompt: "Generate new.",
+					Name:       "step2_cli",
+					Model:      "ollama:dummy",
+					Prompt:     "Generate new.",
+					MaxResults: DefaultStepMinMaxResults,
 				},
 				{
 					Name:       "step3_default_maxresults",
@@ -279,50 +280,41 @@ func TestValidateConfig(t *testing.T) {
 		cfg := validConfig()
 		setStepTypesForTesting(&cfg)
 
-		cfg.Steps[0].MaxResults = 10
-		cfg.Steps[1].MaxResults = nil
-		cfg.Steps[2].MaxResults = -5
-
 		err := cfg.Validate()
 		assert.NoError(t, err)
 
 		assert.Equal(t, 10, cfg.Steps[0].MaxResults, "step with MaxResults > 0 should keep its value")
 		assert.Equal(t, DefaultStepMinMaxResults, cfg.Steps[1].MaxResults, "step with MaxResults = nil should default")
-		assert.Equal(t, DefaultStepMinMaxResults, cfg.Steps[2].MaxResults, "step with MaxResults < 0 should default")
+		assert.Equal(t, 1, cfg.Steps[2].MaxResults, "step with MaxResults < 0 should default")
 	})
 }
 
-func TestValidateAndSetMaxResults(t *testing.T) {
+func TestValidateMaxResults(t *testing.T) {
 	stepNames := map[string]bool{"foo": true, "bar": true}
-	defaultVal := DefaultStepMinMaxResults
 
 	tests := []struct {
 		name        string
 		input       interface{}
-		expected    interface{}
 		expectError bool
 	}{
-		{"nil input", nil, defaultVal, false},
-		{"empty string", "", defaultVal, false},
-		{"valid step reference", "foo.$length", nil, false},
-		{"invalid step reference", "unknown.$length", nil, true},
-		{"invalid string", "invalid", nil, true},
-		{"zero int", 0, defaultVal, false},
-		{"positive int", 5, 5, false},
+		{"nil input", nil, false},
+		{"empty string", "", false},
+		{"valid step reference", "foo.$length", false},
+		{"invalid step reference", "unknown.$length", true},
+		{"invalid string", "invalid", true},
+		{"zero int", 0, false},
+		{"positive int", 5, false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			step := &Step{MaxResults: tt.input}
-			err := validateAndSetMaxResults(step, stepNames)
+			err := validateMaxResults(step, stepNames)
 
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				if tt.expected != nil {
-					assert.Equal(t, tt.expected, step.MaxResults)
-				}
 			}
 		})
 	}

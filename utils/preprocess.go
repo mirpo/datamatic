@@ -116,6 +116,20 @@ func PreprocessConfig(cfg *config.Config, verbose bool) error {
 		}
 	}
 
+	// Set default MaxResults for steps (nil, empty string, int <= 0)
+	for i := range cfg.Steps {
+		step := &cfg.Steps[i]
+		if verbose {
+			log.Debug().Msgf("Processing MaxResults for step '%s'", step.Name)
+		}
+		if err := setMaxResultsDefaults(step); err != nil {
+			return fmt.Errorf("step '%s': %w", step.Name, err)
+		}
+		if verbose {
+			log.Debug().Msgf("Successfully set MaxResults '%v' for step '%s'", step.MaxResults, step.Name)
+		}
+	}
+
 	return nil
 }
 
@@ -195,6 +209,34 @@ func setImagePath(step *config.Step, outputFolder string) error {
 	}
 
 	return nil
+}
+
+// setMaxResultsDefaults sets default MaxResults for nil, empty string, and int <= 0 cases
+func setMaxResultsDefaults(step *config.Step) error {
+	switch v := step.MaxResults.(type) {
+	case nil:
+		step.MaxResults = config.DefaultStepMinMaxResults
+		return nil
+
+	case string:
+		if v == "" {
+			step.MaxResults = config.DefaultStepMinMaxResults
+			return nil
+		}
+		// Keep dynamic strings (like "foo.$length") for validation phase
+		return nil
+
+	case int:
+		if v <= 0 {
+			step.MaxResults = config.DefaultStepMinMaxResults
+		}
+		// Keep positive int values as-is
+		return nil
+
+	default:
+		// Keep other types for validation phase to report proper error
+		return nil
+	}
 }
 
 // isValidName validates filename according to filesystem rules
