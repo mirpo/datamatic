@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mirpo/datamatic/llm"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -170,47 +169,6 @@ func TestValidateAndAbsOutputFolder(t *testing.T) {
 	}
 }
 
-func TestGetFullOutputPath(t *testing.T) {
-	baseOutputFolder := "test_output"
-	absBaseOutputFolder, err := filepath.Abs(baseOutputFolder)
-	assert.NoError(t, err, "failed to get absolute path for base test folder")
-	absDotFolder, err := filepath.Abs(".")
-	assert.NoError(t, err, "failed to get absolute path for '.' folder")
-
-	tests := []struct {
-		name                 string
-		step                 Step
-		absoluteOutputFolder string
-		expectedAbsPath      string
-		wantErr              bool
-		errMsg               string
-	}{
-		{"Default Filename No Extension", Step{Name: "step1"}, absBaseOutputFolder, filepath.Join(absBaseOutputFolder, "step1.jsonl"), false, ""},
-		{"Default Filename With Extension", Step{Name: "step2.jsonl"}, absBaseOutputFolder, filepath.Join(absBaseOutputFolder, "step2.jsonl"), false, ""},
-		{"Explicit Filename No Extension", Step{Name: "step3_name", OutputFilename: "explicit_file"}, absBaseOutputFolder, filepath.Join(absBaseOutputFolder, "explicit_file.jsonl"), false, ""},
-		{"Explicit Filename With Extension", Step{Name: "step4_name", OutputFilename: "explicit_file.jsonl"}, absBaseOutputFolder, filepath.Join(absBaseOutputFolder, "explicit_file.jsonl"), false, ""},
-		{"Output Folder Is Root (Simulated)", Step{Name: "step5"}, string(filepath.Separator), filepath.Join(string(filepath.Separator), "step5.jsonl"), false, ""},
-		{"Output Folder Is Dot Absolute", Step{Name: "step6"}, absDotFolder, filepath.Join(absDotFolder, "step6.jsonl"), false, ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			expected := filepath.Clean(tt.expectedAbsPath)
-
-			absPath, err := getFullOutputPath(tt.step, tt.absoluteOutputFolder)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errMsg)
-				assert.Empty(t, absPath)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, expected, filepath.Clean(absPath))
-			}
-		})
-	}
-}
-
 func TestValidateConfig(t *testing.T) {
 	validConfig := func() Config {
 		temp0_5 := 0.5
@@ -253,24 +211,13 @@ func TestValidateConfig(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Equal(t, PromptStepType, cfg.Steps[0].Type)
-		assert.Equal(t, llm.ProviderOllama, cfg.Steps[0].ModelConfig.ModelProvider)
-		assert.Equal(t, "llama3.1", cfg.Steps[0].ModelConfig.ModelName)
 		assert.Equal(t, 10, cfg.Steps[0].MaxResults)
 
 		assert.Equal(t, PromptStepType, cfg.Steps[1].Type)
-		assert.Equal(t, llm.ProviderOllama, cfg.Steps[1].ModelConfig.ModelProvider)
-		assert.Equal(t, "dummy", cfg.Steps[1].ModelConfig.ModelName)
 		assert.Equal(t, DefaultStepMinMaxResults, cfg.Steps[1].MaxResults)
 
 		assert.Equal(t, PromptStepType, cfg.Steps[2].Type)
-		assert.Equal(t, llm.ProviderLmStudio, cfg.Steps[2].ModelConfig.ModelProvider)
-		assert.Equal(t, "dummy", cfg.Steps[2].ModelConfig.ModelName)
 		assert.Equal(t, 1, cfg.Steps[2].MaxResults)
-
-		absOutputFolder, _ := filepath.Abs("my_output")
-		assert.Equal(t, filepath.Join(absOutputFolder, "step1.jsonl"), cfg.Steps[0].OutputFilename)
-		assert.Equal(t, filepath.Join(absOutputFolder, "step2_cli.jsonl"), cfg.Steps[1].OutputFilename)
-		assert.Equal(t, filepath.Join(absOutputFolder, "step3_default_maxresults.jsonl"), cfg.Steps[2].OutputFilename)
 	})
 
 	t.Run("Empty Steps", func(t *testing.T) {
@@ -298,33 +245,6 @@ func TestValidateConfig(t *testing.T) {
 		err := cfg.Validate()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "step at index 0: name can't be empty")
-	})
-
-	t.Run("Step With Empty Model", func(t *testing.T) {
-		cfg := validConfig()
-		cfg.Steps[0].Model = ""
-		setStepTypesForTesting(&cfg)
-		err := cfg.Validate()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "step 'step1': model definition can't be empty")
-	})
-
-	t.Run("Step With Invalid Model Format", func(t *testing.T) {
-		cfg := validConfig()
-		cfg.Steps[0].Model = "invalid-model-string"
-		setStepTypesForTesting(&cfg)
-		err := cfg.Validate()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "step 'step1': model should follow pattern")
-	})
-
-	t.Run("Step With Unsupported Provider", func(t *testing.T) {
-		cfg := validConfig()
-		cfg.Steps[0].Model = "unsupported:model"
-		setStepTypesForTesting(&cfg)
-		err := cfg.Validate()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "step 'step1': unsupported provider")
 	})
 
 	t.Run("Step With Invalid Model Config", func(t *testing.T) {

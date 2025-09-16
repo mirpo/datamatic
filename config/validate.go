@@ -80,27 +80,6 @@ func validateModelConfig(step ModelConfig) error {
 	return nil
 }
 
-func getFullOutputPath(step Step, outputFolder string) (string, error) {
-	extension := ".jsonl"
-
-	filename := step.OutputFilename
-	if len(filename) == 0 {
-		filename = step.Name
-	}
-
-	if err := isValidName(filename); err != nil {
-		return "", fmt.Errorf("invalid effective output filename '%s': %w", filename, err)
-	}
-
-	if !strings.HasSuffix(filename, extension) {
-		filename = filename + extension
-	}
-
-	fullPath := filepath.Join(outputFolder, filename)
-
-	return filepath.Clean(fullPath), nil
-}
-
 func validateAndAbsOutputFolder(outputFolder string) (string, error) {
 	if len(outputFolder) == 0 {
 		return "", errors.New("output folder is required")
@@ -262,12 +241,6 @@ func (c *Config) Validate() error {
 				}
 			}
 		}
-
-		fullOutputPath, err := getFullOutputPath(*step, c.OutputFolder)
-		if err != nil {
-			return fmt.Errorf("step '%s': failed to get full output path: %w", step.Name, err)
-		}
-		step.OutputFilename = fullOutputPath
 
 		if step.HasImages() {
 			step.ImagePath = strings.TrimSpace(step.ImagePath)

@@ -3,6 +3,8 @@ package utils
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/mirpo/datamatic/config"
@@ -84,6 +86,20 @@ func PreprocessConfig(cfg *config.Config, verbose bool) error {
 		}
 	}
 
+	// Set output filenames for all steps
+	for i := range cfg.Steps {
+		step := &cfg.Steps[i]
+		if verbose {
+			log.Debug().Msgf("Processing output filename for step '%s'", step.Name)
+		}
+		if err := setOutputFilename(step, cfg.OutputFolder); err != nil {
+			return fmt.Errorf("step '%s': %w", step.Name, err)
+		}
+		if verbose {
+			log.Debug().Msgf("Successfully set output filename '%s' for step '%s'", step.OutputFilename, step.Name)
+		}
+	}
+
 	return nil
 }
 
@@ -120,4 +136,58 @@ func isValidProvider(provider llm.ProviderType) bool {
 	default:
 		return false
 	}
+}
+
+// getFullOutputPath constructs the full output path for a step
+func getFullOutputPath(step config.Step, outputFolder string) (string, error) {
+	extension := ".jsonl"
+
+	filename := step.OutputFilename
+	if len(filename) == 0 {
+		filename = step.Name
+	}
+
+	if err := isValidName(filename); err != nil {
+		return "", fmt.Errorf("invalid effective output filename '%s': %w", filename, err)
+	}
+
+	if !strings.HasSuffix(filename, extension) {
+		filename = filename + extension
+	}
+
+	fullPath := filepath.Join(outputFolder, filename)
+
+	return filepath.Clean(fullPath), nil
+}
+
+// setOutputFilename sets the full output path for a step
+func setOutputFilename(step *config.Step, outputFolder string) error {
+	fullOutputPath, err := getFullOutputPath(*step, outputFolder)
+	if err != nil {
+		return fmt.Errorf("failed to get full output path: %w", err)
+	}
+	step.OutputFilename = fullOutputPath
+	return nil
+}
+
+// isValidName validates filename according to filesystem rules
+func isValidName(name string) error {
+	if len(name) == 0 {
+		return errors.New("filename cannot be empty")
+	}
+
+	if len(name) > 255 {
+		return errors.New("filename exceeds the maximum length of 255 characters")
+	}
+
+	illegalChars := regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
+	if illegalChars.MatchString(name) {
+		return errors.New("filename contains invalid characters")
+	}
+
+	if strings.HasSuffix(name, " ") || (len(name) > 1 && strings.HasSuffix(name, ".")) {
+		return errors.New("filename cannot end with a space or a period (unless the name is just '.')")
+	}
+
+	return nil
 }
