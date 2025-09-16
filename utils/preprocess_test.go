@@ -47,7 +47,7 @@ func TestPreprocessConfig(t *testing.T) {
 			name: "Valid config with prompt step",
 			config: &config.Config{
 				Steps: []config.Step{
-					{Name: "test", Prompt: "test prompt"},
+					{Name: "test", Prompt: "test prompt", Model: "ollama:llama3.2"},
 				},
 			},
 			wantErr: false,

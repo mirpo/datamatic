@@ -62,42 +62,6 @@ func TestIsValidFName(t *testing.T) {
 	}
 }
 
-func TestGetModelDetails(t *testing.T) {
-	tests := []struct {
-		name             string
-		step             Step
-		expectedProvider llm.ProviderType
-		expectedName     string
-		wantErr          bool
-		errMsg           string
-	}{
-		{"Valid Ollama", Step{Model: "ollama:llama3.1"}, llm.ProviderOllama, "llama3.1", false, ""},
-		{"Valid LmStudio", Step{Model: "lmstudio:meta-llama/Llama-3-8B-Instruct"}, llm.ProviderLmStudio, "meta-llama/Llama-3-8B-Instruct", false, ""},
-		{"Valid OpenAI", Step{Model: "openai:gpt-4"}, llm.ProviderOpenAI, "gpt-4", false, ""},
-		{"Empty Model", Step{Model: ""}, llm.ProviderUnknown, "", true, "model definition can't be empty"},
-		{"Missing Colon", Step{Model: "ollamallama3.1"}, llm.ProviderUnknown, "", true, "model should follow pattern"},
-		{"Extra Colon", Step{Model: "ollama:model:extra"}, llm.ProviderOllama, "model:extra", false, ""},
-		{"Empty Model Name", Step{Model: "ollama:"}, llm.ProviderUnknown, "", true, "model name can't be empty"},
-		{"Unsupported Provider", Step{Model: "unsupported:model"}, llm.ProviderUnknown, "", true, "unsupported provider"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			provider, name, err := getModelDetails(tt.step)
-			if tt.wantErr {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errMsg)
-				assert.Equal(t, llm.ProviderUnknown, provider)
-				assert.Empty(t, name)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedProvider, provider)
-				assert.Equal(t, tt.expectedName, name)
-			}
-		})
-	}
-}
-
 func TestValidateUrl(t *testing.T) {
 	tests := []struct {
 		name    string

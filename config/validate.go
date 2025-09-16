@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/mirpo/datamatic/llm"
 	"github.com/mirpo/datamatic/promptbuilder"
 )
 
@@ -44,33 +43,6 @@ func isValidName(name string) error {
 	}
 
 	return nil
-}
-
-func getModelDetails(step Step) (llm.ProviderType, string, error) {
-	if step.Model == "" {
-		return llm.ProviderUnknown, "", errors.New("model definition can't be empty")
-	}
-
-	result := strings.SplitN(step.Model, ":", 2)
-	if len(result) != 2 {
-		return llm.ProviderUnknown, "", fmt.Errorf("model should follow pattern 'provider:model', examples: 'ollama:llama3.2'")
-	}
-
-	providerStr := result[0]
-	modelName := result[1]
-
-	providerType := llm.ProviderType(providerStr)
-	switch providerType {
-	case llm.ProviderOllama, llm.ProviderLmStudio, llm.ProviderOpenAI, llm.ProviderOpenRouter, llm.ProviderGemini:
-	default:
-		return llm.ProviderUnknown, "", fmt.Errorf("unsupported provider: %s", providerStr)
-	}
-
-	if len(modelName) == 0 {
-		return llm.ProviderUnknown, "", errors.New("model name can't be empty")
-	}
-
-	return providerType, modelName, nil
 }
 
 func validateURL(input string) error {
@@ -275,13 +247,6 @@ func (c *Config) Validate() error {
 					}
 				}
 			}
-
-			llmProvider, modelName, err := getModelDetails(*step)
-			if err != nil {
-				return fmt.Errorf("step '%s': %w", step.Name, err)
-			}
-			step.ModelConfig.ModelProvider = llmProvider
-			step.ModelConfig.ModelName = modelName
 
 			if err := validateModelConfig(step.ModelConfig); err != nil {
 				return fmt.Errorf("step '%s': model config validation failed: %w", step.Name, err)
