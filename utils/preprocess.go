@@ -100,6 +100,22 @@ func PreprocessConfig(cfg *config.Config, verbose bool) error {
 		}
 	}
 
+	// Process image paths for steps that have images
+	for i := range cfg.Steps {
+		step := &cfg.Steps[i]
+		if step.HasImages() {
+			if verbose {
+				log.Debug().Msgf("Processing image path for step '%s'", step.Name)
+			}
+			if err := setImagePath(step, cfg.OutputFolder); err != nil {
+				return fmt.Errorf("step '%s': %w", step.Name, err)
+			}
+			if verbose {
+				log.Debug().Msgf("Successfully set image path '%s' for step '%s'", step.ImagePath, step.Name)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -167,6 +183,17 @@ func setOutputFilename(step *config.Step, outputFolder string) error {
 		return fmt.Errorf("failed to get full output path: %w", err)
 	}
 	step.OutputFilename = fullOutputPath
+	return nil
+}
+
+// setImagePath processes and sets the image path for a step
+func setImagePath(step *config.Step, outputFolder string) error {
+	step.ImagePath = strings.TrimSpace(step.ImagePath)
+
+	if !filepath.IsAbs(step.ImagePath) {
+		step.ImagePath = filepath.Join(outputFolder, step.ImagePath)
+	}
+
 	return nil
 }
 

@@ -241,14 +241,6 @@ func (c *Config) Validate() error {
 				}
 			}
 		}
-
-		if step.HasImages() {
-			step.ImagePath = strings.TrimSpace(step.ImagePath)
-
-			if !filepath.IsAbs(step.ImagePath) {
-				step.ImagePath = filepath.Join(c.OutputFolder, step.ImagePath)
-			}
-		}
 	}
 
 	if !c.SkipCliWarning && len(cliCalls) > 0 {
