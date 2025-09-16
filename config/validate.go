@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/url"
 	"path/filepath"
 	"regexp"
@@ -125,8 +124,6 @@ func validateMaxResults(step *Step, stepNames map[string]bool) error {
 }
 
 func (c *Config) Validate() error {
-	slog.Debug("start config validation")
-
 	if err := validateVersion(c.Version); err != nil {
 		return err
 	}
@@ -241,6 +238,5 @@ func (c *Config) Validate() error {
 		fmt.Scanln() //nolint:golint,errcheck
 	}
 
-	slog.Debug("config validation successful")
 	return nil
 }

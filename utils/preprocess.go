@@ -36,64 +36,75 @@ func setStepType(step *config.Step) error {
 
 // PreprocessConfig handles initial config setup: sets step types and processes schemas
 func PreprocessConfig(cfg *config.Config) error {
-	// Set step types for all steps
+	if cfg == nil {
+		return fmt.Errorf("config is nil")
+	}
+
+	stepNames := make(map[string]bool, len(cfg.Steps))
+
 	for i := range cfg.Steps {
 		step := &cfg.Steps[i]
+
+		// Step name checks
+		if strings.TrimSpace(step.Name) == "" {
+			return fmt.Errorf("step at index %d: name can't be empty", i)
+		}
+		if strings.ToUpper(step.Name) == "SYSTEM" {
+			return fmt.Errorf("using 'SYSTEM' as step name is not allowed")
+		}
+		if stepNames[step.Name] {
+			return fmt.Errorf("duplicate step name found: '%s'", step.Name)
+		}
+		stepNames[step.Name] = true
+
+		// Step type (prompt vs cli)
 		if err := setStepType(step); err != nil {
 			return fmt.Errorf("step '%s': %w", step.Name, err)
 		}
-	}
 
-	// Process JSON schemas for prompt steps
-	for i := range cfg.Steps {
-		step := &cfg.Steps[i]
-		if step.Type != config.PromptStepType || step.JSONSchemaRaw == nil {
-			continue
+		// Prompt steps
+		if step.Type == config.PromptStepType {
+			// Require valid model definition
+			if err := setModelDetails(step); err != nil {
+				return fmt.Errorf("processing model details for step '%s': %w", step.Name, err)
+			}
+
+			// Load JSON schema if provided
+			if step.JSONSchemaRaw != nil {
+				schema, err := jsonschema.LoadSchema(step.JSONSchemaRaw)
+				if err != nil {
+					return fmt.Errorf("processing JSON schema for step '%s': %w", step.Name, err)
+				}
+				if schema != nil {
+					step.JSONSchema = *schema
+				}
+			}
 		}
 
-		schema, err := jsonschema.LoadSchema(step.JSONSchemaRaw)
-		if err != nil {
-			return fmt.Errorf("processing JSON schema for step '%s': %w", step.Name, err)
+		// CLI steps
+		if step.Type == config.CliStepType {
+			if step.OutputFilename == "" {
+				return fmt.Errorf("step '%s': output filename is mandatory for CLI steps", step.Name)
+			}
+			if err := isValidName(step.OutputFilename); err != nil {
+				return fmt.Errorf("step '%s': invalid output filename '%s': %w",
+					step.Name, step.OutputFilename, err)
+			}
 		}
 
-		if schema != nil {
-			step.JSONSchema = *schema
-		}
-	}
-
-	// Process model details for prompt steps
-	for i := range cfg.Steps {
-		step := &cfg.Steps[i]
-		if step.Type != config.PromptStepType {
-			continue
-		}
-
-		if err := setModelDetails(step); err != nil {
-			return fmt.Errorf("processing model details for step '%s': %w", step.Name, err)
-		}
-	}
-
-	// Set output filenames for all steps
-	for i := range cfg.Steps {
-		step := &cfg.Steps[i]
+		// Normalize and validate output filename (all steps)
 		if err := setOutputFilename(step, cfg.OutputFolder); err != nil {
 			return fmt.Errorf("step '%s': %w", step.Name, err)
 		}
-	}
 
-	// Process image paths for steps that have images
-	for i := range cfg.Steps {
-		step := &cfg.Steps[i]
+		// Normalize image path if needed
 		if step.HasImages() {
 			if err := setImagePath(step, cfg.OutputFolder); err != nil {
 				return fmt.Errorf("step '%s': %w", step.Name, err)
 			}
 		}
-	}
 
-	// Set default MaxResults for steps (nil, empty string, int <= 0)
-	for i := range cfg.Steps {
-		step := &cfg.Steps[i]
+		// Apply MaxResults defaults
 		if err := setMaxResultsDefaults(step); err != nil {
 			return fmt.Errorf("step '%s': %w", step.Name, err)
 		}
