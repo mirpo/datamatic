@@ -50,18 +50,17 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 	}
 
 	for i < maxResult {
-		log.Info().Msgf("Running step '%s' (type: '%s'), iteration [%d]", step.Name, step.Type, i)
+		log.Info().
+			Str("step_name", step.Name).
+			Str("step_type", string(step.Type)).
+			Int("iteration", i).
+			Msg("Running step")
 
 		promptBuilder := promptbuilder.NewPromptBuilder(step.Prompt)
 		hasSchemaSchema := step.JSONSchema.HasSchemaDefinition()
 
 		if hasSchemaSchema {
-			jsonSchemaAsText, err := step.JSONSchema.MarshalToJSONText()
-			if err != nil {
-				log.Error().Err(err).Msg("failed to marshal JSON schema to text")
-				break
-			}
-
+			jsonSchemaAsText := step.JSONSchema.ToJSONString()
 			promptBuilder.AddValue("-", "SYSTEM", "JSON_SCHEMA", jsonSchemaAsText)
 		}
 
@@ -119,7 +118,7 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 			log.Debug().Msg("Validating response from LLM using JSON schema")
 			err := step.JSONSchema.ValidateJSONText(response.Text)
 			if err != nil {
-				log.Error().Msgf("JSON response: %s, not following JSON schema: %+v, retrying", response.Text, step.JSONSchema)
+				log.Error().Msgf("JSON response: %s, not following JSON schema. List of errors: %s, retrying", response.Text, err.Error())
 				continue
 			}
 		}

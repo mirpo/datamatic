@@ -9,6 +9,7 @@ import (
 	"github.com/mirpo/datamatic/config"
 	"github.com/mirpo/datamatic/logger"
 	"github.com/mirpo/datamatic/runner"
+	"github.com/mirpo/datamatic/utils"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
@@ -56,6 +57,12 @@ func main() {
 	err = yaml.Unmarshal(yamlConfig, &cfg)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Parsing config file")
+	}
+
+	// Preprocess config: set step types and process schemas
+	err = utils.PreprocessConfig(cfg, cfg.Verbose)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to preprocess config")
 	}
 
 	err = cfg.Validate()

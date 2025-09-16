@@ -19,7 +19,7 @@ A powerful CLI tool for creating structured datasets with local LLMs, supporting
 - **[Gemini](https://deepmind.google/models/gemini/)** - Gemini is a family of multimodal large language models (LLMs) developed by Google DeepMind
 
 ### 📊 Data Generation
-- **JSON Schema Validation** - Structured output with type safety
+- **JSON Schema Validation** - Structured output with type safety (YAML-native or JSON string formats)
 - **Text Generation** - Flexible content creation
 - **Multi-step Chaining** - Link generation steps together
 - **Image Analysis** - Visual model integration
@@ -76,7 +76,23 @@ steps:
       required:
         - title
         - tags
-      additionalProperties: false  # Reject extra fields (default)
+      additionalProperties: false
+
+  - name: analyze_title
+    model: ollama:llama3.2
+    prompt: |
+      Analyze this news title and provide sentiment and category analysis:
+      Title: {{.generate_titles.title}}
+    jsonSchema: |
+      {
+        "type": "object",
+        "properties": {
+          "sentiment": {"type": "string", "enum": ["positive", "negative", "neutral"]},
+          "category": {"type": "string", "description": "News category"},
+          "clickbait_score": {"type": "number", "minimum": 0, "maximum": 10}
+        },
+        "required": ["sentiment", "category", "clickbait_score"]
+      }
 ```
 
 ```bash
@@ -184,3 +200,4 @@ Options:
 | [Vision Models](./examples/v1/8.%20hugginface%20images%20and%20qwen2.5vl%20or%20gemma3/README.md)                                   | Image analysis             | Ollama, LM Studio |
 | [OpenAI](./examples/v1/9.%20openai-example/README.md)                                                                               | Cloud provider usage       | OpenAI            |
 | [Gemini](./examples/v1/10.%20openrouter-example/README.md)                                                                          | Cloud provider usage       | Gemini            |
+| [CV Processing Pipeline](./examples/v1/12.%20cv-processing-pipeline/README.md)                                                      | Multi-step CV processing   | Ollama            |

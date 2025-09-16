@@ -46,25 +46,6 @@ func isValidName(name string) error {
 	return nil
 }
 
-func getStepType(step Step) (StepType, error) {
-	promptDefined := len(step.Prompt) > 0
-	cmdDefined := len(step.Cmd) > 0
-
-	if promptDefined && cmdDefined {
-		return UnknownStepType, errors.New("either 'prompt' or 'cmd' should be defined, not both")
-	}
-
-	if !promptDefined && !cmdDefined {
-		return UnknownStepType, errors.New("either 'prompt' or 'cmd' must be defined")
-	}
-
-	if promptDefined {
-		return PromptStepType, nil
-	}
-
-	return CliStepType, nil
-}
-
 func getModelDetails(step Step) (llm.ProviderType, string, error) {
 	if step.Model == "" {
 		return llm.ProviderUnknown, "", errors.New("model definition can't be empty")
@@ -235,11 +216,7 @@ func (c *Config) Validate() error {
 		}
 		stepNames[step.Name] = true
 
-		stepType, err := getStepType(*step)
-		if err != nil {
-			return fmt.Errorf("step '%s': %w", step.Name, err)
-		}
-		step.Type = stepType
+		stepType := step.Type
 
 		if stepType == CliStepType {
 			cliCalls = append(cliCalls, fmt.Sprintf("- %s", step.Cmd))
@@ -260,13 +237,15 @@ func (c *Config) Validate() error {
 
 		if stepType == PromptStepType {
 			if step.JSONSchema.HasSchemaDefinition() {
-				if !step.JSONSchema.ValidateRequiredProperties() {
-					return fmt.Errorf("step '%s': invalid schema validation, properties or required are not matching", step.Name)
+				if err := step.JSONSchema.EnsureAllPropertiesRequired(); err != nil {
+					return fmt.Errorf("step '%s': %w", step.Name, err)
 				}
 			}
 
-			if strings.Contains(step.Prompt, "{{.SYSTEM.JSON_SCHEMA}}") && !step.JSONSchema.ValidateRequiredProperties() {
-				return fmt.Errorf("step '%s': JSON schema is required when using '{{.SYSTEM.JSON_SCHEMA}}' in the prompt", step.Name)
+			if strings.Contains(step.Prompt, "{{.SYSTEM.JSON_SCHEMA}}") {
+				if err := step.JSONSchema.EnsureAllPropertiesRequired(); err != nil {
+					return fmt.Errorf("step '%s': JSON schema validation failed when using '{{.SYSTEM.JSON_SCHEMA}}' in prompt: %w", step.Name, err)
+				}
 			}
 
 			promptBuilder := promptbuilder.NewPromptBuilder(step.Prompt)
