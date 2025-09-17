@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/mirpo/datamatic/promptbuilder"
@@ -18,27 +17,6 @@ func validateVersion(version string) error {
 
 	if version != "1.0" {
 		return fmt.Errorf("version '%s' is unsupported", version)
-	}
-
-	return nil
-}
-
-func isValidName(name string) error {
-	if len(name) == 0 {
-		return errors.New("filename cannot be empty")
-	}
-
-	if len(name) > 255 {
-		return errors.New("filename exceeds the maximum length of 255 characters")
-	}
-
-	illegalChars := regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
-	if illegalChars.MatchString(name) {
-		return errors.New("filename contains invalid characters")
-	}
-
-	if strings.HasSuffix(name, " ") || (len(name) > 1 && strings.HasSuffix(name, ".")) {
-		return errors.New("filename cannot end with a space or a period (unless the name is just '.')")
 	}
 
 	return nil
@@ -79,29 +57,10 @@ func validateModelConfig(step ModelConfig) error {
 	return nil
 }
 
-func validateAndAbsOutputFolder(outputFolder string) (string, error) {
-	if len(outputFolder) == 0 {
-		return "", errors.New("output folder is required")
-	}
-
-	if err := isValidName(outputFolder); err != nil {
-		return "", fmt.Errorf("invalid output folder name: %w", err)
-	}
-
-	absOutputFolder, err := filepath.Abs(outputFolder)
-	if err != nil {
-		return "", fmt.Errorf("failed to get absolute path for output folder '%s': %w", outputFolder, err)
-	}
-
-	return absOutputFolder, nil
-}
-
 func validateMaxResults(step *Step, stepNames map[string]bool) error {
 	switch v := step.MaxResults.(type) {
 	case nil, int:
-		// These cases are handled in preprocessing
 		return nil
-
 	case string:
 		if v == "" {
 			// Empty string case is handled in preprocessing
@@ -117,25 +76,14 @@ func validateMaxResults(step *Step, stepNames map[string]bool) error {
 		}
 
 		return fmt.Errorf("invalid string format for maxResults: '%s'", v)
-
-	default:
-		return fmt.Errorf("maxResults unsupported type '%T'", step.MaxResults)
 	}
+
+	return fmt.Errorf("maxResults unsupported type '%T'", step.MaxResults)
 }
 
 func (c *Config) Validate() error {
 	if err := validateVersion(c.Version); err != nil {
 		return err
-	}
-
-	absOutputFolder, err := validateAndAbsOutputFolder(c.OutputFolder)
-	if err != nil {
-		return err
-	}
-	c.OutputFolder = absOutputFolder
-
-	if len(c.Steps) == 0 {
-		return errors.New("at least one step is required")
 	}
 
 	stepNames := map[string]bool{}
@@ -144,17 +92,6 @@ func (c *Config) Validate() error {
 	for index := range c.Steps {
 		step := &c.Steps[index]
 
-		if len(step.Name) == 0 {
-			return fmt.Errorf("step at index %d: name can't be empty", index)
-		}
-
-		if strings.ToUpper(step.Name) == "SYSTEM" {
-			return errors.New("using 'SYSTEM as step name is not allowed")
-		}
-
-		if stepNames[step.Name] {
-			return fmt.Errorf("duplicate step name found: '%s'", step.Name)
-		}
 		stepNames[step.Name] = true
 
 		stepType := step.Type
@@ -162,15 +99,8 @@ func (c *Config) Validate() error {
 		if stepType == CliStepType {
 			cliCalls = append(cliCalls, fmt.Sprintf("- %s", step.Cmd))
 
-			if step.OutputFilename == "" {
-				return fmt.Errorf("step '%s': output filename is mandatory for external CLI", step.Name)
-			}
-
-			if err := isValidName(step.OutputFilename); err != nil {
-				return fmt.Errorf("step '%s': invalid output filename '%s': %w", step.Name, step.OutputFilename, err)
-			}
-
-			if !strings.Contains(step.Cmd, step.OutputFilename) {
+			basename := filepath.Base(step.OutputFilename)
+			if !strings.Contains(step.Cmd, basename) && !strings.Contains(step.Cmd, step.OutputFilename) {
 				return fmt.Errorf("step '%s': output filename should match output result of external CLI; cmd: [%s], output file: %s",
 					step.Name, step.Cmd, step.OutputFilename)
 			}
@@ -223,12 +153,6 @@ func (c *Config) Validate() error {
 
 			if err := validateMaxResults(step, stepNames); err != nil {
 				return fmt.Errorf("step '%s': maxResults validation failed: %w", step.Name, err)
-			}
-
-			if len(step.OutputFilename) > 0 {
-				if err := isValidName(step.OutputFilename); err != nil {
-					return fmt.Errorf("step '%s': invalid output filename '%s': %w", step.Name, step.OutputFilename, err)
-				}
 			}
 		}
 	}

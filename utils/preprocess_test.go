@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -45,8 +46,9 @@ func TestIsValidProvider(t *testing.T) {
 }
 
 func TestPreprocessConfig_Success(t *testing.T) {
+	outputFolder := filepath.Join("tmp", "test")
 	cfg := &config.Config{
-		OutputFolder: "/tmp/test",
+		OutputFolder: outputFolder,
 		Steps: []config.Step{
 			{
 				Name:           "prompt1",
@@ -57,9 +59,10 @@ func TestPreprocessConfig_Success(t *testing.T) {
 				MaxResults:     nil, // should default
 			},
 			{
-				Name:       "cli1",
-				Cmd:        "echo hi",
-				MaxResults: -1, // should default
+				Name:           "cli1",
+				Cmd:            "echo hi",
+				OutputFilename: "cli1",
+				MaxResults:     -1, // should default
 			},
 			{
 				Name:       "prompt2",
@@ -89,12 +92,15 @@ func TestPreprocessConfig_Success(t *testing.T) {
 	assert.Equal(t, llm.ProviderOpenAI, cfg.Steps[2].ModelConfig.ModelProvider)
 	assert.Equal(t, "gpt-4", cfg.Steps[2].ModelConfig.ModelName)
 
-	// Filenames
-	assert.Equal(t, "/tmp/test/custom.jsonl", cfg.Steps[0].OutputFilename)
-	assert.Equal(t, "/tmp/test/cli1.jsonl", cfg.Steps[1].OutputFilename)
+	// Filenames - use absolute paths that work cross-platform
+	expectedCustom, _ := filepath.Abs(filepath.Join(outputFolder, "custom.jsonl"))
+	expectedCli1, _ := filepath.Abs(filepath.Join(outputFolder, "cli1.jsonl"))
+	assert.Equal(t, expectedCustom, cfg.Steps[0].OutputFilename)
+	assert.Equal(t, expectedCli1, cfg.Steps[1].OutputFilename)
 
-	// Image path
-	assert.Equal(t, "/tmp/test/images/photo.jpg", cfg.Steps[0].ImagePath)
+	// Image path - use absolute paths that work cross-platform
+	expectedImage, _ := filepath.Abs(filepath.Join(outputFolder, "images", "photo.jpg"))
+	assert.Equal(t, expectedImage, cfg.Steps[0].ImagePath)
 
 	// MaxResults
 	assert.Equal(t, config.DefaultStepMinMaxResults, cfg.Steps[0].MaxResults)

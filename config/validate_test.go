@@ -1,65 +1,10 @@
 package config
 
 import (
-	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
-
-// Helper function to set step types for testing (normally done in preprocessing)
-func setStepTypesForTesting(cfg *Config) {
-	for i := range cfg.Steps {
-		step := &cfg.Steps[i]
-		if len(step.Prompt) > 0 {
-			step.Type = PromptStepType
-		} else if len(step.Cmd) > 0 {
-			step.Type = CliStepType
-		}
-	}
-}
-
-func TestIsValidFName(t *testing.T) {
-	tests := []struct {
-		name      string
-		inputName string
-		wantErr   bool
-		errMsg    string
-	}{
-		{"Valid Simple", "myfile.txt", false, ""},
-		{"Valid With Dot", "my.file.name", false, ""},
-		{"Valid With Hyphen Underscore", "my-file_1.name", false, ""},
-		{"Valid Just Dot", ".", false, ""},
-		{"Valid Long Name", strings.Repeat("a", 255), false, ""},
-		{"Empty", "", true, "filename cannot be empty"},
-		{"Too Long", strings.Repeat("a", 256), true, "filename exceeds the maximum length of 255 characters"},
-		{"Contains <", "my<file", true, "filename contains invalid characters"},
-		{"Contains >", "my>file", true, "filename contains invalid characters"},
-		{"Contains :", "my:file", true, "filename contains invalid characters"},
-		{"Contains \"", "my\"file", true, "filename contains invalid characters"},
-		{"Contains /", "my/file", true, "filename contains invalid characters"},
-		{"Contains \\", "my\\file", true, "filename contains invalid characters"},
-		{"Contains |", "my|file", true, "filename contains invalid characters"},
-		{"Contains ?", "my?file", true, "filename contains invalid characters"},
-		{"Contains *", "my*file", true, "filename contains invalid characters"},
-		{"Ends with Space", "myfile ", true, "filename cannot end with a space or a period"},
-		{"Ends with Period", "myfile.", true, "filename cannot end with a space or a period"},
-		{"Ends with Period and Space", "myfile .", true, "filename cannot end with a space or a period"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := isValidName(tt.inputName)
-			if tt.wantErr {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errMsg)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
 
 func TestValidateUrl(t *testing.T) {
 	tests := []struct {
@@ -129,46 +74,6 @@ func TestValidateModelConfig(t *testing.T) {
 	}
 }
 
-func TestValidateAndAbsOutputFolder(t *testing.T) {
-	tests := []struct {
-		name            string
-		outputFolder    string
-		expectedAbsPath string
-		wantErr         bool
-		errMsg          string
-	}{
-		{"Valid Folder", "output", "", false, ""},
-		{"Valid Folder With Dot", "output.folder", "", false, ""},
-		{"Valid Folder Just Dot", ".", "", false, ""},
-		{"Empty", "", "", true, "output folder is required"},
-		{"Invalid Chars", "output<folder>", "", true, "invalid output folder name"},
-		{"Ends With Space", "output ", "", true, "invalid output folder name"},
-	}
-
-	for i := range tests {
-		if !tests[i].wantErr {
-			absPath, err := filepath.Abs(tests[i].outputFolder)
-			assert.NoError(t, err, "Failed to calculate absolute path for test case setup")
-			tests[i].expectedAbsPath = filepath.Clean(absPath)
-		}
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			absPath, err := validateAndAbsOutputFolder(tt.outputFolder)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errMsg)
-				assert.Empty(t, absPath, "Should return empty string on error")
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedAbsPath, filepath.Clean(absPath), "Returned path should be the expected absolute path")
-			}
-		})
-	}
-}
-
 func TestValidateConfig(t *testing.T) {
 	validConfig := func() Config {
 		temp0_5 := 0.5
@@ -180,6 +85,7 @@ func TestValidateConfig(t *testing.T) {
 			Steps: []Step{
 				{
 					Name:   "step1",
+					Type:   PromptStepType,
 					Model:  "ollama:llama3.1",
 					Prompt: "Generate something.",
 					ModelConfig: ModelConfig{
@@ -191,12 +97,14 @@ func TestValidateConfig(t *testing.T) {
 				},
 				{
 					Name:       "step2_cli",
+					Type:       PromptStepType,
 					Model:      "ollama:dummy",
 					Prompt:     "Generate new.",
 					MaxResults: DefaultStepMinMaxResults,
 				},
 				{
 					Name:       "step3_default_maxresults",
+					Type:       PromptStepType,
 					Model:      "lmstudio:dummy",
 					Prompt:     "Another prompt.",
 					MaxResults: 1,
@@ -207,7 +115,6 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("Valid Config", func(t *testing.T) {
 		cfg := validConfig()
-		setStepTypesForTesting(&cfg)
 		err := cfg.Validate()
 		assert.NoError(t, err)
 
@@ -221,64 +128,17 @@ func TestValidateConfig(t *testing.T) {
 		assert.Equal(t, 1, cfg.Steps[2].MaxResults)
 	})
 
-	t.Run("Empty Steps", func(t *testing.T) {
-		cfg := validConfig()
-		cfg.Steps = []Step{}
-		setStepTypesForTesting(&cfg)
-		err := cfg.Validate()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "at least one step is required")
-	})
-
-	t.Run("Duplicate Step Names", func(t *testing.T) {
-		cfg := validConfig()
-		cfg.Steps = append(cfg.Steps, cfg.Steps[0])
-		setStepTypesForTesting(&cfg)
-		err := cfg.Validate()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "duplicate step name found: 'step1'")
-	})
-
-	t.Run("Step With Empty Name", func(t *testing.T) {
-		cfg := validConfig()
-		cfg.Steps[0].Name = ""
-		setStepTypesForTesting(&cfg)
-		err := cfg.Validate()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "step at index 0: name can't be empty")
-	})
-
 	t.Run("Step With Invalid Model Config", func(t *testing.T) {
 		cfg := validConfig()
 		tempNeg := -0.1
 		cfg.Steps[0].ModelConfig.Temperature = &tempNeg
-		setStepTypesForTesting(&cfg)
 		err := cfg.Validate()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "step 'step1': model config validation failed: temperature must be between 0 and 1")
 	})
 
-	t.Run("Step With Invalid Output Filename", func(t *testing.T) {
-		cfg := validConfig()
-		cfg.Steps[0].OutputFilename = "invalid<filename>"
-		setStepTypesForTesting(&cfg)
-		err := cfg.Validate()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "step 'step1': invalid output filename 'invalid<filename>': filename contains invalid characters")
-	})
-
-	t.Run("Invalid Output Folder", func(t *testing.T) {
-		cfg := validConfig()
-		cfg.OutputFolder = ""
-		setStepTypesForTesting(&cfg)
-		err := cfg.Validate()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "output folder is required")
-	})
-
 	t.Run("MaxResults Defaults Correctly", func(t *testing.T) {
 		cfg := validConfig()
-		setStepTypesForTesting(&cfg)
 
 		err := cfg.Validate()
 		assert.NoError(t, err)
@@ -318,4 +178,75 @@ func TestValidateMaxResults(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
+	t.Run("CLI step with relative filename in command works with absolute OutputFilename", func(t *testing.T) {
+		cfg := &Config{
+			Version: "1.0",
+			Steps: []Step{
+				{
+					Name:           "convert_to_json",
+					Type:           CliStepType,
+					Cmd:            `echo '{"test": "data"}' > output.json`,
+					OutputFilename: "/abs/path/to/output/output.json", // absolute path after preprocessing
+				},
+			},
+		}
+
+		err := cfg.Validate()
+		assert.NoError(t, err, "Should pass because filepath.Base('output.json') is found in command")
+	})
+
+	t.Run("CLI step with path prefix in command works", func(t *testing.T) {
+		cfg := &Config{
+			Version: "1.0",
+			Steps: []Step{
+				{
+					Name:           "jq_filter",
+					Type:           CliStepType,
+					Cmd:            `jq -c 'select(.test)' input.json > ./results.jsonl`,
+					OutputFilename: "/abs/path/to/output/results.jsonl",
+				},
+			},
+		}
+
+		err := cfg.Validate()
+		assert.NoError(t, err, "Should pass because 'results.jsonl' basename is found in './results.jsonl'")
+	})
+
+	t.Run("CLI step with absolute path in command works", func(t *testing.T) {
+		cfg := &Config{
+			Version: "1.0",
+			Steps: []Step{
+				{
+					Name:           "full_path_cmd",
+					Type:           CliStepType,
+					Cmd:            `duckdb -c "COPY (...) TO '/abs/path/to/output/data.json' (FORMAT JSON);"`,
+					OutputFilename: "/abs/path/to/output/data.json",
+				},
+			},
+		}
+
+		err := cfg.Validate()
+		assert.NoError(t, err, "Should pass because full path matches exactly")
+	})
+
+	t.Run("CLI step without filename in command fails", func(t *testing.T) {
+		cfg := &Config{
+			Version: "1.0",
+			Steps: []Step{
+				{
+					Name:           "download_only",
+					Type:           CliStepType,
+					Cmd:            `curl -o different_name.json https://api.example.com/data`,
+					OutputFilename: "/abs/path/to/output/expected.json",
+				},
+			},
+		}
+
+		err := cfg.Validate()
+		assert.Error(t, err, "Should fail because neither 'expected.json' nor full path is in command")
+		assert.Contains(t, err.Error(), "output filename should match output result of external CLI")
+	})
 }

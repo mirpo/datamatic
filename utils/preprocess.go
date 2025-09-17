@@ -40,6 +40,14 @@ func PreprocessConfig(cfg *config.Config) error {
 		return fmt.Errorf("config is nil")
 	}
 
+	if len(cfg.Steps) == 0 {
+		return errors.New("at least one step is required")
+	}
+
+	if err := setRootOutputFolder(cfg); err != nil {
+		return fmt.Errorf("setting root output folder: %w", err)
+	}
+
 	stepNames := make(map[string]bool, len(cfg.Steps))
 
 	for i := range cfg.Steps {
@@ -237,5 +245,19 @@ func isValidName(name string) error {
 		return errors.New("filename cannot end with a space or a period (unless the name is just '.')")
 	}
 
+	return nil
+}
+
+func setRootOutputFolder(cfg *config.Config) error {
+	if len(cfg.OutputFolder) == 0 {
+		return errors.New("output folder is required")
+	}
+
+	absOutputFolder, err := filepath.Abs(cfg.OutputFolder)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path for output folder '%s': %w", cfg.OutputFolder, err)
+	}
+
+	cfg.OutputFolder = absOutputFolder
 	return nil
 }
