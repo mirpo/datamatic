@@ -60,7 +60,7 @@ func main() {
 	}
 
 	// Preprocess config: set step types and process schemas
-	err = utils.PreprocessConfig(cfg, cfg.Verbose)
+	err = utils.PreprocessConfig(cfg)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to preprocess config")
 	}

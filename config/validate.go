@@ -3,13 +3,10 @@ package config
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/url"
 	"path/filepath"
-	"regexp"
 	"strings"
 
-	"github.com/mirpo/datamatic/llm"
 	"github.com/mirpo/datamatic/promptbuilder"
 )
 
@@ -23,54 +20,6 @@ func validateVersion(version string) error {
 	}
 
 	return nil
-}
-
-func isValidName(name string) error {
-	if len(name) == 0 {
-		return errors.New("filename cannot be empty")
-	}
-
-	if len(name) > 255 {
-		return errors.New("filename exceeds the maximum length of 255 characters")
-	}
-
-	illegalChars := regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
-	if illegalChars.MatchString(name) {
-		return errors.New("filename contains invalid characters")
-	}
-
-	if strings.HasSuffix(name, " ") || (len(name) > 1 && strings.HasSuffix(name, ".")) {
-		return errors.New("filename cannot end with a space or a period (unless the name is just '.')")
-	}
-
-	return nil
-}
-
-func getModelDetails(step Step) (llm.ProviderType, string, error) {
-	if step.Model == "" {
-		return llm.ProviderUnknown, "", errors.New("model definition can't be empty")
-	}
-
-	result := strings.SplitN(step.Model, ":", 2)
-	if len(result) != 2 {
-		return llm.ProviderUnknown, "", fmt.Errorf("model should follow pattern 'provider:model', examples: 'ollama:llama3.2'")
-	}
-
-	providerStr := result[0]
-	modelName := result[1]
-
-	providerType := llm.ProviderType(providerStr)
-	switch providerType {
-	case llm.ProviderOllama, llm.ProviderLmStudio, llm.ProviderOpenAI, llm.ProviderOpenRouter, llm.ProviderGemini:
-	default:
-		return llm.ProviderUnknown, "", fmt.Errorf("unsupported provider: %s", providerStr)
-	}
-
-	if len(modelName) == 0 {
-		return llm.ProviderUnknown, "", errors.New("model name can't be empty")
-	}
-
-	return providerType, modelName, nil
 }
 
 func validateURL(input string) error {
@@ -108,53 +57,13 @@ func validateModelConfig(step ModelConfig) error {
 	return nil
 }
 
-func getFullOutputPath(step Step, outputFolder string) (string, error) {
-	extension := ".jsonl"
-
-	filename := step.OutputFilename
-	if len(filename) == 0 {
-		filename = step.Name
-	}
-
-	if err := isValidName(filename); err != nil {
-		return "", fmt.Errorf("invalid effective output filename '%s': %w", filename, err)
-	}
-
-	if !strings.HasSuffix(filename, extension) {
-		filename = filename + extension
-	}
-
-	fullPath := filepath.Join(outputFolder, filename)
-
-	return filepath.Clean(fullPath), nil
-}
-
-func validateAndAbsOutputFolder(outputFolder string) (string, error) {
-	if len(outputFolder) == 0 {
-		return "", errors.New("output folder is required")
-	}
-
-	if err := isValidName(outputFolder); err != nil {
-		return "", fmt.Errorf("invalid output folder name: %w", err)
-	}
-
-	absOutputFolder, err := filepath.Abs(outputFolder)
-	if err != nil {
-		return "", fmt.Errorf("failed to get absolute path for output folder '%s': %w", outputFolder, err)
-	}
-
-	return absOutputFolder, nil
-}
-
-func validateAndSetMaxResults(step *Step, stepNames map[string]bool) error {
+func validateMaxResults(step *Step, stepNames map[string]bool) error {
 	switch v := step.MaxResults.(type) {
-	case nil:
-		step.MaxResults = DefaultStepMinMaxResults
+	case nil, int:
 		return nil
-
 	case string:
 		if v == "" {
-			step.MaxResults = DefaultStepMinMaxResults
+			// Empty string case is handled in preprocessing
 			return nil
 		}
 
@@ -167,34 +76,14 @@ func validateAndSetMaxResults(step *Step, stepNames map[string]bool) error {
 		}
 
 		return fmt.Errorf("invalid string format for maxResults: '%s'", v)
-
-	case int:
-		if v <= 0 {
-			step.MaxResults = DefaultStepMinMaxResults
-		} else {
-			step.MaxResults = v
-		}
-		return nil
 	}
 
 	return fmt.Errorf("maxResults unsupported type '%T'", step.MaxResults)
 }
 
 func (c *Config) Validate() error {
-	slog.Debug("start config validation")
-
 	if err := validateVersion(c.Version); err != nil {
 		return err
-	}
-
-	absOutputFolder, err := validateAndAbsOutputFolder(c.OutputFolder)
-	if err != nil {
-		return err
-	}
-	c.OutputFolder = absOutputFolder
-
-	if len(c.Steps) == 0 {
-		return errors.New("at least one step is required")
 	}
 
 	stepNames := map[string]bool{}
@@ -203,17 +92,6 @@ func (c *Config) Validate() error {
 	for index := range c.Steps {
 		step := &c.Steps[index]
 
-		if len(step.Name) == 0 {
-			return fmt.Errorf("step at index %d: name can't be empty", index)
-		}
-
-		if strings.ToUpper(step.Name) == "SYSTEM" {
-			return errors.New("using 'SYSTEM as step name is not allowed")
-		}
-
-		if stepNames[step.Name] {
-			return fmt.Errorf("duplicate step name found: '%s'", step.Name)
-		}
 		stepNames[step.Name] = true
 
 		stepType := step.Type
@@ -221,15 +99,8 @@ func (c *Config) Validate() error {
 		if stepType == CliStepType {
 			cliCalls = append(cliCalls, fmt.Sprintf("- %s", step.Cmd))
 
-			if step.OutputFilename == "" {
-				return fmt.Errorf("step '%s': output filename is mandatory for external CLI", step.Name)
-			}
-
-			if err := isValidName(step.OutputFilename); err != nil {
-				return fmt.Errorf("step '%s': invalid output filename '%s': %w", step.Name, step.OutputFilename, err)
-			}
-
-			if !strings.Contains(step.Cmd, step.OutputFilename) {
+			basename := filepath.Base(step.OutputFilename)
+			if !strings.Contains(step.Cmd, basename) && !strings.Contains(step.Cmd, step.OutputFilename) {
 				return fmt.Errorf("step '%s': output filename should match output result of external CLI; cmd: [%s], output file: %s",
 					step.Name, step.Cmd, step.OutputFilename)
 			}
@@ -276,39 +147,12 @@ func (c *Config) Validate() error {
 				}
 			}
 
-			llmProvider, modelName, err := getModelDetails(*step)
-			if err != nil {
-				return fmt.Errorf("step '%s': %w", step.Name, err)
-			}
-			step.ModelConfig.ModelProvider = llmProvider
-			step.ModelConfig.ModelName = modelName
-
 			if err := validateModelConfig(step.ModelConfig); err != nil {
 				return fmt.Errorf("step '%s': model config validation failed: %w", step.Name, err)
 			}
 
-			if err := validateAndSetMaxResults(step, stepNames); err != nil {
+			if err := validateMaxResults(step, stepNames); err != nil {
 				return fmt.Errorf("step '%s': maxResults validation failed: %w", step.Name, err)
-			}
-
-			if len(step.OutputFilename) > 0 {
-				if err := isValidName(step.OutputFilename); err != nil {
-					return fmt.Errorf("step '%s': invalid output filename '%s': %w", step.Name, step.OutputFilename, err)
-				}
-			}
-		}
-
-		fullOutputPath, err := getFullOutputPath(*step, c.OutputFolder)
-		if err != nil {
-			return fmt.Errorf("step '%s': failed to get full output path: %w", step.Name, err)
-		}
-		step.OutputFilename = fullOutputPath
-
-		if step.HasImages() {
-			step.ImagePath = strings.TrimSpace(step.ImagePath)
-
-			if !filepath.IsAbs(step.ImagePath) {
-				step.ImagePath = filepath.Join(c.OutputFolder, step.ImagePath)
 			}
 		}
 	}
@@ -318,6 +162,5 @@ func (c *Config) Validate() error {
 		fmt.Scanln() //nolint:golint,errcheck
 	}
 
-	slog.Debug("config validation successful")
 	return nil
 }

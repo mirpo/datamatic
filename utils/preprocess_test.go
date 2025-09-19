@@ -1,91 +1,177 @@
 package utils
 
 import (
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/mirpo/datamatic/config"
+	"github.com/mirpo/datamatic/llm"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSetStepType(t *testing.T) {
+func TestIsValidName(t *testing.T) {
 	tests := []struct {
-		name         string
-		step         config.Step
-		expectedType config.StepType
-		wantErr      bool
-		errMsg       string
+		name    string
+		input   string
+		wantErr bool
 	}{
-		{"Prompt Only", config.Step{Prompt: "a prompt"}, config.PromptStepType, false, ""},
-		{"Cmd Only", config.Step{Cmd: "a command"}, config.CliStepType, false, ""},
-		{"Both", config.Step{Prompt: "a prompt", Cmd: "a command"}, config.UnknownStepType, true, "either 'prompt' or 'cmd' should be defined, not both"},
-		{"Neither", config.Step{}, config.UnknownStepType, true, "either 'prompt' or 'cmd' must be defined"},
+		{"Valid simple", "file.txt", false},
+		{"Valid dot", ".", false},
+		{"Valid long name", strings.Repeat("a", 255), false},
+		{"Empty", "", true},
+		{"Too long", strings.Repeat("a", 256), true},
+		{"Invalid char <", "bad<name", true},
+		{"Ends with space", "bad ", true},
+		{"Ends with period", "bad.", true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			step := tt.step
-			err := setStepType(&step)
+			err := isValidName(tt.input)
 			if tt.wantErr {
 				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errMsg)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedType, step.Type)
 			}
 		})
 	}
 }
 
-func TestPreprocessConfig(t *testing.T) {
+func TestIsValidProvider(t *testing.T) {
+	assert.True(t, isValidProvider(llm.ProviderOllama))
+	assert.True(t, isValidProvider(llm.ProviderOpenAI))
+	assert.False(t, isValidProvider(llm.ProviderUnknown))
+	assert.False(t, isValidProvider(llm.ProviderType("INVALID")))
+}
+
+func TestPreprocessConfig_Success(t *testing.T) {
+	outputFolder := filepath.Join("tmp", "test")
+	cfg := &config.Config{
+		OutputFolder: outputFolder,
+		Steps: []config.Step{
+			{
+				Name:           "prompt1",
+				Model:          "ollama:llama3.2",
+				Prompt:         "Generate something",
+				OutputFilename: "custom",
+				ImagePath:      "images/photo.jpg",
+				MaxResults:     nil, // should default
+			},
+			{
+				Name:           "cli1",
+				Cmd:            "echo hi",
+				OutputFilename: "cli1",
+				MaxResults:     -1, // should default
+			},
+			{
+				Name:       "prompt2",
+				Model:      "openai:gpt-4",
+				Prompt:     "More text",
+				MaxResults: 5,
+			},
+			{
+				Name:       "prompt3",
+				Model:      "gemini:gemini-pro",
+				Prompt:     "Dynamic",
+				MaxResults: "prompt1.$length",
+			},
+		},
+	}
+
+	err := PreprocessConfig(cfg)
+	assert.NoError(t, err)
+
+	// Step types
+	assert.Equal(t, config.PromptStepType, cfg.Steps[0].Type)
+	assert.Equal(t, config.CliStepType, cfg.Steps[1].Type)
+
+	// Providers + models
+	assert.Equal(t, llm.ProviderOllama, cfg.Steps[0].ModelConfig.ModelProvider)
+	assert.Equal(t, "llama3.2", cfg.Steps[0].ModelConfig.ModelName)
+	assert.Equal(t, llm.ProviderOpenAI, cfg.Steps[2].ModelConfig.ModelProvider)
+	assert.Equal(t, "gpt-4", cfg.Steps[2].ModelConfig.ModelName)
+
+	// Filenames - use absolute paths that work cross-platform
+	expectedCustom, _ := filepath.Abs(filepath.Join(outputFolder, "custom.jsonl"))
+	expectedCli1, _ := filepath.Abs(filepath.Join(outputFolder, "cli1.jsonl"))
+	assert.Equal(t, expectedCustom, cfg.Steps[0].OutputFilename)
+	assert.Equal(t, expectedCli1, cfg.Steps[1].OutputFilename)
+
+	// Image path - use absolute paths that work cross-platform
+	expectedImage, _ := filepath.Abs(filepath.Join(outputFolder, "images", "photo.jpg"))
+	assert.Equal(t, expectedImage, cfg.Steps[0].ImagePath)
+
+	// MaxResults
+	assert.Equal(t, config.DefaultStepMinMaxResults, cfg.Steps[0].MaxResults)
+	assert.Equal(t, config.DefaultStepMinMaxResults, cfg.Steps[1].MaxResults)
+	assert.Equal(t, 5, cfg.Steps[2].MaxResults)
+	assert.Equal(t, "prompt1.$length", cfg.Steps[3].MaxResults)
+}
+
+func TestPreprocessConfig_Failures(t *testing.T) {
 	tests := []struct {
-		name    string
-		config  *config.Config
-		wantErr bool
-		errMsg  string
+		name   string
+		config *config.Config
+		errMsg string
 	}{
 		{
-			name: "Valid config with prompt step",
-			config: &config.Config{
-				Steps: []config.Step{
-					{Name: "test", Prompt: "test prompt"},
-				},
-			},
-			wantErr: false,
+			"Both prompt and cmd",
+			&config.Config{OutputFolder: "/tmp", Steps: []config.Step{
+				{Name: "bad", Prompt: "p", Cmd: "c"},
+			}},
+			"either 'prompt' or 'cmd' should be defined",
 		},
 		{
-			name: "Valid config with cli step",
-			config: &config.Config{
-				Steps: []config.Step{
-					{Name: "test", Cmd: "test command"},
-				},
-			},
-			wantErr: false,
+			"Missing provider colon",
+			&config.Config{OutputFolder: "/tmp", Steps: []config.Step{
+				{Name: "bad", Prompt: "p", Model: "invalidmodel"},
+			}},
+			"model should follow pattern",
 		},
 		{
-			name: "Invalid step type",
-			config: &config.Config{
-				Steps: []config.Step{
-					{Name: "test"}, // No prompt or cmd
-				},
-			},
-			wantErr: true,
-			errMsg:  "either 'prompt' or 'cmd' must be defined",
+			"Invalid filename",
+			&config.Config{OutputFolder: "/tmp", Steps: []config.Step{
+				{Name: "bad<name>", Prompt: "p", Model: "ollama:llama3.2"},
+			}},
+			"filename contains invalid characters",
+		},
+		{
+			"Empty step name",
+			&config.Config{OutputFolder: "/tmp", Steps: []config.Step{
+				{Name: "", Prompt: "p", Model: "ollama:llama3.2"},
+			}},
+			"name can't be empty",
+		},
+		{
+			"Reserved name SYSTEM",
+			&config.Config{OutputFolder: "/tmp", Steps: []config.Step{
+				{Name: "SYSTEM", Prompt: "p", Model: "ollama:llama3.2"},
+			}},
+			"not allowed",
+		},
+		{
+			"Duplicate step names",
+			&config.Config{OutputFolder: "/tmp", Steps: []config.Step{
+				{Name: "dup", Prompt: "p", Model: "ollama:llama3.2"},
+				{Name: "dup", Prompt: "q", Model: "openai:gpt-4"},
+			}},
+			"duplicate step name",
+		},
+		{
+			"CLI without output filename",
+			&config.Config{OutputFolder: "/tmp", Steps: []config.Step{
+				{Name: "cli1", Cmd: "echo hi"},
+			}},
+			"output filename is mandatory",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := PreprocessConfig(tt.config, false)
-			if tt.wantErr {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errMsg)
-			} else {
-				assert.NoError(t, err)
-				// Verify step types are set
-				for _, step := range tt.config.Steps {
-					assert.NotEqual(t, config.UnknownStepType, step.Type)
-				}
-			}
+			err := PreprocessConfig(tt.config)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tt.errMsg)
 		})
 	}
 }
