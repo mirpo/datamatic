@@ -20,6 +20,8 @@ github.com/kaptinlin/jsonschema v0.4.14 h1:56HclkbBr/ZQypxqRzzeFERNFMK7kroloqlZb
 github.com/kaptinlin/jsonschema v0.4.14/go.mod h1:KVvnDL8OUOhNQ51/PPFjITD7qe8M6nsuBuO0076oVHQ=
 github.com/kaptinlin/messageformat-go v0.4.0 h1:L5wPgwQZkV1Rvs19htUT2RGx8N1GCq3uQG5nB6VHRcM=
 github.com/kaptinlin/messageformat-go v0.4.0/go.mod h1:LrLCV49C5ms/BZlOpFPihou+cPvhOQSvVJHj2wOe6w8=
+github.com/kaptinlin/messageformat-go v0.4.4 h1:1aoNbVvWAvQXizeYWQg25+E60vMkQoMZkEQcaLx9k6E=
+github.com/kaptinlin/messageformat-go v0.4.4/go.mod h1:EilQjvjfj1pGOlx5U6uG3+6oqPUeJuYHP1pnmxWSAc0=
 github.com/mattn/go-colorable v0.1.13/go.mod h1:7S9/ev0klgBDR4GtXTXX8a3vIGJpMovkB8vQcUbaXHg=
 github.com/mattn/go-colorable v0.1.14 h1:9A9LHSqF/7dyVVX6g0U9cwm9pG3kP9gSzcuIPHPsaIE=
 github.com/mattn/go-colorable v0.1.14/go.mod h1:6LmQG8QLFO4G5z1gPvYEzlUgJ2wF+stgPZH1UqBm1s8=
