@@ -18,4 +18,3 @@ lint-fix:
 
 coverage: test
 	go tool cover -html=coverage.out
-
