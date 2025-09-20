@@ -10,10 +10,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type Value struct {
+type StepValue struct {
 	ID      string
-	Step    string
-	Key     string
 	Content interface{}
 }
 
@@ -24,7 +22,7 @@ type ValueShort struct {
 
 type PromptBuilder struct {
 	prompt       string
-	newValues    map[string]Value
+	stepData     map[string]map[string]StepValue // step -> fieldPath -> value
 	placeholders map[string]PlaceholderInfo
 }
 
@@ -44,18 +42,14 @@ func parseTemplatePlaceholders(input string) map[string]PlaceholderInfo {
 		}
 
 		placeholder := strings.TrimPrefix(match[1], ".")
-		parts := strings.Split(placeholder, ".")
-
-		if len(parts) == 0 {
+		if placeholder == "" {
 			continue
 		}
 
-		info := PlaceholderInfo{
-			Step: parts[0],
-		}
-
+		parts := strings.SplitN(placeholder, ".", 2)
+		info := PlaceholderInfo{Step: parts[0]}
 		if len(parts) > 1 {
-			info.Key = strings.Join(parts[1:], ".")
+			info.Key = parts[1]
 		}
 
 		placeholders[match[1]] = info
@@ -69,18 +63,45 @@ func NewPromptBuilder(prompt string) *PromptBuilder {
 
 	return &PromptBuilder{
 		prompt:       prompt,
-		newValues:    make(map[string]Value),
+		stepData:     make(map[string]map[string]StepValue),
 		placeholders: placeholders,
 	}
 }
 
+// AddStepValues adds multiple values for a step in one batch operation
+func (pb *PromptBuilder) AddStepValues(stepName string, values map[string]StepValue) {
+	if pb.stepData[stepName] == nil {
+		pb.stepData[stepName] = make(map[string]StepValue)
+	}
+	for fieldPath, value := range values {
+		pb.stepData[stepName][fieldPath] = value
+	}
+}
+
+// AddValue maintains backward compatibility for individual value additions
 func (pb *PromptBuilder) AddValue(id string, step string, key string, value interface{}) {
-	pb.newValues[fmt.Sprintf("%s-%s", step, key)] = Value{
+	if pb.stepData[step] == nil {
+		pb.stepData[step] = make(map[string]StepValue)
+	}
+	pb.stepData[step][key] = StepValue{
 		ID:      id,
-		Step:    step,
-		Key:     key,
 		Content: value,
 	}
+}
+
+func setNestedValue(target map[string]interface{}, path string, value interface{}) {
+	parts := strings.Split(path, ".")
+	current := target
+	for _, part := range parts[:len(parts)-1] {
+		if next, ok := current[part].(map[string]interface{}); ok {
+			current = next
+		} else {
+			next = make(map[string]interface{})
+			current[part] = next
+			current = next
+		}
+	}
+	current[parts[len(parts)-1]] = value
 }
 
 func (pb *PromptBuilder) executeTemplate(tmplString string) (string, error) {
@@ -89,22 +110,18 @@ func (pb *PromptBuilder) executeTemplate(tmplString string) (string, error) {
 		return "", fmt.Errorf("failed to parse template: %w", err)
 	}
 
-	// build map required by go template
-	values := map[string]interface{}{}
-	for _, value := range pb.newValues {
-		if value.Key == "" {
-			values[value.Step] = value.Content
-		} else {
-			existingVal, exist := values[value.Step]
-			if !exist {
-				values[value.Step] = map[string]interface{}{
-					value.Key: value.Content,
-				}
+	values := make(map[string]interface{})
+	for stepName, stepFields := range pb.stepData {
+		stepObj := make(map[string]interface{})
+		for fieldPath, stepValue := range stepFields {
+			if fieldPath == "" {
+				values[stepName] = stepValue.Content
 			} else {
-				if stepMap, ok := existingVal.(map[string]interface{}); ok {
-					stepMap[value.Key] = value.Content
-				}
+				setNestedValue(stepObj, fieldPath, stepValue.Content)
 			}
+		}
+		if len(stepObj) > 0 {
+			values[stepName] = stepObj
 		}
 	}
 
@@ -131,18 +148,29 @@ func (pb *PromptBuilder) HasPlaceholders() bool {
 	return len(pb.placeholders) > 0
 }
 
+// GroupPlaceholdersByStep groups placeholders by step name for batch processing
+func (pb *PromptBuilder) GroupPlaceholdersByStep() map[string][]string {
+	groups := make(map[string][]string)
+	for _, placeholder := range pb.placeholders {
+		groups[placeholder.Step] = append(groups[placeholder.Step], placeholder.Key)
+	}
+	return groups
+}
+
 func (pb *PromptBuilder) GetValues() map[string]ValueShort {
 	resultValues := map[string]ValueShort{}
 
-	for _, value := range pb.newValues {
-		if strings.HasPrefix(value.Step, "SYSTEM") {
+	for stepName, stepFields := range pb.stepData {
+		if strings.HasPrefix(stepName, "SYSTEM") {
 			continue
 		}
 
-		key := strings.Join([]string{"." + value.Step, value.Key}, ".")
-		resultValues[key] = ValueShort{
-			ID:    value.ID,
-			Value: value.Content,
+		for fieldPath, stepValue := range stepFields {
+			key := "." + strings.Join(append([]string{stepName}, fieldPath), ".")
+			resultValues[key] = ValueShort{
+				ID:    stepValue.ID,
+				Value: stepValue.Content,
+			}
 		}
 	}
 

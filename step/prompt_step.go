@@ -69,17 +69,21 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 		}
 
 		if promptBuilder.HasPlaceholders() {
-			placeholders := promptBuilder.GetPlaceholders()
-			for _, placeholder := range placeholders {
-				refStep := cfg.GetStepByName(placeholder.Step)
-				lineValue, err := readStepValue(*refStep, outputFolder, i, placeholder.Key)
+			stepGroups := promptBuilder.GroupPlaceholdersByStep()
+
+			for stepName, fieldPaths := range stepGroups {
+				refStep := cfg.GetStepByName(stepName)
+
+				stepValues, err := readStepValuesBatch(*refStep, outputFolder, i, fieldPaths)
 				if err != nil {
-					log.Error().Err(err).Msg("failed to read value from the ref step")
+					log.Error().Err(err).Msgf("failed to read values from step '%s'", stepName)
 					break
 				}
+				for fieldPath, stepValue := range stepValues {
+					log.Debug().Msgf("step: %s, field: %s, value: %s", stepName, fieldPath, stepValue.Content)
+				}
 
-				log.Debug().Msgf("placeholder: %+v, read line: '%s'", placeholder, lineValue)
-				promptBuilder.AddValue(lineValue.ID, placeholder.Step, placeholder.Key, lineValue.Response)
+				promptBuilder.AddStepValues(stepName, stepValues)
 			}
 		}
 
