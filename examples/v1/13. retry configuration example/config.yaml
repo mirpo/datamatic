@@ -1,0 +1,15 @@
+version: 1.0
+retryConfig:
+  enabled: true
+  maxAttempts: 5
+  initialDelay: 2s
+  maxDelay: 30s
+  backoffMultiplier: 1.5
+
+steps:
+  - name: generate_with_retry
+    model: ollama:llama3.2
+    prompt: |
+      Generate a creative short story title about time travel.
+      Make it intriguing and unique. Return only the title.
+    maxResults: 3

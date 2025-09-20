@@ -199,5 +199,7 @@ Options:
 | [Fine-tuning Data](./examples/v1/7.%20fine-tuning%20dataset/README.md)                                                              | Training dataset creation  | Ollama            |
 | [Vision Models](./examples/v1/8.%20hugginface%20images%20and%20qwen2.5vl%20or%20gemma3/README.md)                                   | Image analysis             | Ollama, LM Studio |
 | [OpenAI](./examples/v1/9.%20openai-example/README.md)                                                                               | Cloud provider usage       | OpenAI            |
-| [Gemini](./examples/v1/10.%20openrouter-example/README.md)                                                                          | Cloud provider usage       | Gemini            |
+| [OpenRouter](./examples/v1/10.%20openrouter-example/README.md)                                                                      | Cloud provider usage       | OpenRouter        |
+| [Gemini](./examples/v1/11.%20gemini-example/README.md)                                                                              | Cloud provider usage       | Gemini            |
 | [CV Processing Pipeline](./examples/v1/12.%20cv-processing-pipeline/README.md)                                                      | Multi-step CV processing   | Ollama            |
+| [Retry Configuration](./examples/v1/13.%20retry%20configuration%20example/README.md)                                                | Retry logic configuration  | Ollama            |
