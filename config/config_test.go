@@ -41,19 +41,3 @@ func TestGetStepByName(t *testing.T) {
 		assert.Nil(t, step)
 	})
 }
-
-func TestRetryConfig(t *testing.T) {
-	cfg := RetryConfig{
-		MaxAttempts:       5,
-		InitialDelay:      2 * time.Second,
-		MaxDelay:          30 * time.Second,
-		BackoffMultiplier: 1.5,
-		Enabled:           false,
-	}
-
-	assert.False(t, cfg.Enabled)
-	assert.Equal(t, 5, cfg.MaxAttempts)
-	assert.Equal(t, 2*time.Second, cfg.InitialDelay)
-	assert.Equal(t, 30*time.Second, cfg.MaxDelay)
-	assert.Equal(t, 1.5, cfg.BackoffMultiplier)
-}

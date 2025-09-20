@@ -28,15 +28,7 @@ func newProviderConfigFromStep(step config.Step, httpTimeout int) llm.ProviderCo
 type PromptStep struct{}
 
 func (p *PromptStep) retryLLMGeneration(ctx context.Context, cfg *config.Config, provider llm.Provider, req llm.GenerateRequest, response **llm.GenerateResponse) error {
-	retryConfig := retry.Config{
-		Enabled:           cfg.RetryConfig.Enabled,
-		MaxAttempts:       cfg.RetryConfig.MaxAttempts,
-		InitialDelay:      cfg.RetryConfig.InitialDelay,
-		MaxDelay:          cfg.RetryConfig.MaxDelay,
-		BackoffMultiplier: cfg.RetryConfig.BackoffMultiplier,
-	}
-
-	return retry.Do(ctx, retryConfig, func() error {
+	return retry.Do(ctx, cfg.RetryConfig, func() error {
 		resp, err := provider.Generate(ctx, req)
 		if err == nil {
 			*response = resp
