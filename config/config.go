@@ -87,20 +87,6 @@ func NewDefaultRetryConfig() RetryConfig {
 	}
 }
 
-func (s *Step) GetProviderConfig(httpTimeout int) llm.ProviderConfig {
-	providerConfig := llm.ProviderConfig{
-		BaseURL:      s.ModelConfig.BaseURL,
-		ProviderType: s.ModelConfig.ModelProvider,
-		ModelName:    s.ModelConfig.ModelName,
-		AuthToken:    "token",
-		HTTPTimeout:  httpTimeout,
-		Temperature:  s.ModelConfig.Temperature,
-		MaxTokens:    s.ModelConfig.MaxTokens,
-	}
-
-	return providerConfig
-}
-
 func (c *Config) GetStepByName(name string) *Step {
 	for _, step := range c.Steps {
 		if step.Name == name {

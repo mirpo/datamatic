@@ -13,6 +13,18 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+func newProviderConfigFromStep(step config.Step, httpTimeout int) llm.ProviderConfig {
+	return llm.ProviderConfig{
+		BaseURL:      step.ModelConfig.BaseURL,
+		ProviderType: step.ModelConfig.ModelProvider,
+		ModelName:    step.ModelConfig.ModelName,
+		AuthToken:    "token",
+		HTTPTimeout:  httpTimeout,
+		Temperature:  step.ModelConfig.Temperature,
+		MaxTokens:    step.ModelConfig.MaxTokens,
+	}
+}
+
 type PromptStep struct{}
 
 func (p *PromptStep) retryLLMGeneration(ctx context.Context, cfg *config.Config, provider llm.Provider, req llm.GenerateRequest, response **llm.GenerateResponse) error {
@@ -44,7 +56,7 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 	}
 	defer writer.Close()
 
-	provider, err := llm.NewProvider(step.GetProviderConfig(cfg.HTTPTimeout))
+	provider, err := llm.NewProvider(newProviderConfigFromStep(step, cfg.HTTPTimeout))
 	if err != nil {
 		return fmt.Errorf("failed to create LLM provider: %w", err)
 	}
