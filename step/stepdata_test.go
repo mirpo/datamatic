@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestConvertJSONValueToStringReflected(t *testing.T) {
+func TestConvertToString(t *testing.T) {
 	tests := []struct {
 		value    interface{}
 		expected string
@@ -15,8 +15,11 @@ func TestConvertJSONValueToStringReflected(t *testing.T) {
 		{nil, ""},
 		{"string", "string"},
 		{3.14, "3.14"},
+		{3.0, "3"},
 		{3, "3"},
+		{int64(42), "42"},
 		{true, "true"},
+		{false, "false"},
 		{[]interface{}{"a", "b", "c"}, "a, b, c"},
 		{map[string]interface{}{"key": "value"}, `{"key":"value"}`},
 		{map[string]interface{}{"foo": 42, "bar": true}, `{"bar":true,"foo":42}`},
@@ -24,7 +27,7 @@ func TestConvertJSONValueToStringReflected(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%v", tt.value), func(t *testing.T) {
-			result := convertJSONValueToStringReflected(tt.value)
+			result := convertToString(tt.value)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -32,23 +35,80 @@ func TestConvertJSONValueToStringReflected(t *testing.T) {
 
 func TestGetFieldAsString(t *testing.T) {
 	tests := []struct {
+		name     string
 		data     map[string]interface{}
 		key      string
 		expected string
-		err      error
+		hasError bool
+		errorMsg string
 	}{
-		{map[string]interface{}{"key1": "value1"}, "key1", "value1", nil},
-		{map[string]interface{}{"key1": 42}, "key1", "42", nil},
-		{map[string]interface{}{"key1": true}, "key1", "true", nil},
-		{map[string]interface{}{}, "nonexistent", "", fmt.Errorf("key 'nonexistent' not found")},
+		{
+			name:     "Simple field access",
+			data:     map[string]interface{}{"key1": "value1"},
+			key:      "key1",
+			expected: "value1",
+			hasError: false,
+		},
+		{
+			name:     "Integer field",
+			data:     map[string]interface{}{"key1": 42},
+			key:      "key1",
+			expected: "42",
+			hasError: false,
+		},
+		{
+			name:     "Boolean field",
+			data:     map[string]interface{}{"key1": true},
+			key:      "key1",
+			expected: "true",
+			hasError: false,
+		},
+		{
+			name:     "Nested field access",
+			data:     map[string]interface{}{"user": map[string]interface{}{"profile": map[string]interface{}{"name": "John"}}},
+			key:      "user.profile.name",
+			expected: "John",
+			hasError: false,
+		},
+		{
+			name:     "Nested field with numbers",
+			data:     map[string]interface{}{"stats": map[string]interface{}{"score": 95}},
+			key:      "stats.score",
+			expected: "95",
+			hasError: false,
+		},
+		{
+			name:     "Nonexistent top-level field",
+			data:     map[string]interface{}{},
+			key:      "nonexistent",
+			expected: "",
+			hasError: true,
+			errorMsg: "field 'nonexistent' not found at path 'nonexistent'",
+		},
+		{
+			name:     "Nonexistent nested field",
+			data:     map[string]interface{}{"user": map[string]interface{}{}},
+			key:      "user.missing",
+			expected: "",
+			hasError: true,
+			errorMsg: "field 'missing' not found at path 'user.missing'",
+		},
+		{
+			name:     "Cannot traverse non-object",
+			data:     map[string]interface{}{"value": "string"},
+			key:      "value.field",
+			expected: "",
+			hasError: true,
+			errorMsg: "cannot traverse field 'field' on non-object type string",
+		},
 	}
 
 	for _, tt := range tests {
-		t.Run(fmt.Sprintf("Key %s", tt.key), func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			result, err := getFieldAsString(tt.data, tt.key)
-			if tt.err != nil {
+			if tt.hasError {
 				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.err.Error())
+				assert.Contains(t, err.Error(), tt.errorMsg)
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.expected, result)

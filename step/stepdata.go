@@ -3,14 +3,13 @@ package step
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
-	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/mirpo/datamatic/config"
 	"github.com/mirpo/datamatic/fs"
 	"github.com/mirpo/datamatic/jsonl"
+	"github.com/mirpo/datamatic/jsonschema"
 )
 
 type LineValue struct {
@@ -18,53 +17,69 @@ type LineValue struct {
 	Response string `json:"response"`
 }
 
-func convertJSONValueToStringReflected(value interface{}) string {
-	if value == nil {
-		return ""
-	}
-
-	val := reflect.ValueOf(value)
-
-	switch val.Kind() {
-	case reflect.String:
-		return val.String()
-	case reflect.Float64:
-		v := val.Float()
-		if v == float64(int64(v)) {
-			return strconv.FormatInt(int64(v), 10)
-		}
-		return strconv.FormatFloat(v, 'f', 2, 64)
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return strconv.FormatInt(val.Int(), 10)
-	case reflect.Bool:
-		return strconv.FormatBool(val.Bool())
-	case reflect.Slice:
-		var elements []string
-		for i := range val.Len() {
-			elements = append(elements, convertJSONValueToStringReflected(val.Index(i).Interface()))
-		}
-		return strings.Join(elements, ", ")
-	case reflect.Map:
-		data, err := json.Marshal(value)
-		if err != nil {
-			return fmt.Sprintf("error marshalling map: %v", err)
-		}
-		return string(data)
-	default:
-		return fmt.Sprintf("%v", value)
-	}
-}
-
 func uuidFromString(input string) string {
 	return uuid.NewMD5(uuid.NameSpaceOID, []byte(input)).String()
 }
 
+// getFieldAsString extracts a field from data using a path (supports nested fields)
+// For CLI steps, we don't have schema, so we use a schema-less approach
 func getFieldAsString(data map[string]interface{}, key string) (string, error) {
-	value, exists := data[key]
-	if !exists {
-		return "", fmt.Errorf("key '%s' not found", key)
+	parts := strings.Split(key, ".")
+	current := interface{}(data)
+
+	for i, part := range parts {
+		switch v := current.(type) {
+		case map[string]interface{}:
+			value, exists := v[part]
+			if !exists {
+				return "", fmt.Errorf("field '%s' not found at path '%s'", part, strings.Join(parts[:i+1], "."))
+			}
+			current = value
+		default:
+			return "", fmt.Errorf("cannot traverse field '%s' on non-object type %T at path '%s'", part, current, strings.Join(parts[:i], "."))
+		}
 	}
-	return convertJSONValueToStringReflected(value), nil
+
+	return convertToString(current), nil
+}
+
+// convertToString converts various types to their string representation
+// This is similar to the one in jsonschema but optimized for step data
+func convertToString(value interface{}) string {
+	if value == nil {
+		return ""
+	}
+
+	switch v := value.(type) {
+	case string:
+		return v
+	case bool:
+		if v {
+			return "true"
+		}
+		return "false"
+	case float64:
+		if v == float64(int64(v)) {
+			return fmt.Sprintf("%.0f", v)
+		}
+		return fmt.Sprintf("%g", v)
+	case int:
+		return fmt.Sprintf("%d", v)
+	case int64:
+		return fmt.Sprintf("%d", v)
+	case []interface{}:
+		parts := make([]string, len(v))
+		for i, item := range v {
+			parts[i] = convertToString(item)
+		}
+		return strings.Join(parts, ", ")
+	default:
+		// For complex objects, return JSON representation
+		if jsonBytes, err := json.Marshal(value); err == nil {
+			return string(jsonBytes)
+		}
+		return fmt.Sprintf("%v", value)
+	}
 }
 
 func readStepValue(step config.Step, outputFolder string, lineNumber int, attrKey string) (*LineValue, error) {
@@ -104,14 +119,9 @@ func readStepValue(step config.Step, outputFolder string, lineNumber int, attrKe
 			}
 			value = str
 		} else {
-			data, ok := decoded.Response.(map[string]interface{})
-			if !ok {
-				return nil, fmt.Errorf("prompt step: expected map response, got %T", decoded.Response)
-			}
-
-			value, err = getFieldAsString(data, attrKey)
+			value, err = jsonschema.ExtractFieldByPathAsString(decoded.Response, attrKey)
 			if err != nil {
-				return nil, fmt.Errorf("prompt step: missing or invalid '%s' field", attrKey)
+				return nil, fmt.Errorf("prompt step: failed to extract field '%s': %w", attrKey, err)
 			}
 		}
 

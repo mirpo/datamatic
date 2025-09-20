@@ -157,20 +157,23 @@ func (c *Config) Validate() error {
 						return fmt.Errorf("placeholder has a references to unknown or not previous steps, step: %s, placeholder: %+v", step.Name, val)
 					}
 
-					// JSON key
+					// JSON key - supports nested paths like "user.profile.name"
 					if len(val.Key) > 0 {
-						if strings.Contains(val.Key, ".") {
-							return fmt.Errorf("placeholders currently support only one level of nesting, step: %s, placeholder: %+v", step.Name, val)
-						}
-
 						refStep := c.GetStepByName(val.Step)
 						if refStep.Type == PromptStepType {
 							if !refStep.JSONSchema.HasSchemaDefinition() {
 								return fmt.Errorf("step %s must have JSON schema, key: %s", val.Step, val.Key)
 							}
 
-							if !refStep.JSONSchema.HasRequiredProperty(val.Key) {
-								return fmt.Errorf("'%s' key must be defined in step %s in JSON schema as a property and required", val.Key, val.Step)
+							if strings.Contains(val.Key, ".") {
+								if !refStep.JSONSchema.HasFieldPath(val.Key) {
+									return fmt.Errorf("field path '%s' not found in step %s JSON schema", val.Key, val.Step)
+								}
+							} else {
+								// For single field, use existing validation
+								if !refStep.JSONSchema.HasRequiredProperty(val.Key) {
+									return fmt.Errorf("'%s' key must be defined in step %s in JSON schema as a property and required", val.Key, val.Step)
+								}
 							}
 						}
 					}

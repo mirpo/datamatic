@@ -379,7 +379,7 @@ func TestConfigValidateRetryConfig(t *testing.T) {
 		cfg := &Config{
 			Version: "1.0",
 			RetryConfig: retry.Config{
-				MaxAttempts:       3, // Valid
+				MaxAttempts:       3,                // Valid
 				InitialDelay:      -1 * time.Second, // Invalid - negative delay
 				MaxDelay:          10 * time.Second,
 				BackoffMultiplier: 2.0,
