@@ -18,63 +18,70 @@ func uuidFromString(input string) string {
 	return uuid.NewMD5(uuid.NameSpaceOID, []byte(input)).String()
 }
 
-// readStepValuesBatch reads multiple field values from a step in one operation
-func readStepValuesBatch(step config.Step, outputFolder string, lineNumber int, fieldPaths []string) (map[string]promptbuilder.StepValue, error) {
-	line, err := fs.ReadLineFromFile(step.OutputFilename, lineNumber)
-	if err != nil {
-		return nil, err
-	}
-
-	result := make(map[string]promptbuilder.StepValue)
-
+// getSourceDataFromLine extracts the data and record ID from a step line
+// CLI steps: full line is an unknown JSON
+// Prompt steps: line contains JSON created with datamatic
+func getSourceDataFromLine(step config.Step, line string) (interface{}, string, error) {
 	switch step.Type {
 	case config.CliStepType:
 		var decoded map[string]interface{}
 		if err := json.Unmarshal([]byte(line), &decoded); err != nil {
-			return nil, fmt.Errorf("CLI step: failed to parse JSON from line %d: %w", lineNumber, err)
+			return nil, "", fmt.Errorf("CLI step: failed to parse JSON: %w", err)
 		}
-
-		for _, fieldPath := range fieldPaths {
-			value, err := jsonschema.ExtractFieldByPathAsString(decoded, fieldPath)
-			if err != nil {
-				return nil, fmt.Errorf("prompt step: failed to extract field '%s': %w", fieldPath, err)
-			}
-
-			result[fieldPath] = promptbuilder.StepValue{
-				ID:      uuidFromString(value),
-				Content: value,
-			}
-		}
+		return decoded, "", nil
 
 	case config.PromptStepType:
 		var decoded jsonl.LineEntity
 		if err := json.Unmarshal([]byte(line), &decoded); err != nil {
-			return nil, fmt.Errorf("prompt step: failed to parse JSON from line %d: %w", lineNumber, err)
+			return nil, "", fmt.Errorf("prompt step: failed to parse JSON: %w", err)
 		}
-
-		for _, fieldPath := range fieldPaths {
-			var value string
-			if !step.JSONSchema.HasSchemaDefinition() {
-				str, ok := decoded.Response.(string)
-				if !ok {
-					return nil, fmt.Errorf("prompt step: expected string response, got %T", decoded.Response)
-				}
-				value = str
-			} else {
-				value, err = jsonschema.ExtractFieldByPathAsString(decoded.Response, fieldPath)
-				if err != nil {
-					return nil, fmt.Errorf("prompt step: failed to extract field '%s': %w", fieldPath, err)
-				}
-			}
-
-			result[fieldPath] = promptbuilder.StepValue{
-				ID:      decoded.ID,
-				Content: value,
-			}
-		}
+		return decoded.Response, decoded.ID, nil
 
 	default:
-		return nil, fmt.Errorf("unsupported step type '%s'", step.Type)
+		return nil, "", fmt.Errorf("unsupported step type '%s'", step.Type)
+	}
+}
+
+var readLineFromFile = fs.ReadLineFromFile
+
+// readStepValuesBatch reads multiple field values from a step in one operation
+func readStepValuesBatch(step config.Step, outputFolder string, lineNumber int, fieldPaths []string) (map[string]promptbuilder.StepValue, error) {
+	line, err := readLineFromFile(step.OutputFilename, lineNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	sourceData, recordID, err := getSourceDataFromLine(step, line)
+	if err != nil {
+		return nil, fmt.Errorf("line %d: %w", lineNumber, err)
+	}
+
+	result := make(map[string]promptbuilder.StepValue)
+	for _, fieldPath := range fieldPaths {
+		var value string
+
+		if step.Type == config.PromptStepType && !step.JSONSchema.HasSchemaDefinition() {
+			str, ok := sourceData.(string)
+			if !ok {
+				return nil, fmt.Errorf("prompt step: expected string response, got %T", sourceData)
+			}
+			value = str
+		} else {
+			value, err = jsonschema.ExtractFieldByPathAsString(sourceData, fieldPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to extract field '%s': %w", fieldPath, err)
+			}
+		}
+
+		fieldID := recordID
+		if fieldID == "" { // CLI case
+			fieldID = uuidFromString(value)
+		}
+
+		result[fieldPath] = promptbuilder.StepValue{
+			ID:      fieldID,
+			Content: value,
+		}
 	}
 
 	return result, nil
