@@ -1,0 +1,144 @@
+version: 1.0
+steps:
+  - name: recipe_data
+    model: ollama:llama3.2
+    maxResults: 5
+    modelConfig:
+      temperature: 0.8
+    prompt: |
+      Generate a complete recipe with detailed ingredients, nutrition information, and cooking details.
+      Create a diverse and interesting recipe from any cuisine. Include specific ingredient quantities
+      and nutritional values. Return the data in the structured JSON format below.
+    jsonSchema:
+      type: object
+      properties:
+        recipe_name:
+          type: string
+          description: "Name of the recipe"
+        ingredients:
+          type: object
+          properties:
+            proteins:
+              type: array
+              items:
+                type: string
+              description: "List of protein ingredients with quantities"
+            vegetables:
+              type: array
+              items:
+                type: string
+              description: "List of vegetable ingredients with quantities"
+            grains:
+              type: array
+              items:
+                type: string
+              description: "List of grains, pasta, or starches with quantities"
+            spices:
+              type: array
+              items:
+                type: string
+              description: "List of spices and seasonings"
+            others:
+              type: array
+              items:
+                type: string
+              description: "Other ingredients like oils, sauces, etc."
+          required:
+            - proteins
+            - vegetables
+            - grains
+            - spices
+            - others
+        nutrition:
+          type: object
+          properties:
+            calories:
+              type: integer
+              minimum: 100
+              maximum: 2000
+              description: "Total calories per serving"
+            protein_grams:
+              type: number
+              minimum: 5
+              maximum: 100
+              description: "Protein content in grams"
+            prep_time_minutes:
+              type: integer
+              minimum: 10
+              maximum: 180
+              description: "Preparation time in minutes"
+            cook_time_minutes:
+              type: integer
+              minimum: 10
+              maximum: 240
+              description: "Cooking time in minutes"
+          required:
+            - calories
+            - protein_grams
+            - prep_time_minutes
+            - cook_time_minutes
+        details:
+          type: object
+          properties:
+            cuisine_type:
+              type: string
+              description: "Type of cuisine (e.g., Italian, Mexican, Asian, etc.)"
+            difficulty_level:
+              type: string
+              enum: ["Easy", "Medium", "Hard"]
+              description: "Cooking difficulty level"
+            serving_size:
+              type: integer
+              minimum: 1
+              maximum: 12
+              description: "Number of servings this recipe makes"
+            dietary_info:
+              type: array
+              items:
+                type: string
+              description: "Dietary information like vegetarian, gluten-free, etc."
+          required:
+            - cuisine_type
+            - difficulty_level
+            - serving_size
+            - dietary_info
+      required:
+        - recipe_name
+        - ingredients
+        - nutrition
+        - details
+
+  - name: cooking_guide
+    model: ollama:llama3.2
+    maxResults: recipe_data.$length
+    modelConfig:
+      temperature: 0.7
+      maxTokens: 1500
+    prompt: |
+      Create detailed cooking instructions for the recipe "{{.recipe_data.recipe_name}}"
+      from {{.recipe_data.details.cuisine_type}} cuisine.
+
+      Recipe Details:
+      - Difficulty: {{.recipe_data.details.difficulty_level}}
+      - Serves: {{.recipe_data.details.serving_size}} people
+      - Prep time: {{.recipe_data.nutrition.prep_time_minutes}} minutes
+      - Cook time: {{.recipe_data.nutrition.cook_time_minutes}} minutes
+      - Calories per serving: {{.recipe_data.nutrition.calories}}
+      - Protein per serving: {{.recipe_data.nutrition.protein_grams}}g
+
+      Key Ingredients:
+      - Proteins: {{.recipe_data.ingredients.proteins}}
+      - Vegetables: {{.recipe_data.ingredients.vegetables}}
+      - Grains/Starches: {{.recipe_data.ingredients.grains}}
+      - Spices: {{.recipe_data.ingredients.spices}}
+      - Other ingredients: {{.recipe_data.ingredients.others}}
+
+      Dietary Information: {{.recipe_data.details.dietary_info}}
+
+      Please provide:
+      1. Preparation steps (using the prep time of {{.recipe_data.nutrition.prep_time_minutes}} minutes)
+      2. Detailed cooking instructions (should take {{.recipe_data.nutrition.cook_time_minutes}} minutes)
+      3. Tips for achieving the best results
+      4. Serving suggestions
+
+      Write in a friendly, clear cooking style that matches the {{.recipe_data.details.difficulty_level}} difficulty level.

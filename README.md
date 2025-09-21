@@ -203,3 +203,4 @@ Options:
 | [Gemini](./examples/v1/11.%20gemini-example/README.md)                                                                              | Cloud provider usage       | Gemini            |
 | [CV Processing Pipeline](./examples/v1/12.%20cv-processing-pipeline/README.md)                                                      | Multi-step CV processing   | Ollama            |
 | [Retry Configuration](./examples/v1/13.%20retry%20configuration%20example/README.md)                                                | Retry logic configuration  | Ollama            |
+| [Recipe with Nested Fields](./examples/v1/14.%20recipe%20generation%20with%20nested%20fields/README.md)                           | Nested field access demo   | Ollama            |
