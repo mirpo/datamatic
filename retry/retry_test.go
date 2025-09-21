@@ -243,3 +243,29 @@ func TestShouldRetryHTTPError_NilError(t *testing.T) {
 	result := ShouldRetryHTTPError(nil)
 	assert.False(t, result)
 }
+
+func TestConfig(t *testing.T) {
+	cfg := Config{
+		MaxAttempts:       5,
+		InitialDelay:      2 * time.Second,
+		MaxDelay:          30 * time.Second,
+		BackoffMultiplier: 1.5,
+		Enabled:           false,
+	}
+
+	assert.False(t, cfg.Enabled)
+	assert.Equal(t, 5, cfg.MaxAttempts)
+	assert.Equal(t, 2*time.Second, cfg.InitialDelay)
+	assert.Equal(t, 30*time.Second, cfg.MaxDelay)
+	assert.Equal(t, 1.5, cfg.BackoffMultiplier)
+}
+
+func TestNewDefaultConfig(t *testing.T) {
+	cfg := NewDefaultConfig()
+
+	assert.True(t, cfg.Enabled)
+	assert.Equal(t, 3, cfg.MaxAttempts)
+	assert.Equal(t, time.Second, cfg.InitialDelay)
+	assert.Equal(t, 10*time.Second, cfg.MaxDelay)
+	assert.Equal(t, 2.0, cfg.BackoffMultiplier)
+}

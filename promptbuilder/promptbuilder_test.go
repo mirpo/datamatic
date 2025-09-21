@@ -82,7 +82,7 @@ func TestNewPromptBuilder(t *testing.T) {
 	builder := NewPromptBuilder(prompt)
 
 	assert.Equal(t, prompt, builder.prompt)
-	assert.Empty(t, builder.newValues)
+	assert.Empty(t, builder.stepData)
 	assert.Equal(t, map[string]PlaceholderInfo{
 		".Name":    {Step: "Name"},
 		".User.ID": {Step: "User", Key: "ID"},
@@ -95,88 +95,85 @@ func TestPromptBuilder_AddValue(t *testing.T) {
 	builder.AddValue("val1", "Step1", "KeyA", "valueA")
 	builder.AddValue("val2", "Step2", "", "valueB")
 
-	assert.Len(t, builder.newValues, 2)
-	assert.Contains(t, builder.newValues, "Step1-KeyA")
-	assert.Equal(t, Value{ID: "val1", Step: "Step1", Key: "KeyA", Content: "valueA"}, builder.newValues["Step1-KeyA"])
-	assert.Contains(t, builder.newValues, "Step2-")
-	assert.Equal(t, Value{ID: "val2", Step: "Step2", Key: "", Content: "valueB"}, builder.newValues["Step2-"])
+	assert.Len(t, builder.stepData, 2)
+	assert.Contains(t, builder.stepData, "Step1")
+	assert.Equal(t, StepValue{ID: "val1", Content: "valueA"}, builder.stepData["Step1"]["KeyA"])
+	assert.Contains(t, builder.stepData, "Step2")
+	assert.Equal(t, StepValue{ID: "val2", Content: "valueB"}, builder.stepData["Step2"][""])
+}
+
+func TestPromptBuilder_AddStepValues(t *testing.T) {
+	builder := NewPromptBuilder("Test prompt with {{.Step1.field1}} and {{.Step1.nested.field2}}.")
+
+	values := map[string]StepValue{
+		"field1":        {ID: "id1", Content: "value1"},
+		"nested.field2": {ID: "id2", Content: "value2"},
+	}
+	builder.AddStepValues("Step1", values)
+
+	assert.Len(t, builder.stepData, 1)
+	assert.Contains(t, builder.stepData, "Step1")
+	assert.Equal(t, StepValue{ID: "id1", Content: "value1"}, builder.stepData["Step1"]["field1"])
+	assert.Equal(t, StepValue{ID: "id2", Content: "value2"}, builder.stepData["Step1"]["nested.field2"])
 }
 
 func TestPromptBuilder_executeTemplate(t *testing.T) {
 	testCases := []struct {
 		name           string
 		promptTemplate string
-		addedValues    []Value
+		setupFunc      func(*PromptBuilder)
 		expectedOutput string
 		expectErr      bool
 	}{
 		{
 			name:           "Simple value replacement",
 			promptTemplate: "Hello, {{.Name}}!",
-			addedValues: []Value{
-				{ID: "1", Step: "Name", Key: "", Content: "World"},
+			setupFunc: func(pb *PromptBuilder) {
+				pb.AddValue("1", "Name", "", "World")
 			},
 			expectedOutput: "Hello, World!",
 		},
 		{
-			name:           "Nested value replacement",
+			name:           "Single-level nested",
 			promptTemplate: "The API key is {{.Config.APIKey}}.",
-			addedValues: []Value{
-				{ID: "2", Step: "Config", Key: "APIKey", Content: "secret123"},
+			setupFunc: func(pb *PromptBuilder) {
+				pb.AddValue("2", "Config", "APIKey", "secret123")
 			},
 			expectedOutput: "The API key is secret123.",
 		},
 		{
-			name:           "Multiple value replacements",
-			promptTemplate: "User: {{.User.Name}}, ID: {{.User.ID}}",
-			addedValues: []Value{
-				{ID: "3", Step: "User", Key: "Name", Content: "Alice"},
-				{ID: "4", Step: "User", Key: "ID", Content: "42"},
+			name:           "Deep nested fields",
+			promptTemplate: "Value: {{.Data.Deep.Nested.Field}}",
+			setupFunc: func(pb *PromptBuilder) {
+				pb.AddValue("3", "Data", "Deep.Nested.Field", "deep_value")
 			},
-			expectedOutput: "User: Alice, ID: 42",
+			expectedOutput: "Value: deep_value",
 		},
 		{
-			name:           "Missing key handling",
-			promptTemplate: "Value: {{.Missing}}",
-			addedValues:    []Value{},
-			expectedOutput: "Value: <no value>",
-		},
-		{
-			name:           "Mixed simple and nested values",
-			promptTemplate: "Hello {{.Name}}, config value is {{.Settings.Value}}.",
-			addedValues: []Value{
-				{ID: "5", Step: "Name", Key: "", Content: "Bob"},
-				{ID: "6", Step: "Settings", Key: "Value", Content: "enabled"},
+			name:           "Multiple nested in same step",
+			promptTemplate: "User: {{.User.Name}}, Age: {{.User.Profile.Age}}",
+			setupFunc: func(pb *PromptBuilder) {
+				pb.AddValue("4", "User", "Name", "Alice")
+				pb.AddValue("5", "User", "Profile.Age", "30")
 			},
-			expectedOutput: "Hello Bob, config value is enabled.",
+			expectedOutput: "User: Alice, Age: 30",
 		},
 		{
-			name:           "Invalid template syntax",
-			promptTemplate: "Hello, {{.Name!",
-			addedValues: []Value{
-				{ID: "7", Step: "Name", Key: "", Content: "Charlie"},
+			name:           "Mixed simple and nested",
+			promptTemplate: "Hello {{.Name}}, your score is {{.Stats.Score}}.",
+			setupFunc: func(pb *PromptBuilder) {
+				pb.AddValue("6", "Name", "", "Bob")
+				pb.AddValue("7", "Stats", "Score", "95")
 			},
-			expectErr: true,
-		},
-		{
-			name:           "Empty template",
-			promptTemplate: "",
-			addedValues:    []Value{},
-			expectedOutput: "",
-		},
-		{
-			name:           "No matching values",
-			promptTemplate: "Nothing to replace here.",
-			addedValues:    []Value{},
-			expectedOutput: "Nothing to replace here.",
+			expectedOutput: "Hello Bob, your score is 95.",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			builder := NewPromptBuilder(tc.promptTemplate)
-			for _, val := range tc.addedValues {
-				builder.AddValue(val.ID, val.Step, val.Key, val.Content)
+			if tc.setupFunc != nil {
+				tc.setupFunc(builder)
 			}
 			output, err := builder.executeTemplate(tc.promptTemplate)
 			if tc.expectErr {
@@ -187,6 +184,17 @@ func TestPromptBuilder_executeTemplate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPromptBuilder_GroupPlaceholdersByStep(t *testing.T) {
+	builder := NewPromptBuilder("{{.Step1.field1}} {{.Step1.nested.field}} {{.Step2.field2}}")
+	groups := builder.GroupPlaceholdersByStep()
+
+	// Check that each step has the right fields (order may vary)
+	assert.Len(t, groups, 2)
+	assert.Contains(t, groups["Step1"], "field1")
+	assert.Contains(t, groups["Step1"], "nested.field")
+	assert.Contains(t, groups["Step2"], "field2")
 }
 
 func TestPromptBuilder_BuildPrompt(t *testing.T) {

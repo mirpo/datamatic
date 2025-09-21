@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/kaptinlin/jsonschema"
 )
@@ -128,4 +129,100 @@ func (s *Schema) ValidateJSONText(input string) error {
 // GetSchema returns the compiled schema for API usage
 func (s *Schema) GetSchema() *jsonschema.Schema {
 	return s.schema
+}
+
+// HasFieldPath checks if a field path exists in the schema.
+func (s *Schema) HasFieldPath(path string) bool {
+	if !s.HasSchemaDefinition() || path == "" {
+		return false
+	}
+
+	current := s.schema
+	for _, part := range strings.Split(path, ".") {
+		if current.Properties == nil {
+			return false
+		}
+		prop, ok := (*current.Properties)[part]
+		if !ok {
+			return false
+		}
+		current = prop
+	}
+	return true
+}
+
+// extractFieldByPath extracts a field from JSON data using a dot path.
+func extractFieldByPath(data interface{}, path string) (interface{}, error) {
+	if path == "" {
+		return nil, fmt.Errorf("path cannot be empty")
+	}
+
+	current := data
+	parts := strings.Split(path, ".")
+
+	for i, part := range parts {
+		m, ok := current.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("cannot traverse field '%s' on non-object type %T at path '%s'", part, current, strings.Join(parts[:i], "."))
+		}
+
+		val, ok := m[part]
+		if !ok {
+			return nil, fmt.Errorf("field '%s' not found at path '%s'", part, strings.Join(parts[:i+1], "."))
+		}
+
+		current = val
+	}
+
+	return current, nil
+}
+
+// ExtractFieldByPathAsString extracts a field and converts it to string.
+func ExtractFieldByPathAsString(data interface{}, path string) (string, error) {
+	val, err := extractFieldByPath(data, path)
+	if err != nil {
+		return "", err
+	}
+	return convertToString(val), nil
+}
+
+// convertToString converts values into a test-friendly string form.
+func convertToString(value interface{}) string {
+	switch v := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return v
+	case bool:
+		if v {
+			return "true"
+		}
+		return "false"
+	case float64:
+		// Make ints look like ints, not floats
+		if v == float64(int64(v)) {
+			return fmt.Sprintf("%d", int64(v))
+		}
+		return fmt.Sprintf("%g", v)
+	case int, int64:
+		return fmt.Sprintf("%d", v)
+	case []interface{}:
+		parts := make([]string, len(v))
+		for i, item := range v {
+			parts[i] = convertToString(item)
+		}
+		return strings.Join(parts, ", ")
+	case map[string]interface{}:
+		// Marshal to compact JSON
+		if b, err := json.Marshal(v); err == nil {
+			return string(b)
+		}
+		return fmt.Sprintf("%v", v)
+	default:
+		// Fallback: try JSON, else fmt
+		if b, err := json.Marshal(v); err == nil {
+			return string(b)
+		}
+		return fmt.Sprint(v)
+	}
 }

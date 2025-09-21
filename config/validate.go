@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/mirpo/datamatic/promptbuilder"
+	"github.com/mirpo/datamatic/retry"
 )
 
 func validateVersion(version string) error {
@@ -57,6 +58,26 @@ func validateModelConfig(step ModelConfig) error {
 	return nil
 }
 
+func validateRetryConfig(cfg retry.Config) error {
+	if cfg.MaxAttempts <= 0 {
+		return errors.New("maxAttempts must be greater than 0")
+	}
+
+	if cfg.InitialDelay <= 0 {
+		return errors.New("initialDelay must be greater than 0")
+	}
+
+	if cfg.MaxDelay < cfg.InitialDelay {
+		return errors.New("maxDelay must be greater than or equal to initialDelay")
+	}
+
+	if cfg.BackoffMultiplier < 1.0 {
+		return errors.New("backoffMultiplier must be greater than or equal to 1.0")
+	}
+
+	return nil
+}
+
 func validateMaxResults(step *Step, stepNames map[string]bool) error {
 	switch v := step.MaxResults.(type) {
 	case nil, int:
@@ -84,6 +105,15 @@ func validateMaxResults(step *Step, stepNames map[string]bool) error {
 func (c *Config) Validate() error {
 	if err := validateVersion(c.Version); err != nil {
 		return err
+	}
+
+	// If retryConfig is not set in YAML (has zero values), use defaults
+	if c.RetryConfig.MaxAttempts == 0 {
+		c.RetryConfig = retry.NewDefaultConfig()
+	}
+
+	if err := validateRetryConfig(c.RetryConfig); err != nil {
+		return fmt.Errorf("retry config validation failed: %w", err)
 	}
 
 	stepNames := map[string]bool{}
@@ -127,20 +157,23 @@ func (c *Config) Validate() error {
 						return fmt.Errorf("placeholder has a references to unknown or not previous steps, step: %s, placeholder: %+v", step.Name, val)
 					}
 
-					// JSON key
+					// JSON key - supports nested paths like "user.profile.name"
 					if len(val.Key) > 0 {
-						if strings.Contains(val.Key, ".") {
-							return fmt.Errorf("placeholders currently support only one level of nesting, step: %s, placeholder: %+v", step.Name, val)
-						}
-
 						refStep := c.GetStepByName(val.Step)
 						if refStep.Type == PromptStepType {
 							if !refStep.JSONSchema.HasSchemaDefinition() {
 								return fmt.Errorf("step %s must have JSON schema, key: %s", val.Step, val.Key)
 							}
 
-							if !refStep.JSONSchema.HasRequiredProperty(val.Key) {
-								return fmt.Errorf("'%s' key must be defined in step %s in JSON schema as a property and required", val.Key, val.Step)
+							if strings.Contains(val.Key, ".") {
+								if !refStep.JSONSchema.HasFieldPath(val.Key) {
+									return fmt.Errorf("field path '%s' not found in step %s JSON schema", val.Key, val.Step)
+								}
+							} else {
+								// For single field, use existing validation
+								if !refStep.JSONSchema.HasRequiredProperty(val.Key) {
+									return fmt.Errorf("'%s' key must be defined in step %s in JSON schema as a property and required", val.Key, val.Step)
+								}
 							}
 						}
 					}

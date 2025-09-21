@@ -13,18 +13,22 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+func newProviderConfigFromStep(step config.Step, httpTimeout int) llm.ProviderConfig {
+	return llm.ProviderConfig{
+		BaseURL:      step.ModelConfig.BaseURL,
+		ProviderType: step.ModelConfig.ModelProvider,
+		ModelName:    step.ModelConfig.ModelName,
+		AuthToken:    "token",
+		HTTPTimeout:  httpTimeout,
+		Temperature:  step.ModelConfig.Temperature,
+		MaxTokens:    step.ModelConfig.MaxTokens,
+	}
+}
+
 type PromptStep struct{}
 
 func (p *PromptStep) retryLLMGeneration(ctx context.Context, cfg *config.Config, provider llm.Provider, req llm.GenerateRequest, response **llm.GenerateResponse) error {
-	retryConfig := retry.Config{
-		Enabled:           cfg.RetryConfig.Enabled,
-		MaxAttempts:       cfg.RetryConfig.MaxAttempts,
-		InitialDelay:      cfg.RetryConfig.InitialDelay,
-		MaxDelay:          cfg.RetryConfig.MaxDelay,
-		BackoffMultiplier: cfg.RetryConfig.BackoffMultiplier,
-	}
-
-	return retry.Do(ctx, retryConfig, func() error {
+	return retry.Do(ctx, cfg.RetryConfig, func() error {
 		resp, err := provider.Generate(ctx, req)
 		if err == nil {
 			*response = resp
@@ -44,7 +48,7 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 	}
 	defer writer.Close()
 
-	provider, err := llm.NewProvider(step.GetProviderConfig(cfg.HTTPTimeout))
+	provider, err := llm.NewProvider(newProviderConfigFromStep(step, cfg.HTTPTimeout))
 	if err != nil {
 		return fmt.Errorf("failed to create LLM provider: %w", err)
 	}
@@ -65,17 +69,21 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 		}
 
 		if promptBuilder.HasPlaceholders() {
-			placeholders := promptBuilder.GetPlaceholders()
-			for _, placeholder := range placeholders {
-				refStep := cfg.GetStepByName(placeholder.Step)
-				lineValue, err := readStepValue(*refStep, outputFolder, i, placeholder.Key)
+			stepGroups := promptBuilder.GroupPlaceholdersByStep()
+
+			for stepName, fieldPaths := range stepGroups {
+				refStep := cfg.GetStepByName(stepName)
+
+				stepValues, err := readStepValuesBatch(*refStep, outputFolder, i, fieldPaths)
 				if err != nil {
-					log.Error().Err(err).Msg("failed to read value from the ref step")
+					log.Error().Err(err).Msgf("failed to read values from step '%s'", stepName)
 					break
 				}
+				for fieldPath, stepValue := range stepValues {
+					log.Debug().Msgf("step: %s, field: %s, value: %s", stepName, fieldPath, stepValue.Content)
+				}
 
-				log.Debug().Msgf("placeholder: %+v, read line: '%s'", placeholder, lineValue)
-				promptBuilder.AddValue(lineValue.ID, placeholder.Step, placeholder.Key, lineValue.Response)
+				promptBuilder.AddStepValues(stepName, stepValues)
 			}
 		}
 

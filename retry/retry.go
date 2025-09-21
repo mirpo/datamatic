@@ -12,11 +12,21 @@ import (
 )
 
 type Config struct {
-	Enabled           bool
-	MaxAttempts       int
-	InitialDelay      time.Duration
-	MaxDelay          time.Duration
-	BackoffMultiplier float64
+	Enabled           bool          `yaml:"enabled"`
+	MaxAttempts       int           `yaml:"maxAttempts"`
+	InitialDelay      time.Duration `yaml:"initialDelay"`
+	MaxDelay          time.Duration `yaml:"maxDelay"`
+	BackoffMultiplier float64       `yaml:"backoffMultiplier"`
+}
+
+func NewDefaultConfig() Config {
+	return Config{
+		MaxAttempts:       3,
+		InitialDelay:      1 * time.Second,
+		MaxDelay:          10 * time.Second,
+		BackoffMultiplier: 2.0,
+		Enabled:           true,
+	}
 }
 
 type ErrorClassifier func(error) bool

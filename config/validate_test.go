@@ -2,7 +2,9 @@ package config
 
 import (
 	"testing"
+	"time"
 
+	"github.com/mirpo/datamatic/retry"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -82,6 +84,7 @@ func TestValidateConfig(t *testing.T) {
 		return Config{
 			Version:      "1.0",
 			OutputFolder: "my_output",
+			RetryConfig:  retry.NewDefaultConfig(),
 			Steps: []Step{
 				{
 					Name:   "step1",
@@ -183,7 +186,8 @@ func TestValidateMaxResults(t *testing.T) {
 func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
 	t.Run("CLI step with relative filename in command works with absolute OutputFilename", func(t *testing.T) {
 		cfg := &Config{
-			Version: "1.0",
+			Version:     "1.0",
+			RetryConfig: retry.NewDefaultConfig(),
 			Steps: []Step{
 				{
 					Name:           "convert_to_json",
@@ -200,7 +204,8 @@ func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
 
 	t.Run("CLI step with path prefix in command works", func(t *testing.T) {
 		cfg := &Config{
-			Version: "1.0",
+			Version:     "1.0",
+			RetryConfig: retry.NewDefaultConfig(),
 			Steps: []Step{
 				{
 					Name:           "jq_filter",
@@ -217,7 +222,8 @@ func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
 
 	t.Run("CLI step with absolute path in command works", func(t *testing.T) {
 		cfg := &Config{
-			Version: "1.0",
+			Version:     "1.0",
+			RetryConfig: retry.NewDefaultConfig(),
 			Steps: []Step{
 				{
 					Name:           "full_path_cmd",
@@ -234,7 +240,8 @@ func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
 
 	t.Run("CLI step without filename in command fails", func(t *testing.T) {
 		cfg := &Config{
-			Version: "1.0",
+			Version:     "1.0",
+			RetryConfig: retry.NewDefaultConfig(),
 			Steps: []Step{
 				{
 					Name:           "download_only",
@@ -248,5 +255,152 @@ func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
 		err := cfg.Validate()
 		assert.Error(t, err, "Should fail because neither 'expected.json' nor full path is in command")
 		assert.Contains(t, err.Error(), "output filename should match output result of external CLI")
+	})
+}
+
+func TestValidateRetryConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  retry.Config
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "Valid Config",
+			config: retry.Config{
+				MaxAttempts:       3,
+				InitialDelay:      1 * time.Second,
+				MaxDelay:          10 * time.Second,
+				BackoffMultiplier: 2.0,
+				Enabled:           true,
+			},
+			wantErr: false,
+		},
+		{
+			name: "Zero MaxAttempts",
+			config: retry.Config{
+				MaxAttempts:       0,
+				InitialDelay:      1 * time.Second,
+				MaxDelay:          10 * time.Second,
+				BackoffMultiplier: 2.0,
+				Enabled:           true,
+			},
+			wantErr: true,
+			errMsg:  "maxAttempts must be greater than 0",
+		},
+		{
+			name: "Negative MaxAttempts",
+			config: retry.Config{
+				MaxAttempts:       -1,
+				InitialDelay:      1 * time.Second,
+				MaxDelay:          10 * time.Second,
+				BackoffMultiplier: 2.0,
+				Enabled:           true,
+			},
+			wantErr: true,
+			errMsg:  "maxAttempts must be greater than 0",
+		},
+		{
+			name: "Zero InitialDelay",
+			config: retry.Config{
+				MaxAttempts:       3,
+				InitialDelay:      0,
+				MaxDelay:          10 * time.Second,
+				BackoffMultiplier: 2.0,
+				Enabled:           true,
+			},
+			wantErr: true,
+			errMsg:  "initialDelay must be greater than 0",
+		},
+		{
+			name: "Negative InitialDelay",
+			config: retry.Config{
+				MaxAttempts:       3,
+				InitialDelay:      -1 * time.Second,
+				MaxDelay:          10 * time.Second,
+				BackoffMultiplier: 2.0,
+				Enabled:           true,
+			},
+			wantErr: true,
+			errMsg:  "initialDelay must be greater than 0",
+		},
+		{
+			name: "MaxDelay Less Than InitialDelay",
+			config: retry.Config{
+				MaxAttempts:       3,
+				InitialDelay:      10 * time.Second,
+				MaxDelay:          5 * time.Second,
+				BackoffMultiplier: 2.0,
+				Enabled:           true,
+			},
+			wantErr: true,
+			errMsg:  "maxDelay must be greater than or equal to initialDelay",
+		},
+		{
+			name: "BackoffMultiplier Less Than 1",
+			config: retry.Config{
+				MaxAttempts:       3,
+				InitialDelay:      1 * time.Second,
+				MaxDelay:          10 * time.Second,
+				BackoffMultiplier: 0.5,
+				Enabled:           true,
+			},
+			wantErr: true,
+			errMsg:  "backoffMultiplier must be greater than or equal to 1.0",
+		},
+		{
+			name: "Edge Case - Equal Delays",
+			config: retry.Config{
+				MaxAttempts:       1,
+				InitialDelay:      5 * time.Second,
+				MaxDelay:          5 * time.Second,
+				BackoffMultiplier: 1.0,
+				Enabled:           false,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateRetryConfig(tt.config)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestConfigValidateRetryConfig(t *testing.T) {
+	t.Run("Config with invalid retry config fails validation", func(t *testing.T) {
+		cfg := &Config{
+			Version: "1.0",
+			RetryConfig: retry.Config{
+				MaxAttempts:       3,                // Valid
+				InitialDelay:      -1 * time.Second, // Invalid - negative delay
+				MaxDelay:          10 * time.Second,
+				BackoffMultiplier: 2.0,
+				Enabled:           true,
+			},
+			Steps: []Step{},
+		}
+
+		err := cfg.Validate()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "retry config validation failed: initialDelay must be greater than 0")
+	})
+
+	t.Run("Config with valid retry config passes validation", func(t *testing.T) {
+		cfg := &Config{
+			Version:     "1.0",
+			RetryConfig: retry.NewDefaultConfig(),
+			Steps:       []Step{},
+		}
+
+		err := cfg.Validate()
+		assert.NoError(t, err)
 	})
 }
