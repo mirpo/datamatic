@@ -10,7 +10,7 @@ Install:
 - [LM Studio](https://lmstudio.ai/download)
 - Install model: `ollama pull llama3.2`
 - Open LM Studio, find and download `hermes-3-llama-3.2-3b`
-- [huggingface-cli](https://huggingface.co/docs/huggingface_hub/main/en/guides/cli)
+- [hf](https://huggingface.co/docs/huggingface_hub/main/en/guides/cli)
 - [jq](https://github.com/jqlang/jq)
 - [DuckDB](https://duckdb.org/docs/installation/)
 

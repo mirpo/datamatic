@@ -93,10 +93,11 @@ func TestPreprocessConfig_Success(t *testing.T) {
 	assert.Equal(t, "gpt-4", cfg.Steps[2].ModelConfig.ModelName)
 
 	// Filenames - use absolute paths that work cross-platform
+	// Prompt steps get .jsonl appended, CLI steps don't
 	expectedCustom, _ := filepath.Abs(filepath.Join(outputFolder, "custom.jsonl"))
-	expectedCli1, _ := filepath.Abs(filepath.Join(outputFolder, "cli1.jsonl"))
+	expectedCli, _ := filepath.Abs(filepath.Join(outputFolder, "cli1"))
 	assert.Equal(t, expectedCustom, cfg.Steps[0].OutputFilename)
-	assert.Equal(t, expectedCli1, cfg.Steps[1].OutputFilename)
+	assert.Equal(t, expectedCli, cfg.Steps[1].OutputFilename) // CLI steps get absolute path but no extension change
 
 	// Image path - use absolute paths that work cross-platform
 	expectedImage, _ := filepath.Abs(filepath.Join(outputFolder, "images", "photo.jpg"))

@@ -1,6 +1,7 @@
-# Using Huggingface CLI and Ollama
+# Simple Math Reasoning with MathInstruct Dataset
 
-Example shows complex dataset generation using dataset from Huggingface, filtering using JQ and four linked steps and Ollama
+Example demonstrates structured step-by-step reasoning using MathInstruct dataset with nested JSON schemas and solution comparison.
+Inspired by https://abdullin.com/schema-guided-reasoning/examples
 
 ## Requirements
 
