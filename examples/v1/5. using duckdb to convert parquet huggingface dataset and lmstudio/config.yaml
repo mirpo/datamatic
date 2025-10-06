@@ -3,7 +3,7 @@ version: 1.0
 steps:
   - name: download_dataset
     type: cli
-    cmd: huggingface-cli download --repo-type dataset AI-MO/NuminaMath-CoT --local-dir ./ --include data/test-00000-of-00001.parquet
+    cmd: hf download --repo-type dataset AI-MO/NuminaMath-CoT --local-dir ./ --include data/test-00000-of-00001.parquet
     outputFilename: test-00000-of-00001.parquet
 
   - name: convert_to_jsonl

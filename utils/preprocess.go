@@ -98,11 +98,15 @@ func PreprocessConfig(cfg *config.Config) error {
 				return fmt.Errorf("step '%s': invalid output filename '%s': %w",
 					step.Name, step.OutputFilename, err)
 			}
+
+			step.OutputFilename = filepath.Join(cfg.OutputFolder, step.OutputFilename)
 		}
 
-		// Normalize and validate output filename (all steps)
-		if err := setOutputFilename(step, cfg.OutputFolder); err != nil {
-			return fmt.Errorf("step '%s': %w", step.Name, err)
+		// Prompt steps
+		if step.Type == config.PromptStepType {
+			if err := setOutputFilename(step, cfg.OutputFolder); err != nil {
+				return fmt.Errorf("step '%s': %w", step.Name, err)
+			}
 		}
 
 		// Normalize image path if needed

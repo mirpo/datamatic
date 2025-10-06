@@ -13,7 +13,7 @@ Install:
   - LM Studio:
     - `gemma3:4b`
 - [magick](https://imagemagick.org/script/download.php) (to convert dataset images from BMP => JPEG)
-- [huggingface-cli](https://huggingface.co/docs/huggingface_hub/main/en/guides/cli)
+- [hf](https://huggingface.co/docs/huggingface_hub/main/en/guides/cli)
 - [jq](https://github.com/jqlang/jq)
 
 ## Run dataset generation
