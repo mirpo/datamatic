@@ -2,7 +2,7 @@ version: 1.0
 
 steps:
   - name: download_dataset
-    cmd: huggingface-cli download --repo-type dataset flytech/python-codes-25k --local-dir ./ --include python-codes-25k.jsonl
+    cmd: hf download --repo-type dataset flytech/python-codes-25k --local-dir ./ --include python-codes-25k.jsonl
     outputFilename: python-codes-25k.jsonl
 
   - name: pick_first_20

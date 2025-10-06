@@ -98,6 +98,8 @@ func PreprocessConfig(cfg *config.Config) error {
 				return fmt.Errorf("step '%s': invalid output filename '%s': %w",
 					step.Name, step.OutputFilename, err)
 			}
+
+			step.OutputFilename = filepath.Join(cfg.OutputFolder, step.OutputFilename)
 		}
 
 		// Prompt steps

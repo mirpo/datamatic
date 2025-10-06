@@ -95,8 +95,9 @@ func TestPreprocessConfig_Success(t *testing.T) {
 	// Filenames - use absolute paths that work cross-platform
 	// Prompt steps get .jsonl appended, CLI steps don't
 	expectedCustom, _ := filepath.Abs(filepath.Join(outputFolder, "custom.jsonl"))
+	expectedCli, _ := filepath.Abs(filepath.Join(outputFolder, "cli1"))
 	assert.Equal(t, expectedCustom, cfg.Steps[0].OutputFilename)
-	assert.Equal(t, "cli1", cfg.Steps[1].OutputFilename) // CLI steps keep original filename
+	assert.Equal(t, expectedCli, cfg.Steps[1].OutputFilename) // CLI steps get absolute path but no extension change
 
 	// Image path - use absolute paths that work cross-platform
 	expectedImage, _ := filepath.Abs(filepath.Join(outputFolder, "images", "photo.jpg"))
