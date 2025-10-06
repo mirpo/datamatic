@@ -184,7 +184,7 @@ func TestValidateMaxResults(t *testing.T) {
 }
 
 func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
-	t.Run("CLI step with relative filename in command works with absolute OutputFilename", func(t *testing.T) {
+	t.Run("CLI step with exact filename in command passes", func(t *testing.T) {
 		cfg := &Config{
 			Version:     "1.0",
 			RetryConfig: retry.NewDefaultConfig(),
@@ -193,16 +193,16 @@ func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
 					Name:           "convert_to_json",
 					Type:           CliStepType,
 					Cmd:            `echo '{"test": "data"}' > output.json`,
-					OutputFilename: "/abs/path/to/output/output.json", // absolute path after preprocessing
+					OutputFilename: "output.json", // exact match
 				},
 			},
 		}
 
 		err := cfg.Validate()
-		assert.NoError(t, err, "Should pass because filepath.Base('output.json') is found in command")
+		assert.NoError(t, err, "Should pass because 'output.json' is found in command")
 	})
 
-	t.Run("CLI step with path prefix in command works", func(t *testing.T) {
+	t.Run("CLI step with relative path in command passes", func(t *testing.T) {
 		cfg := &Config{
 			Version:     "1.0",
 			RetryConfig: retry.NewDefaultConfig(),
@@ -211,13 +211,13 @@ func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
 					Name:           "jq_filter",
 					Type:           CliStepType,
 					Cmd:            `jq -c 'select(.test)' input.json > ./results.jsonl`,
-					OutputFilename: "/abs/path/to/output/results.jsonl",
+					OutputFilename: "./results.jsonl",
 				},
 			},
 		}
 
 		err := cfg.Validate()
-		assert.NoError(t, err, "Should pass because 'results.jsonl' basename is found in './results.jsonl'")
+		assert.NoError(t, err, "Should pass because './results.jsonl' is found in command")
 	})
 
 	t.Run("CLI step with absolute path in command works", func(t *testing.T) {

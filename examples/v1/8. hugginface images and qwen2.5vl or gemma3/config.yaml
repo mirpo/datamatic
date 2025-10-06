@@ -5,7 +5,7 @@ steps:
     type: cli
     cmd: |
       # download image dataset from huggingface
-      huggingface-cli download --repo-type dataset Azu/Handwritten-Mathematical-Expression-Convert-LaTeX --local-dir ./ --include data.zip
+      hf download --repo-type dataset Azu/Handwritten-Mathematical-Expression-Convert-LaTeX --local-dir ./ --include data.zip
 
       # unzip
       unzip -q -o data.zip -d data

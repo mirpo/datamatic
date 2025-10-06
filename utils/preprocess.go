@@ -100,9 +100,11 @@ func PreprocessConfig(cfg *config.Config) error {
 			}
 		}
 
-		// Normalize and validate output filename (all steps)
-		if err := setOutputFilename(step, cfg.OutputFolder); err != nil {
-			return fmt.Errorf("step '%s': %w", step.Name, err)
+		// Prompt steps
+		if step.Type == config.PromptStepType {
+			if err := setOutputFilename(step, cfg.OutputFolder); err != nil {
+				return fmt.Errorf("step '%s': %w", step.Name, err)
+			}
 		}
 
 		// Normalize image path if needed
