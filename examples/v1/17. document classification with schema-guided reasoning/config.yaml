@@ -1,0 +1,111 @@
+version: 1.0
+
+steps:
+  - name: generate_documents
+    type: prompt
+    model: ollama:llama3.2
+    maxResults: 10
+    modelConfig:
+      temperature: 0.9
+    systemPrompt: |
+      You are a creative content generator. Your task is to generate realistic, diverse text documents across different categories.
+
+      Each document should:
+      - Be 150-300 words long
+      - Feel authentic to its category
+      - Include relevant details, entities, and terminology
+      - Have natural language and structure appropriate for the document type
+    prompt: |
+      Generate a realistic short document. Pick a random category from this list and create authentic content for it:
+
+      Categories: receipt, blog_post, article, news, invoice, email, memo, research_paper, tutorial, review, social_media_post, press_release, product_description, technical_documentation, meeting_minutes, newsletter, case_study, whitepaper, user_manual, faq
+
+      Create a document that feels natural and includes realistic details for the chosen category.
+    jsonSchema:
+      type: object
+      properties:
+        text:
+          type: string
+          minLength: 150
+          maxLength: 1500
+          description: "The generated document text"
+      required:
+        - text
+
+  - name: classify_documents
+    type: prompt
+    model: ollama:llama3.2
+    maxResults: generate_documents.$length
+    modelConfig:
+      temperature: 0.3
+      maxTokens: 2000
+    systemPrompt: |
+      You are an expert document classifier for a document management system. Your task is to analyze documents and classify them systematically.
+
+      When classifying documents, you must:
+      1. Identify the document type
+      2. Create a brief summary of the content
+      3. Identify key entities mentioned in the document
+      4. Extract relevant keywords for search and retrieval
+
+      This structured approach ensures thorough analysis and accurate classification.
+    prompt: |
+      Classify the following document by analyzing it step-by-step. Complete all fields in the classification schema.
+
+      Document:
+      {{.generate_documents.text}}
+
+      Analyze the document and provide a complete classification following the schema below.
+    jsonSchema:
+      type: object
+      properties:
+        document_type:
+          type: string
+          enum:
+            [
+              "receipt",
+              "blog_post",
+              "article",
+              "news",
+              "invoice",
+              "email",
+              "memo",
+              "research_paper",
+              "tutorial",
+              "review",
+              "social_media_post",
+              "press_release",
+              "product_description",
+              "technical_documentation",
+              "meeting_minutes",
+              "newsletter",
+              "case_study",
+              "whitepaper",
+              "user_manual",
+              "faq",
+            ]
+          description: "The type of document - must be one of the predefined types"
+        brief_summary:
+          type: string
+          minLength: 20
+          maxLength: 200
+          description: "A brief summary of the document content (20-200 characters)"
+        key_entities_mentioned:
+          type: array
+          items:
+            type: string
+          description: "List of key entities mentioned in the document (people, organizations, places, products, concepts, etc.)"
+          minItems: 1
+          maxItems: 8
+        keywords:
+          type: array
+          items:
+            type: string
+          description: "Up to 10 keywords describing this document for search and retrieval"
+          minItems: 3
+          maxItems: 10
+      required:
+        - document_type
+        - brief_summary
+        - key_entities_mentioned
+        - keywords
