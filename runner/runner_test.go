@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/mirpo/datamatic/config"
+	"github.com/mirpo/datamatic/utils"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
@@ -31,6 +32,9 @@ func TestValidateConfigFromExamples(t *testing.T) {
 
 			cfg.OutputFolder = "test"
 			cfg.SkipCliWarning = true
+
+			err = utils.PreprocessConfig(&cfg)
+			assert.NoError(t, err, "Preprocessing failed for file: %s", path)
 
 			err = cfg.Validate()
 			assert.NoError(t, err, "Validation failed for file: %s", path)
