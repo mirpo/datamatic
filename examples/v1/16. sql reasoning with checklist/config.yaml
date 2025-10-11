@@ -1,0 +1,96 @@
+version: 1.0
+
+steps:
+  - name: download_dataset
+    type: cli
+    cmd: |
+      hf download --repo-type dataset gretelai/synthetic_text_to_sql --local-dir ./ --include synthetic_text_to_sql_train.snappy.parquet
+    outputFilename: synthetic_text_to_sql_train.snappy.parquet
+
+  - name: convert_to_jsonl
+    type: cli
+    cmd: |
+      duckdb -c "COPY (SELECT sql_prompt, sql_context, sql FROM 'synthetic_text_to_sql_train.snappy.parquet' LIMIT 10) TO 'sql_10_rows.jsonl' (FORMAT JSON, ARRAY false)"
+    outputFilename: sql_10_rows.jsonl
+
+  - name: generate_sql_with_reasoning
+    type: prompt
+    model: ollama:llama3.2
+    maxResults: convert_to_jsonl.$length
+    modelConfig:
+      temperature: 0.3
+    systemPrompt: |
+      You are an expert SQL analyst. When given a natural language query and database schema, you must first analyze the problem systematically before generating the SQL query.
+
+      Your analysis should be thorough and structured, considering:
+      - Which tables and columns are needed
+      - Whether joins are required (direct or indirect relationships)
+      - If recursive queries or subqueries are needed
+      - Query direction and filtering requirements
+    prompt: |
+      Given the following database context and natural language query, generate a SQL solution with step-by-step reasoning.
+
+      Database Schema:
+      {{.convert_to_jsonl.sql_context}}
+
+      Query Request:
+      {{.convert_to_jsonl.sql_prompt}}
+
+      First, analyze the problem systematically by completing the solution checklist, then provide the final SQL query.
+    jsonSchema:
+      type: object
+      properties:
+        solution_checklist:
+          type: object
+          properties:
+            tables_to_query:
+              type: array
+              items:
+                type: string
+              description: "List of table names that need to be queried"
+            columns_to_query:
+              type: array
+              items:
+                type: string
+              description: "List of column names needed in the result or for filtering/joining"
+            dependency_kind:
+              type: string
+              enum: ["direct", "indirect", "N/A"]
+              description: "Type of table relationship - direct (foreign key), indirect (through junction table), or N/A (single table)"
+            is_subject_system_from_or_to:
+              type: string
+              enum:
+                [
+                  "from_system_id points to our system",
+                  "to_system_id points to our system",
+                  "N/A",
+                ]
+              description: "For dependency queries, determine if we're looking for systems that depend on the target or that the target depends on"
+            does_this_require_recursive_query:
+              type: boolean
+              description: "Does this query need recursive CTEs for hierarchical or transitive dependencies?"
+            does_this_require_subquery:
+              type: boolean
+              description: "Does this query need subqueries for complex filtering or aggregation?"
+            is_this_forward_or_backward_pass:
+              type: string
+              enum: ["forward", "backward", "N/A"]
+              description: "Query direction - forward (following foreign keys) or backward (reverse lookup)"
+            should_we_filter_out_subject_system_from_results_to_avoid_overcounting:
+              type: boolean
+              description: "Should we exclude the subject entity from results to prevent duplicates?"
+          required:
+            - tables_to_query
+            - columns_to_query
+            - dependency_kind
+            - is_subject_system_from_or_to
+            - does_this_require_recursive_query
+            - does_this_require_subquery
+            - is_this_forward_or_backward_pass
+            - should_we_filter_out_subject_system_from_results_to_avoid_overcounting
+        sql_query:
+          type: string
+          description: "The final SQL query that answers the question"
+      required:
+        - solution_checklist
+        - sql_query
