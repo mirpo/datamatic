@@ -50,12 +50,3 @@ Install:
   "keywords": ["cloud", "infrastructure", "SLA", "agreement", "services", "pricing", "terms", "liability"]
 }
 ```
-
-## Use Cases
-
-This pattern is particularly useful for:
-
-- **RAG systems** - Improves document retrieval through better classification and keyword extraction
-- **Document management** - Automates filing and categorization of business documents
-- **Compliance** - Identifies documents requiring regulatory attention
-- **Search enhancement** - Generates rich metadata for document discovery
