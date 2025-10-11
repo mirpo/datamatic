@@ -5,26 +5,25 @@
 [![Release](https://img.shields.io/github/v/release/mirpo/datamatic)](https://github.com/mirpo/datamatic/releases)
 [![License](https://img.shields.io/github/license/mirpo/datamatic)](https://github.com/mirpo/datamatic/blob/main/LICENSE)
 
-**Generate high-quality synthetic data using local Large Language Models**
-
-A powerful CLI tool for creating structured datasets with local LLMs, supporting JSON schema validation, multi-step chaining, and various AI providers.
+Build multi-step AI workflows with schema-guided reasoning. Works with Ollama, LMStudio, OpenAI, OpenRouter, Gemini, and all the latest models for structured generation, chaining, and data processing.
 
 ## Features
 
-### 🤖 AI Provider Support
+### AI Provider Support
 - **[Ollama](https://ollama.com/download)** - Local model inference
 - **[LM Studio](https://lmstudio.ai/download)** - Local model management
 - **[OpenAI](https://openai.com/)** - Cloud-based models
 - **[OpenRouter](https://openrouter.ai/)** - Multi-provider access
-- **[Gemini](https://deepmind.google/models/gemini/)** - Gemini is a family of multimodal large language models (LLMs) developed by Google DeepMind
+- **[Gemini](https://deepmind.google/models/gemini/)** - Google DeepMind's multimodal LLMs
 
-### 📊 Data Generation
+### Workflow Capabilities
 - **JSON Schema Validation** - Structured output with type safety (YAML-native or JSON string formats)
 - **Text Generation** - Flexible content creation
-- **Multi-step Chaining** - Link generation steps together
+- **Multi-step Chaining** - Link generation steps together with template variables
+- **Schema-Guided Reasoning (SGR)** - Guide LLMs through systematic analysis using structured schemas
 - **Image Analysis** - Visual model integration
 
-### 🔧 Extensibility
+### Extensibility
 - **CLI Integration** - Use any command-line tool as a step
 - **Dataset Loading** - Import from [Huggingface](https://huggingface.co/datasets)
 - **Data Transformation** - Built-in [jq](https://github.com/jqlang/jq) support
@@ -52,6 +51,15 @@ git clone https://github.com/mirpo/datamatic.git
 cd datamatic
 make build
 ```
+
+## Use Cases
+
+- **Synthetic Data Generation** - Create training datasets for fine-tuning LLMs
+- **Document Classification** - Systematic analysis with structured reasoning
+- **SQL Query Generation** - Chain-of-thought reasoning for complex queries
+- **Multi-step Processing Pipelines** - CV analysis, data transformation, content generation
+- **Vision Workflows** - Image analysis combined with text generation
+- **Data Integration** - Combine HuggingFace datasets with LLM processing
 
 ## Quick Start
 
@@ -126,7 +134,7 @@ type LineEntity struct {
 - **Response**: Generated content (text string or JSON object)
 - **Values**: Linked step values for traceability
 
-### Examples of JSONl results
+### Output Examples
 
 **Text line**:
 
@@ -188,22 +196,35 @@ Options:
 
 ## Examples
 
-| Example                                                                                                                             | Description                | Provider          |
-| ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | ----------------- |
-| [Simple Text](./examples/v1/1.%20simple%20text%20generation,%20not%20linked%20steps/README.md)                                      | Basic text generation      | Ollama, LM Studio |
-| [Simple JSON](./examples/v1/2.%20simple%20json%20generation,%20not%20linked%20steps/README.md)                                      | Basic JSON generation      | Ollama, LM Studio |
-| [Linked Steps](./examples/v1/3.%20complex%20json,%20linked%20steps/README.md)                                                       | Multi-step JSON generation | Ollama            |
-| [Huggingface + jq](./examples/v1/4.%20using%20huggingface%20and%20jq%20cli/README.md)                                               | Dataset transformation     | Ollama            |
-| [DuckDB Integration](./examples/v1/5.%20using%20duckdb%20to%20convert%20parquet%20huggingface%20dataset%20and%20lmstudio/README.md) | Complex data processing    | LM Studio         |
-| [Git Dataset](./examples/v1/6.%20git%20dataset/README.md)                                                                           | Version control data       | Ollama            |
-| [Fine-tuning Data](./examples/v1/7.%20fine-tuning%20dataset/README.md)                                                              | Training dataset creation  | Ollama            |
-| [Vision Models](./examples/v1/8.%20hugginface%20images%20and%20qwen2.5vl%20or%20gemma3/README.md)                                   | Image analysis             | Ollama, LM Studio |
-| [OpenAI](./examples/v1/9.%20openai-example/README.md)                                                                               | Cloud provider usage       | OpenAI            |
-| [OpenRouter](./examples/v1/10.%20openrouter-example/README.md)                                                                      | Cloud provider usage       | OpenRouter        |
-| [Gemini](./examples/v1/11.%20gemini-example/README.md)                                                                              | Cloud provider usage       | Gemini            |
-| [CV Processing Pipeline](./examples/v1/12.%20cv-processing-pipeline/README.md)                                                      | Multi-step CV processing   | Ollama            |
-| [Retry Configuration](./examples/v1/13.%20retry%20configuration%20example/README.md)                                                | Retry logic configuration  | Ollama            |
-| [Recipe with Nested Fields](./examples/v1/14.%20recipe%20generation%20with%20nested%20fields/README.md)                           | Nested field access demo   | Ollama            |
-| [Simple Math Reasoning](./examples/v1/15.%20simple%20math%20reasoning/README.md)                                                  | Math problem solving       | Ollama            |
-| [SQL Reasoning with Checklist](./examples/v1/16.%20sql%20reasoning%20with%20checklist/README.md)                                 | SQL query generation       | Ollama            |
-| [Document Classification with SGR](./examples/v1/17.%20document%20classification%20with%20schema-guided%20reasoning/README.md)   | Schema-guided reasoning    | Ollama            |
+### Getting Started
+| Example | Description | Provider |
+| --- | --- | --- |
+| [Simple Text](./examples/v1/1.%20simple%20text%20generation,%20not%20linked%20steps/README.md) | Basic text generation | Ollama, LM Studio |
+| [Simple JSON](./examples/v1/2.%20simple%20json%20generation,%20not%20linked%20steps/README.md) | Basic JSON generation | Ollama, LM Studio |
+| [Linked Steps](./examples/v1/3.%20complex%20json,%20linked%20steps/README.md) | Multi-step chaining with templates | Ollama |
+
+### Data Integration & Tool Orchestration
+| Example | Description | Provider |
+| --- | --- | --- |
+| [Huggingface + jq](./examples/v1/4.%20using%20huggingface%20and%20jq%20cli/README.md) | HuggingFace datasets with jq filtering | Ollama |
+| [DuckDB Integration](./examples/v1/5.%20using%20duckdb%20to%20convert%20parquet%20huggingface%20dataset%20and%20lmstudio/README.md) | Parquet to JSONL with DuckDB | LM Studio |
+| [Git Dataset](./examples/v1/6.%20git%20dataset/README.md) | Git command dataset generation | Ollama |
+| [Fine-tuning Data](./examples/v1/7.%20fine-tuning%20dataset/README.md) | Training dataset creation | Ollama |
+| [Vision Models](./examples/v1/8.%20hugginface%20images%20and%20qwen2.5vl%20or%20gemma3/README.md) | Image analysis with vision models | Ollama, LM Studio |
+
+### Cloud Provider Examples
+| Example | Description | Provider |
+| --- | --- | --- |
+| [OpenAI](./examples/v1/9.%20openai-example/README.md) | Using OpenAI models | OpenAI |
+| [OpenRouter](./examples/v1/10.%20openrouter-example/README.md) | Multi-provider via OpenRouter | OpenRouter |
+| [Gemini](./examples/v1/11.%20gemini-example/README.md) | Google Gemini integration | Gemini |
+
+### Advanced Workflows & Reasoning
+| Example | Description | Provider |
+| --- | --- | --- |
+| [CV Processing Pipeline](./examples/v1/12.%20cv-processing-pipeline/README.md) | 3-step CV extraction workflow | Ollama |
+| [Retry Configuration](./examples/v1/13.%20retry%20configuration%20example/README.md) | Error handling and retry logic | Ollama |
+| [Recipe with Nested Fields](./examples/v1/14.%20recipe%20generation%20with%20nested%20fields/README.md) | Nested JSON field access | Ollama |
+| [Math Reasoning](./examples/v1/15.%20simple%20math%20reasoning/README.md) | Step-by-step math problem solving | Ollama |
+| [SQL Reasoning](./examples/v1/16.%20sql%20reasoning%20with%20checklist/README.md) | SQL generation with reasoning checklist | Ollama |
+| [Document Classification](./examples/v1/17.%20document%20classification%20with%20schema-guided%20reasoning/README.md) | Schema-guided classification workflow | Ollama |

@@ -16,7 +16,6 @@ require (
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-json-experiment/json v0.0.0-20250910080747-cc2cfa0554c3 // indirect
-	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/goccy/go-yaml v1.18.0 // indirect
 	github.com/kaptinlin/go-i18n v0.2.0 // indirect
 	github.com/kaptinlin/messageformat-go v0.4.6 // indirect
