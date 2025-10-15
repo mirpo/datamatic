@@ -3,17 +3,17 @@ version: 1.0
 steps:
   - name: download_dataset
     type: shell
-    cmd: hf download --repo-type dataset AI-MO/NuminaMath-CoT --local-dir ./ --include data/test-00000-of-00001.parquet
+    run: hf download --repo-type dataset AI-MO/NuminaMath-CoT --local-dir ./ --include data/test-00000-of-00001.parquet
     outputFilename: test-00000-of-00001.parquet
 
   - name: convert_to_jsonl
     type: shell
-    cmd: duckdb -c "COPY (SELECT * FROM read_parquet('./data/test-00000-of-00001.parquet')) TO 'output.json' (FORMAT JSON);"
+    run: duckdb -c "COPY (SELECT * FROM read_parquet('./data/test-00000-of-00001.parquet')) TO 'output.json' (FORMAT JSON);"
     outputFilename: output.json
 
   - name: synthetic_math
     type: shell
-    cmd: jq -c 'select(.source | test("synthetic_math"))' ./output.json | head -n 100 > ./synthetic_math_100.jsonl
+    run: jq -c 'select(.source | test("synthetic_math"))' ./output.json | head -n 100 > ./synthetic_math_100.jsonl
     outputFilename: synthetic_math_100.jsonl
 
   - name: explain_math

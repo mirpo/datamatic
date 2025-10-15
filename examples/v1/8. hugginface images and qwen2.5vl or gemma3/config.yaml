@@ -3,7 +3,7 @@ version: 1.0
 steps:
   - name: download_dataset
     type: shell
-    cmd: |
+    run: |
       # download image dataset from huggingface
       hf download --repo-type dataset Azu/Handwritten-Mathematical-Expression-Convert-LaTeX --local-dir ./ --include data.zip
 

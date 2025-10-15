@@ -15,14 +15,14 @@ import (
 // setStepType determines and sets the step type based on step configuration
 func setStepType(step *config.Step) error {
 	promptDefined := len(step.Prompt) > 0
-	cmdDefined := len(step.Cmd) > 0
+	runDefined := len(step.Run) > 0
 
-	if promptDefined && cmdDefined {
-		return errors.New("either 'prompt' or 'cmd' should be defined, not both")
+	if promptDefined && runDefined {
+		return errors.New("either 'prompt' or 'run' should be defined, not both")
 	}
 
-	if !promptDefined && !cmdDefined {
-		return errors.New("either 'prompt' or 'cmd' must be defined")
+	if !promptDefined && !runDefined {
+		return errors.New("either 'prompt' or 'run' must be defined")
 	}
 
 	if promptDefined {

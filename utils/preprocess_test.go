@@ -60,7 +60,7 @@ func TestPreprocessConfig_Success(t *testing.T) {
 			},
 			{
 				Name:           "cli1",
-				Cmd:            "echo hi",
+				Run:            "echo hi",
 				OutputFilename: "cli1",
 				MaxResults:     -1, // should default
 			},
@@ -117,11 +117,11 @@ func TestPreprocessConfig_Failures(t *testing.T) {
 		errMsg string
 	}{
 		{
-			"Both prompt and cmd",
+			"Both prompt and run",
 			&config.Config{OutputFolder: "/tmp", Steps: []config.Step{
-				{Name: "bad", Prompt: "p", Cmd: "c"},
+				{Name: "bad", Prompt: "p", Run: "c"},
 			}},
-			"either 'prompt' or 'cmd' should be defined",
+			"either 'prompt' or 'run' should be defined",
 		},
 		{
 			"Missing provider colon",
@@ -160,9 +160,9 @@ func TestPreprocessConfig_Failures(t *testing.T) {
 			"duplicate step name",
 		},
 		{
-			"CLI without output filename",
+			"Shell without output filename",
 			&config.Config{OutputFolder: "/tmp", Steps: []config.Step{
-				{Name: "cli1", Cmd: "echo hi"},
+				{Name: "cli1", Run: "echo hi"},
 			}},
 			"output filename is mandatory",
 		},

@@ -2,11 +2,11 @@ version: 1.0
 
 steps:
   - name: download_dataset
-    cmd: hf download --repo-type dataset flytech/python-codes-25k --local-dir ./ --include python-codes-25k.jsonl
+    run: hf download --repo-type dataset flytech/python-codes-25k --local-dir ./ --include python-codes-25k.jsonl
     outputFilename: python-codes-25k.jsonl
 
   - name: pick_first_20
-    cmd: jq -c 'select(.instruction | test("Convert|Open"))' ./python-codes-25k.jsonl | head -n 20 > ./Convert_Open_20.jsonl
+    run: jq -c 'select(.instruction | test("Convert|Open"))' ./python-codes-25k.jsonl | head -n 20 > ./Convert_Open_20.jsonl
     outputFilename: Convert_Open_20.jsonl
 
   - name: explain_code

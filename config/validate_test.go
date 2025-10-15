@@ -192,7 +192,7 @@ func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
 				{
 					Name:           "convert_to_json",
 					Type:           ShellStepType,
-					Cmd:            `echo '{"test": "data"}' > output.json`,
+					Run:            `echo '{"test": "data"}' > output.json`,
 					OutputFilename: "output.json", // exact match
 				},
 			},
@@ -210,7 +210,7 @@ func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
 				{
 					Name:           "jq_filter",
 					Type:           ShellStepType,
-					Cmd:            `jq -c 'select(.test)' input.json > ./results.jsonl`,
+					Run:            `jq -c 'select(.test)' input.json > ./results.jsonl`,
 					OutputFilename: "./results.jsonl",
 				},
 			},
@@ -228,7 +228,7 @@ func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
 				{
 					Name:           "full_path_cmd",
 					Type:           ShellStepType,
-					Cmd:            `duckdb -c "COPY (...) TO '/abs/path/to/output/data.json' (FORMAT JSON);"`,
+					Run:            `duckdb -c "COPY (...) TO '/abs/path/to/output/data.json' (FORMAT JSON);"`,
 					OutputFilename: "/abs/path/to/output/data.json",
 				},
 			},
@@ -246,7 +246,7 @@ func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
 				{
 					Name:           "download_only",
 					Type:           ShellStepType,
-					Cmd:            `curl -o different_name.json https://api.example.com/data`,
+					Run:            `curl -o different_name.json https://api.example.com/data`,
 					OutputFilename: "/abs/path/to/output/expected.json",
 				},
 			},
