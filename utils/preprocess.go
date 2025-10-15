@@ -28,7 +28,7 @@ func setStepType(step *config.Step) error {
 	if promptDefined {
 		step.Type = config.PromptStepType
 	} else {
-		step.Type = config.CliStepType
+		step.Type = config.ShellStepType
 	}
 
 	return nil
@@ -65,7 +65,7 @@ func PreprocessConfig(cfg *config.Config) error {
 		}
 		stepNames[step.Name] = true
 
-		// Step type (prompt vs cli)
+		// Step type (prompt vs shell)
 		if err := setStepType(step); err != nil {
 			return fmt.Errorf("step '%s': %w", step.Name, err)
 		}
@@ -89,10 +89,10 @@ func PreprocessConfig(cfg *config.Config) error {
 			}
 		}
 
-		// CLI steps
-		if step.Type == config.CliStepType {
+		// Shell steps
+		if step.Type == config.ShellStepType {
 			if step.OutputFilename == "" {
-				return fmt.Errorf("step '%s': output filename is mandatory for CLI steps", step.Name)
+				return fmt.Errorf("step '%s': output filename is mandatory for shell steps", step.Name)
 			}
 			if err := isValidName(step.OutputFilename); err != nil {
 				return fmt.Errorf("step '%s': invalid output filename '%s': %w",

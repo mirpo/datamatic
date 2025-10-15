@@ -20,7 +20,7 @@ steps:
         - subtopics
 
   - name: split_into_unique_subtopics
-    type: cli
+    type: shell
     cmd: |
       cat ./generate_subtopics.jsonl | jq -c '.response.subtopics[]' | sort | uniq | jq -c '{id: . | @base64, topic: .}' > ./split_into_unique_subtopics.jsonl
     outputFilename: split_into_unique_subtopics.jsonl
@@ -50,7 +50,7 @@ steps:
         - instructions
 
   - name: split_into_unique_instructions
-    type: cli
+    type: shell
     cmd: |
       cat ./generate_instructions.jsonl | jq -c '.response.instructions[]' | sort | uniq | jq -c '{id: . | @base64, instruction: .}' > ./split_into_unique_instructions.jsonl
     outputFilename: split_into_unique_instructions.jsonl
@@ -69,7 +69,7 @@ steps:
     maxResults: split_into_unique_instructions.$length
 
   - name: instruction_response
-    type: cli
+    type: shell
     cmd: |
       cat ./generate_answer.jsonl | jq -c '{instruction: .values.".split_into_unique_instructions.instruction".value, response: .response}' > ./instruction_response.jsonl
     outputFilename: instruction_response.jsonl
@@ -163,7 +163,7 @@ steps:
         - verbosity
 
   - name: result
-    type: cli
+    type: shell
     cmd: |
       cat ./rate.jsonl | jq -c '{instruction: .values.".instruction_response.response".value, response: .values.".instruction_response.response".value, evaluation: .response}' > result.jsonl
     outputFilename: result.jsonl

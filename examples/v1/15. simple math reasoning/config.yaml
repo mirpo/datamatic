@@ -2,13 +2,13 @@ version: 1.0
 
 steps:
   - name: download_dataset
-    type: cli
+    type: shell
     cmd: |
       hf download --repo-type dataset TIGER-Lab/MathInstruct --local-dir ./ --include MathInstruct.json
     outputFilename: MathInstruct.json
 
   - name: math_problems_10
-    type: cli
+    type: shell
     cmd: |
       jq -c '.[:10][]' ./MathInstruct.json > ./10_math_problems.jsonl
     outputFilename: 10_math_problems.jsonl

@@ -2,12 +2,12 @@ version: 1.0
 
 steps:
   - name: download_the_doc
-    type: cli
+    type: shell
     cmd: curl https://raw.githubusercontent.com/mirpo/chopdoc/refs/heads/main/tests/pg_essay.txt -O
     outputFilename: pg_essay.txt
 
   - name: chopdoc_by_sentence
-    type: cli
+    type: shell
     cmd: chopdoc --input pg_essay.txt --output pg_essay.jsonl --method sentence --size 10 --overlap 2
     outputFilename: pg_essay.jsonl
 
@@ -64,7 +64,7 @@ steps:
         - questions
 
   - name: flatten_question_chunk
-    type: cli
+    type: shell
     cmd: |
       cat ./questions_per_chunk.jsonl | jq -c '.values.".chopdoc_by_sentence.chunk".value as $chunk | .response.questions[] | { question: .question, chunk: $chunk, textEvidence: .textEvidence}' > flatten_question_chunk.jsonl
     outputFilename: flatten_question_chunk.jsonl
@@ -116,7 +116,7 @@ steps:
         - rating
 
   - name: filter_with_high_rating
-    type: cli
+    type: shell
     cmd: |
       cat ./validate_questions.jsonl | jq -c '. | select(.response.rating >= 7)' > filter_with_high_rating.jsonl
     outputFilename: filter_with_high_rating.jsonl

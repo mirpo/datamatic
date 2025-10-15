@@ -40,7 +40,7 @@ type StepType string
 
 const (
 	PromptStepType  StepType = "prompt"
-	CliStepType     StepType = "cli"
+	ShellStepType   StepType = "shell"
 	UnknownStepType StepType = "unknown"
 )
 

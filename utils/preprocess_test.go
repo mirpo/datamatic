@@ -84,7 +84,7 @@ func TestPreprocessConfig_Success(t *testing.T) {
 
 	// Step types
 	assert.Equal(t, config.PromptStepType, cfg.Steps[0].Type)
-	assert.Equal(t, config.CliStepType, cfg.Steps[1].Type)
+	assert.Equal(t, config.ShellStepType, cfg.Steps[1].Type)
 
 	// Providers + models
 	assert.Equal(t, llm.ProviderOllama, cfg.Steps[0].ModelConfig.ModelProvider)

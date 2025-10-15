@@ -2,13 +2,13 @@ version: 1.0
 
 steps:
   - name: download_dataset
-    type: cli
+    type: shell
     cmd: |
       hf download --repo-type dataset gretelai/synthetic_text_to_sql --local-dir ./ --include synthetic_text_to_sql_train.snappy.parquet
     outputFilename: synthetic_text_to_sql_train.snappy.parquet
 
   - name: convert_to_jsonl
-    type: cli
+    type: shell
     cmd: |
       duckdb -c "COPY (SELECT sql_prompt, sql_context, sql FROM 'synthetic_text_to_sql_train.snappy.parquet' LIMIT 10) TO 'sql_10_rows.jsonl' (FORMAT JSON, ARRAY false)"
     outputFilename: sql_10_rows.jsonl
