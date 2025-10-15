@@ -110,6 +110,47 @@ func TestPreprocessConfig_Success(t *testing.T) {
 	assert.Equal(t, "prompt1.$length", cfg.Steps[3].MaxResults)
 }
 
+func TestSetWorkDir(t *testing.T) {
+	absDataset, _ := filepath.Abs(filepath.Join("tmp", "dataset"))
+	absVarTmp, _ := filepath.Abs(filepath.Join(string(filepath.Separator), "var", "tmp"))
+
+	tests := []struct {
+		name         string
+		workDir      string
+		outputFolder string
+		wantPath     string
+	}{
+		{
+			name:         "Empty workDir defaults to outputFolder",
+			workDir:      "",
+			outputFolder: absDataset,
+			wantPath:     absDataset,
+		},
+		{
+			name:         "Relative workDir joined with outputFolder",
+			workDir:      "subdir",
+			outputFolder: absDataset,
+			wantPath:     filepath.Join(absDataset, "subdir"),
+		},
+		{
+			name:         "Absolute workDir preserved",
+			workDir:      absVarTmp,
+			outputFolder: absDataset,
+			wantPath:     absVarTmp,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			step := &config.Step{WorkDir: tt.workDir}
+			err := setWorkDir(step, tt.outputFolder)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantPath, step.WorkDir)
+			assert.True(t, filepath.IsAbs(step.WorkDir), "workDir should be absolute")
+		})
+	}
+}
+
 func TestPreprocessConfig_Failures(t *testing.T) {
 	tests := []struct {
 		name   string

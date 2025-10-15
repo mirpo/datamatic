@@ -1,0 +1,55 @@
+version: 1.0
+
+steps:
+  - name: download_prompts
+    run: hf download --repo-type dataset fka/awesome-chatgpt-prompts --local-dir ./ --include prompts.csv
+    outputFilename: prompts.csv
+    workDir: downloads
+
+  - name: convert_to_jsonl
+    run: |
+      duckdb -c "
+      COPY (
+        SELECT act, prompt
+        FROM read_csv_auto('../downloads/prompts.csv', header=true)
+      ) TO 'all_prompts.jsonl' (FORMAT JSON);
+      "
+    outputFilename: all_prompts.jsonl
+    workDir: processed
+
+  - name: analyze_complexity
+    model: ollama:llama3.2
+    maxResults: convert_to_jsonl.$length
+    systemPrompt: |
+      You are an expert in analyzing instructional prompts and assessing their complexity.
+      Rate prompts based on:
+      - Cognitive load required
+      - Domain expertise needed
+      - Number of constraints or requirements
+      - Creative vs analytical demands
+    prompt: |
+      Analyze this ChatGPT role-playing prompt and rate its complexity:
+
+      Role: {{.convert_to_jsonl.act}}
+      Prompt: {{.convert_to_jsonl.prompt}}
+
+      Provide a complexity rating and explain your reasoning.
+    jsonSchema:
+      type: object
+      properties:
+        complexity:
+          type: string
+          enum: [simple, moderate, complex]
+          description: "Overall complexity rating"
+        reasoning:
+          type: string
+          description: "Explanation for the complexity rating"
+        key_challenges:
+          type: array
+          items:
+            type: string
+          description: "Main challenges in fulfilling this prompt"
+      required:
+        - complexity
+        - reasoning
+        - key_challenges

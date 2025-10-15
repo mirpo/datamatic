@@ -50,6 +50,7 @@ type Step struct {
 	Model              string      `yaml:"model"`
 	Prompt             string      `yaml:"prompt"`
 	Run                string      `yaml:"run"`
+	WorkDir            string      `yaml:"workDir,omitempty"`
 	SystemPrompt       string      `yaml:"systemPrompt"`
 	MaxResults         interface{} `yaml:"maxResults"`
 	ModelConfig        ModelConfig `yaml:"modelConfig"`

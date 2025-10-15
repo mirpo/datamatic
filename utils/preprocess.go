@@ -99,7 +99,13 @@ func PreprocessConfig(cfg *config.Config) error {
 					step.Name, step.OutputFilename, err)
 			}
 
-			step.OutputFilename = filepath.Join(cfg.OutputFolder, step.OutputFilename)
+			// Set workDir first (before OutputFilename)
+			if err := setWorkDir(step, cfg.OutputFolder); err != nil {
+				return fmt.Errorf("step '%s': %w", step.Name, err)
+			}
+
+			// Join OutputFilename with workDir (not outputFolder)
+			step.OutputFilename = filepath.Join(step.WorkDir, step.OutputFilename)
 		}
 
 		// Prompt steps
@@ -263,5 +269,25 @@ func setRootOutputFolder(cfg *config.Config) error {
 	}
 
 	cfg.OutputFolder = absOutputFolder
+	return nil
+}
+
+// setWorkDir sets and normalizes the working directory for shell steps
+func setWorkDir(step *config.Step, outputFolder string) error {
+	if step.WorkDir == "" {
+		step.WorkDir = outputFolder
+		return nil
+	}
+
+	if !filepath.IsAbs(step.WorkDir) {
+		step.WorkDir = filepath.Join(outputFolder, step.WorkDir)
+	}
+
+	absPath, err := filepath.Abs(step.WorkDir)
+	if err != nil {
+		return fmt.Errorf("invalid workDir path: %w", err)
+	}
+
+	step.WorkDir = absPath
 	return nil
 }
