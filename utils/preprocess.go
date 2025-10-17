@@ -15,20 +15,20 @@ import (
 // setStepType determines and sets the step type based on step configuration
 func setStepType(step *config.Step) error {
 	promptDefined := len(step.Prompt) > 0
-	cmdDefined := len(step.Cmd) > 0
+	runDefined := len(step.Run) > 0
 
-	if promptDefined && cmdDefined {
-		return errors.New("either 'prompt' or 'cmd' should be defined, not both")
+	if promptDefined && runDefined {
+		return errors.New("either 'prompt' or 'run' should be defined, not both")
 	}
 
-	if !promptDefined && !cmdDefined {
-		return errors.New("either 'prompt' or 'cmd' must be defined")
+	if !promptDefined && !runDefined {
+		return errors.New("either 'prompt' or 'run' must be defined")
 	}
 
 	if promptDefined {
 		step.Type = config.PromptStepType
 	} else {
-		step.Type = config.CliStepType
+		step.Type = config.ShellStepType
 	}
 
 	return nil
@@ -65,7 +65,7 @@ func PreprocessConfig(cfg *config.Config) error {
 		}
 		stepNames[step.Name] = true
 
-		// Step type (prompt vs cli)
+		// Step type (prompt vs shell)
 		if err := setStepType(step); err != nil {
 			return fmt.Errorf("step '%s': %w", step.Name, err)
 		}
@@ -89,17 +89,23 @@ func PreprocessConfig(cfg *config.Config) error {
 			}
 		}
 
-		// CLI steps
-		if step.Type == config.CliStepType {
+		// Shell steps
+		if step.Type == config.ShellStepType {
 			if step.OutputFilename == "" {
-				return fmt.Errorf("step '%s': output filename is mandatory for CLI steps", step.Name)
+				return fmt.Errorf("step '%s': output filename is mandatory for shell steps", step.Name)
 			}
 			if err := isValidName(step.OutputFilename); err != nil {
 				return fmt.Errorf("step '%s': invalid output filename '%s': %w",
 					step.Name, step.OutputFilename, err)
 			}
 
-			step.OutputFilename = filepath.Join(cfg.OutputFolder, step.OutputFilename)
+			// Set workDir first (before OutputFilename)
+			if err := setWorkDir(step, cfg.OutputFolder); err != nil {
+				return fmt.Errorf("step '%s': %w", step.Name, err)
+			}
+
+			// Join OutputFilename with workDir (not outputFolder)
+			step.OutputFilename = filepath.Join(step.WorkDir, step.OutputFilename)
 		}
 
 		// Prompt steps
@@ -263,5 +269,25 @@ func setRootOutputFolder(cfg *config.Config) error {
 	}
 
 	cfg.OutputFolder = absOutputFolder
+	return nil
+}
+
+// setWorkDir sets and normalizes the working directory for shell steps
+func setWorkDir(step *config.Step, outputFolder string) error {
+	if step.WorkDir == "" {
+		step.WorkDir = outputFolder
+		return nil
+	}
+
+	if !filepath.IsAbs(step.WorkDir) {
+		step.WorkDir = filepath.Join(outputFolder, step.WorkDir)
+	}
+
+	absPath, err := filepath.Abs(step.WorkDir)
+	if err != nil {
+		return fmt.Errorf("invalid workDir path: %w", err)
+	}
+
+	step.WorkDir = absPath
 	return nil
 }

@@ -126,13 +126,13 @@ func (c *Config) Validate() error {
 
 		stepType := step.Type
 
-		if stepType == CliStepType {
-			cliCalls = append(cliCalls, fmt.Sprintf("- %s", step.Cmd))
+		if stepType == ShellStepType {
+			cliCalls = append(cliCalls, fmt.Sprintf("- %s", step.Run))
 
 			filename := filepath.Base(step.OutputFilename)
-			if !strings.Contains(step.Cmd, filename) {
-				return fmt.Errorf("step '%s': output filename should match output result of external CLI; cmd: [%s], output file: %s",
-					step.Name, step.Cmd, filename)
+			if !strings.Contains(step.Run, filename) {
+				return fmt.Errorf("step '%s': output filename should match output result of external shell command; run: [%s], output file: %s",
+					step.Name, step.Run, filename)
 			}
 		}
 

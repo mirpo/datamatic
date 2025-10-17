@@ -40,7 +40,7 @@ type StepType string
 
 const (
 	PromptStepType  StepType = "prompt"
-	CliStepType     StepType = "cli"
+	ShellStepType   StepType = "shell"
 	UnknownStepType StepType = "unknown"
 )
 
@@ -49,7 +49,8 @@ type Step struct {
 	Name               string      `yaml:"name"`
 	Model              string      `yaml:"model"`
 	Prompt             string      `yaml:"prompt"`
-	Cmd                string      `yaml:"cmd"`
+	Run                string      `yaml:"run"`
+	WorkDir            string      `yaml:"workDir,omitempty"`
 	SystemPrompt       string      `yaml:"systemPrompt"`
 	MaxResults         interface{} `yaml:"maxResults"`
 	ModelConfig        ModelConfig `yaml:"modelConfig"`

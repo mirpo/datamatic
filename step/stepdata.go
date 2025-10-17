@@ -19,14 +19,14 @@ func uuidFromString(input string) string {
 }
 
 // getSourceDataFromLine extracts the data and record ID from a step line
-// CLI steps: full line is an unknown JSON
+// Shell steps: full line is an unknown JSON
 // Prompt steps: line contains JSON created with datamatic
 func getSourceDataFromLine(step config.Step, line string) (interface{}, string, error) {
 	switch step.Type {
-	case config.CliStepType:
+	case config.ShellStepType:
 		var decoded map[string]interface{}
 		if err := json.Unmarshal([]byte(line), &decoded); err != nil {
-			return nil, "", fmt.Errorf("CLI step: failed to parse JSON: %w", err)
+			return nil, "", fmt.Errorf("shell step: failed to parse JSON: %w", err)
 		}
 		return decoded, "", nil
 
@@ -74,7 +74,7 @@ func readStepValuesBatch(step config.Step, outputFolder string, lineNumber int, 
 		}
 
 		fieldID := recordID
-		if fieldID == "" { // CLI case
+		if fieldID == "" { // Shell case
 			fieldID = uuidFromString(value)
 		}
 

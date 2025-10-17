@@ -34,8 +34,8 @@ func TestGetSourceDataFromLine(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name: "CLI step - valid JSON",
-			step: config.Step{Type: config.CliStepType},
+			name: "Shell step - valid JSON",
+			step: config.Step{Type: config.ShellStepType},
 			line: `{"name": "test", "value": 123}`,
 			wantData: map[string]interface{}{
 				"name":  "test",
@@ -43,8 +43,8 @@ func TestGetSourceDataFromLine(t *testing.T) {
 			},
 		},
 		{
-			name:    "CLI step - invalid JSON",
-			step:    config.Step{Type: config.CliStepType},
+			name:    "Shell step - invalid JSON",
+			step:    config.Step{Type: config.ShellStepType},
 			line:    `{"invalid": json}`,
 			wantErr: true,
 		},
@@ -98,8 +98,8 @@ func TestReadStepValuesBatch(t *testing.T) {
 		wantErr    bool
 	}{
 		{
-			name:       "CLI step - multiple fields",
-			step:       config.Step{Type: config.CliStepType},
+			name:       "Shell step - multiple fields",
+			step:       config.Step{Type: config.ShellStepType},
 			mockLine:   `{"name": "test", "value": 123, "nested": {"field": "data"}}`,
 			fieldPaths: []string{"name", "nested.field"},
 			wantResult: map[string]promptbuilder.StepValue{
@@ -130,7 +130,7 @@ func TestReadStepValuesBatch(t *testing.T) {
 		},
 		{
 			name:       "File read error",
-			step:       config.Step{Type: config.CliStepType},
+			step:       config.Step{Type: config.ShellStepType},
 			mockErr:    fmt.Errorf("mocked read error"),
 			fieldPaths: []string{"name"},
 			wantErr:    true,

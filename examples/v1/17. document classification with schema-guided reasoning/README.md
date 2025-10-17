@@ -34,11 +34,6 @@ Install:
 - [Ollama](https://ollama.com/download)
 - Install model: `ollama pull llama3.2`
 - [hf](https://huggingface.co/docs/huggingface_hub/main/en/guides/cli)
-- [DuckDB CLI](https://duckdb.org/docs/installation/)
-
-## Run classification
-
-`datamatic --config ./config.yaml --verbose`
 
 ## Example Output
 
@@ -50,3 +45,7 @@ Install:
   "keywords": ["cloud", "infrastructure", "SLA", "agreement", "services", "pricing", "terms", "liability"]
 }
 ```
+
+## Run dataset generation
+
+`datamatic --config ./config.yaml --verbose`

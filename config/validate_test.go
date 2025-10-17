@@ -191,8 +191,8 @@ func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
 			Steps: []Step{
 				{
 					Name:           "convert_to_json",
-					Type:           CliStepType,
-					Cmd:            `echo '{"test": "data"}' > output.json`,
+					Type:           ShellStepType,
+					Run:            `echo '{"test": "data"}' > output.json`,
 					OutputFilename: "output.json", // exact match
 				},
 			},
@@ -202,15 +202,15 @@ func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
 		assert.NoError(t, err, "Should pass because 'output.json' is found in command")
 	})
 
-	t.Run("CLI step with relative path in command passes", func(t *testing.T) {
+	t.Run("Shell step with relative path in command passes", func(t *testing.T) {
 		cfg := &Config{
 			Version:     "1.0",
 			RetryConfig: retry.NewDefaultConfig(),
 			Steps: []Step{
 				{
 					Name:           "jq_filter",
-					Type:           CliStepType,
-					Cmd:            `jq -c 'select(.test)' input.json > ./results.jsonl`,
+					Type:           ShellStepType,
+					Run:            `jq -c 'select(.test)' input.json > ./results.jsonl`,
 					OutputFilename: "./results.jsonl",
 				},
 			},
@@ -220,15 +220,15 @@ func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
 		assert.NoError(t, err, "Should pass because './results.jsonl' is found in command")
 	})
 
-	t.Run("CLI step with absolute path in command works", func(t *testing.T) {
+	t.Run("Shell step with absolute path in command works", func(t *testing.T) {
 		cfg := &Config{
 			Version:     "1.0",
 			RetryConfig: retry.NewDefaultConfig(),
 			Steps: []Step{
 				{
 					Name:           "full_path_cmd",
-					Type:           CliStepType,
-					Cmd:            `duckdb -c "COPY (...) TO '/abs/path/to/output/data.json' (FORMAT JSON);"`,
+					Type:           ShellStepType,
+					Run:            `duckdb -c "COPY (...) TO '/abs/path/to/output/data.json' (FORMAT JSON);"`,
 					OutputFilename: "/abs/path/to/output/data.json",
 				},
 			},
@@ -238,15 +238,15 @@ func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
 		assert.NoError(t, err, "Should pass because full path matches exactly")
 	})
 
-	t.Run("CLI step without filename in command fails", func(t *testing.T) {
+	t.Run("Shell step without filename in command fails", func(t *testing.T) {
 		cfg := &Config{
 			Version:     "1.0",
 			RetryConfig: retry.NewDefaultConfig(),
 			Steps: []Step{
 				{
 					Name:           "download_only",
-					Type:           CliStepType,
-					Cmd:            `curl -o different_name.json https://api.example.com/data`,
+					Type:           ShellStepType,
+					Run:            `curl -o different_name.json https://api.example.com/data`,
 					OutputFilename: "/abs/path/to/output/expected.json",
 				},
 			},
@@ -254,7 +254,7 @@ func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
 
 		err := cfg.Validate()
 		assert.Error(t, err, "Should fail because neither 'expected.json' nor full path is in command")
-		assert.Contains(t, err.Error(), "output filename should match output result of external CLI")
+		assert.Contains(t, err.Error(), "output filename should match output result of external shell")
 	})
 }
 

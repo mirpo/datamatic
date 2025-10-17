@@ -16,12 +16,12 @@ func TestNewStepRunner_PromptStep(t *testing.T) {
 	assert.IsType(t, &PromptStep{}, runner)
 }
 
-func TestNewStepRunner_CliStep(t *testing.T) {
-	step := config.Step{Type: config.CliStepType}
+func TestNewStepRunner_ShellStep(t *testing.T) {
+	step := config.Step{Type: config.ShellStepType}
 	runner, err := NewStepRunner(step)
 
 	assert.NoError(t, err)
-	assert.IsType(t, &CliStep{}, runner)
+	assert.IsType(t, &ShellStep{}, runner)
 }
 
 func TestNewStepRunner_UnsupportedStep(t *testing.T) {
