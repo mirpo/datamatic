@@ -1,5 +1,7 @@
 github.com/avast/retry-go/v4 v4.6.1 h1:VkOLRubHdisGrHnTu89g08aQEWEgRU7LVEop3GbIcMk=
 github.com/avast/retry-go/v4 v4.6.1/go.mod h1:V6oF8njAwxJ5gRo1Q7Cxab24xs5NCWZBeaHHBklR8mA=
+github.com/avast/retry-go/v4 v4.7.0 h1:yjDs35SlGvKwRNSykujfjdMxMhMQQM0TnIjJaHB+Zio=
+github.com/avast/retry-go/v4 v4.7.0/go.mod h1:ZMPDa3sY2bKgpLtap9JRUgk2yTAba7cgiFhqxY2Sg6Q=
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -16,6 +18,8 @@ github.com/kaptinlin/go-i18n v0.2.0 h1:8iwjAERQbCVF78c3HxC4MxUDxDRFvQVQlMDvlsO43
 github.com/kaptinlin/go-i18n v0.2.0/go.mod h1:gRHEMrTHtQLsAFwulPbJG71TwHjXxkagn88O8FI8FuA=
 github.com/kaptinlin/jsonschema v0.5.0 h1:5buSFMBSaXvBvYSqwM2S0xaGslq5uEKVVfdLhclZnlQ=
 github.com/kaptinlin/jsonschema v0.5.0/go.mod h1:HuWb90460GwFxRe0i9Ni3Z7YXwkjpqjeccWTB9gTZZE=
+github.com/kaptinlin/jsonschema v0.5.1 h1:EAkrS6HpmAqb9zFD9nNpg1MGJzWzmsqrc6DPcwkaLwo=
+github.com/kaptinlin/jsonschema v0.5.1/go.mod h1:HuWb90460GwFxRe0i9Ni3Z7YXwkjpqjeccWTB9gTZZE=
 github.com/kaptinlin/messageformat-go v0.4.6 h1:57DUC9en40mGZR7MvqOS+5EYogAl465fjo+loAA1KPg=
 github.com/kaptinlin/messageformat-go v0.4.6/go.mod h1:r0PH7FsxJX8jS/n6LAYZon5w3X+yfCLUrquqYd2H7ks=
 github.com/mattn/go-colorable v0.1.13/go.mod h1:7S9/ev0klgBDR4GtXTXX8a3vIGJpMovkB8vQcUbaXHg=
