@@ -32,6 +32,7 @@ type Config struct {
 	ValidateResponse bool
 	SkipCliWarning   bool
 	Version          string       `yaml:"version"`
+	EnvVars          []string     `yaml:"envVars"`
 	Steps            []Step       `yaml:"steps"`
 	RetryConfig      retry.Config `yaml:"retryConfig"`
 }

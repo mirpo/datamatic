@@ -1,13 +1,8 @@
-# Multi-Stage Pipeline with workDir
+# Multi-Stage Pipeline with workDir and Environment Variables
 
-This example demonstrates the `workDir` feature for organizing shell-step outputs across multiple processing stages.
-
-## Overview
-
-The `workDir` parameter (available for **shell steps only**) allows you to control where shell commands execute and where their outputs are written. This enables clean separation of:
-- Raw downloads
-- Intermediate transformations
-- Final datasets
+This example demonstrates two powerful features:
+1. **`workDir`** - Organize shell step outputs across multiple processing stages
+2. **Environment Variables** - Configure pipelines dynamically using `$VAR` syntax
 
 ## Requirements
 
@@ -35,6 +30,27 @@ dataset/
 ```
 
 ## Key Concepts
+
+### Environment Variables
+
+Use `$VAR` syntax in YAML configuration to reference environment variables:
+
+```yaml
+envVars:
+  - REQUIRED_FILE    # Declare required vars (optional but recommended)
+  - DOWNLOAD_DIR
+  - PROVIDER
+  - MODEL
+
+steps:
+  - name: download
+    run: hf download --include $REQUIRED_FILE
+    workDir: $DOWNLOAD_DIR
+
+  - name: process
+    model: $PROVIDER:$MODEL
+    prompt: Analyze {{.download.result}}
+```
 
 ### workDir Behavior
 
@@ -105,4 +121,12 @@ Process existing directories:
 
 ## Run dataset generation
 
-`datamatic --config ./config.yaml --verbose`
+### With Environment Variables
+
+```bash
+REQUIRED_FILE=prompts.csv \
+DOWNLOAD_DIR=downloads \
+PROVIDER=ollama \
+MODEL=llama3.2 \
+  datamatic --config ./config.yaml --verbose
+```

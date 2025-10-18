@@ -15,7 +15,6 @@ type ShellStep struct{}
 const defaultCmdTimeout = 1 * time.Hour
 
 func (p *ShellStep) Run(ctx context.Context, cfg *config.Config, step config.Step, outputFolder string) error {
-	// Create workDir if it doesn't exist
 	if err := os.MkdirAll(step.WorkDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create workDir %s: %w", step.WorkDir, err)
 	}
