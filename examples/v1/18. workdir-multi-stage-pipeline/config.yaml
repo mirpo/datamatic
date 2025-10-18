@@ -1,24 +1,32 @@
 version: 1.0
 
+# Declare required environment variables (optional but recommended)
+# These will be validated before config processing - program fails fast if missing
+# envVars:
+#   - REQUIRED_FILE
+#   - DOWNLOAD_DIR
+#   - PROVIDER
+#   - MODEL
+
 steps:
   - name: download_prompts
-    run: hf download --repo-type dataset fka/awesome-chatgpt-prompts --local-dir ./ --include prompts.csv
-    outputFilename: prompts.csv
-    workDir: downloads
+    run: hf download --repo-type dataset fka/awesome-chatgpt-prompts --local-dir ./ --include $REQUIRED_FILE
+    outputFilename: $REQUIRED_FILE
+    workDir: $DOWNLOAD_DIR
 
   - name: convert_to_jsonl
     run: |
       duckdb -c "
       COPY (
         SELECT act, prompt
-        FROM read_csv_auto('../downloads/prompts.csv', header=true)
+        FROM read_csv_auto('../$DOWNLOAD_DIR/$REQUIRED_FILE', header=true)
       ) TO 'all_prompts.jsonl' (FORMAT JSON);
       "
     outputFilename: all_prompts.jsonl
     workDir: processed
 
   - name: analyze_complexity
-    model: ollama:llama3.2
+    model: $PROVIDER:$MODEL
     maxResults: convert_to_jsonl.$length
     systemPrompt: |
       You are an expert in analyzing instructional prompts and assessing their complexity.

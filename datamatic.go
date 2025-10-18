@@ -54,12 +54,24 @@ func main() {
 		log.Fatal().Err(err).Msg("Reading config file")
 	}
 
-	err = yaml.Unmarshal(yamlConfig, &cfg)
+	var tempCfg struct {
+		EnvVars []string `yaml:"envVars"`
+	}
+	err = yaml.Unmarshal(yamlConfig, &tempCfg)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Parsing config file for env vars")
+	}
+
+	expandedYaml, err := utils.ExpandEnv(string(yamlConfig), tempCfg.EnvVars)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Expanding environment variables in config file")
+	}
+
+	err = yaml.Unmarshal([]byte(expandedYaml), &cfg)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Parsing config file")
 	}
 
-	// Preprocess config: set step types and process schemas
 	err = utils.PreprocessConfig(cfg)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to preprocess config")

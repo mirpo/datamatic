@@ -27,6 +27,7 @@ Build multi-step AI workflows with schema-guided reasoning. Works with Ollama, L
 - **CLI Integration** - Use any command-line tool as a step
 - **Dataset Loading** - Import from [Huggingface](https://huggingface.co/datasets)
 - **Data Transformation** - Built-in [jq](https://github.com/jqlang/jq) support
+- **Environment Variables** - Dynamic configuration with `$VAR` syntax
 - **Retry Logic** - Smart error handling and recovery
 
 ## Installation
@@ -115,6 +116,29 @@ datamatic -config config.yaml -verbose -log-pretty
 - OpenAI: `model: openai:gpt-4o-mini` + `export OPENAI_API_KEY=sk-...`
 - OpenRouter: `model: openrouter:meta-llama/llama-3.2-3b` + `export OPENROUTER_API_KEY=sk-...`
 - Gemini: `model: gemini:gemini-2.0-flash` + `export GEMINI_API_KEY=...`
+
+### Environment Variables
+
+Configure your pipelines dynamically using `$VAR` syntax:
+
+```yaml
+version: 1.0
+
+envVars:
+  - PROVIDER
+  - MODEL
+
+steps:
+  - name: generate
+    model: $PROVIDER:$MODEL
+    prompt: Generate a creative story
+```
+
+```bash
+PROVIDER=ollama MODEL=llama3.2 datamatic -config config.yaml
+```
+
+Variables listed in `envVars` are validated before execution (fail-fast). See [Multi-Stage Pipeline example](./examples/v1/18.%20workdir-multi-stage-pipeline/README.md) for more details.
 
 ## Output Format
 
@@ -228,3 +252,4 @@ Options:
 | [Math Reasoning](./examples/v1/15.%20simple%20math%20reasoning/README.md) | Step-by-step math problem solving | Ollama |
 | [SQL Reasoning](./examples/v1/16.%20sql%20reasoning%20with%20checklist/README.md) | SQL generation with reasoning checklist | Ollama |
 | [Document Classification](./examples/v1/17.%20document%20classification%20with%20schema-guided%20reasoning/README.md) | Schema-guided classification workflow | Ollama |
+| [Multi-Stage Pipeline](./examples/v1/18.%20workdir-multi-stage-pipeline/README.md) | workDir control and environment variables | Ollama |
