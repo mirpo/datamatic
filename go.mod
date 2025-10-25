@@ -6,7 +6,7 @@ require (
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/goforj/godump v1.6.0
 	github.com/google/uuid v1.6.0
-	github.com/kaptinlin/jsonschema v0.5.1
+	github.com/kaptinlin/jsonschema v0.5.2
 	github.com/rs/zerolog v1.34.0
 	github.com/sashabaranov/go-openai v1.41.2
 	github.com/stretchr/testify v1.11.1
