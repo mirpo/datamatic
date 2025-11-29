@@ -1,12 +1,12 @@
 module github.com/mirpo/datamatic
 
-go 1.25
+go 1.25.4
 
 require (
 	github.com/avast/retry-go/v5 v5.0.0
 	github.com/goforj/godump v1.6.0
 	github.com/google/uuid v1.6.0
-	github.com/kaptinlin/jsonschema v0.6.0
+	github.com/kaptinlin/jsonschema v0.6.1
 	github.com/rs/zerolog v1.34.0
 	github.com/sashabaranov/go-openai v1.41.2
 	github.com/stretchr/testify v1.11.1
@@ -16,7 +16,7 @@ require (
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-json-experiment/json v0.0.0-20251027170946-4849db3c2f7e // indirect
-	github.com/goccy/go-yaml v1.18.0 // indirect
+	github.com/goccy/go-yaml v1.19.0 // indirect
 	github.com/kaptinlin/go-i18n v0.2.0 // indirect
 	github.com/kaptinlin/jsonpointer v0.4.6 // indirect
 	github.com/kaptinlin/messageformat-go v0.4.6 // indirect
