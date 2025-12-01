@@ -1,6 +1,6 @@
 module github.com/mirpo/datamatic
 
-go 1.25.4
+go 1.25
 
 require (
 	github.com/avast/retry-go/v5 v5.0.0
