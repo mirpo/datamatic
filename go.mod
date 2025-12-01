@@ -3,7 +3,7 @@ module github.com/mirpo/datamatic
 go 1.25
 
 require (
-	github.com/avast/retry-go/v4 v4.7.0
+	github.com/avast/retry-go/v5 v5.0.0
 	github.com/goforj/godump v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/kaptinlin/jsonschema v0.6.0

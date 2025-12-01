@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/avast/retry-go/v4"
+	"github.com/avast/retry-go/v5"
 	"github.com/rs/zerolog/log"
 	"github.com/sashabaranov/go-openai"
 )
@@ -51,8 +51,7 @@ func Do(ctx context.Context, cfg Config, fn func() error, shouldRetry ErrorClass
 		return retry.Unrecoverable(err)
 	}
 
-	return retry.Do(
-		retryFn,
+	return retry.New(
 		retry.Attempts(uint(cfg.MaxAttempts)),
 		retry.Delay(cfg.InitialDelay),
 		retry.MaxDelay(cfg.MaxDelay),
@@ -61,7 +60,7 @@ func Do(ctx context.Context, cfg Config, fn func() error, shouldRetry ErrorClass
 		retry.OnRetry(func(n uint, err error) {
 			log.Info().Msgf("Retry attempt %d/%d after error: %v", n+1, cfg.MaxAttempts, err)
 		}),
-	)
+	).Do(retryFn)
 }
 
 func ShouldRetryHTTPError(err error) bool {
