@@ -1,12 +1,12 @@
 module github.com/mirpo/datamatic
 
-go 1.25
+go 1.25.5
 
 require (
 	github.com/avast/retry-go/v5 v5.0.0
-	github.com/goforj/godump v1.6.0
+	github.com/goforj/godump v1.7.1
 	github.com/google/uuid v1.6.0
-	github.com/kaptinlin/jsonschema v0.6.1
+	github.com/kaptinlin/jsonschema v0.6.2
 	github.com/rs/zerolog v1.34.0
 	github.com/sashabaranov/go-openai v1.41.2
 	github.com/stretchr/testify v1.11.1
