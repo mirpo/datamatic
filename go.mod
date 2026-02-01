@@ -6,7 +6,7 @@ require (
 	github.com/avast/retry-go/v5 v5.0.0
 	github.com/goforj/godump v1.9.0
 	github.com/google/uuid v1.6.0
-	github.com/kaptinlin/jsonschema v0.6.6
+	github.com/kaptinlin/jsonschema v0.6.9
 	github.com/rs/zerolog v1.34.0
 	github.com/sashabaranov/go-openai v1.41.2
 	github.com/stretchr/testify v1.11.1
@@ -17,9 +17,9 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-json-experiment/json v0.0.0-20251027170946-4849db3c2f7e // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
-	github.com/kaptinlin/go-i18n v0.2.2 // indirect
-	github.com/kaptinlin/jsonpointer v0.4.8 // indirect
-	github.com/kaptinlin/messageformat-go v0.4.8 // indirect
+	github.com/kaptinlin/go-i18n v0.2.3 // indirect
+	github.com/kaptinlin/jsonpointer v0.4.9 // indirect
+	github.com/kaptinlin/messageformat-go v0.4.9 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
