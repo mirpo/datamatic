@@ -242,3 +242,14 @@ func TestPromptBuilder_GetValues(t *testing.T) {
 	actual := builder.GetValues()
 	assert.Equal(t, expected, actual)
 }
+
+func TestPromptBuilder_GetValues_WholeStepReference(t *testing.T) {
+	builder := NewPromptBuilder("Test prompt.")
+	builder.AddValue("1", "generate_cv", "", "full cv text") // whole-response reference
+
+	actual := builder.GetValues()
+
+	assert.Equal(t, map[string]ValueShort{
+		".generate_cv": {ID: "1", Value: "full cv text"},
+	}, actual, "no trailing dot for whole-step references")
+}

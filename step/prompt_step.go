@@ -42,6 +42,19 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 	maxResult := step.ResolvedMaxResults
 	i := 0
 
+	// registerInvalid tracks consecutive invalid LLM responses; it returns a
+	// terminal error once the budget (retryConfig.maxAttempts) is exhausted.
+	invalidAttempts := 0
+	registerInvalid := func(cause error, responseText string) error {
+		invalidAttempts++
+		log.Warn().Err(cause).Msgf("invalid LLM response (attempt %d/%d): %s",
+			invalidAttempts, cfg.RetryConfig.MaxAttempts, responseText)
+		if invalidAttempts >= cfg.RetryConfig.MaxAttempts {
+			return fmt.Errorf("row %d: LLM returned invalid response %d times in a row: %w", i, invalidAttempts, cause)
+		}
+		return nil
+	}
+
 	writer, err := jsonl.NewWriter(step.OutputFilename)
 	if err != nil {
 		return fmt.Errorf("failed to create JSONL writer: %w", err)
@@ -73,11 +86,13 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 
 			for stepName, fieldPaths := range stepGroups {
 				refStep := cfg.GetStepByName(stepName)
+				if refStep == nil {
+					return fmt.Errorf("prompt references unknown step '%s'", stepName)
+				}
 
 				stepValues, err := readStepValuesBatch(*refStep, outputFolder, i, fieldPaths)
 				if err != nil {
-					log.Error().Err(err).Msgf("failed to read values from step '%s'", stepName)
-					break
+					return fmt.Errorf("failed to read values from step '%s': %w", stepName, err)
 				}
 				for fieldPath, stepValue := range stepValues {
 					log.Debug().Msgf("step: %s, field: %s, value: %s", stepName, fieldPath, stepValue.Content)
@@ -89,22 +104,19 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 
 		userPrompt, err := promptBuilder.BuildPrompt()
 		if err != nil {
-			log.Error().Err(err).Msg("failed to build user prompt")
-			break
+			return fmt.Errorf("failed to build prompt: %w", err)
 		}
 
 		var base64Image string
 		if step.HasImages() {
 			imagePath, err := fs.PickImageFile(step.ImagePath, i)
 			if err != nil {
-				log.Error().Err(err).Msgf("failed to find images by pattern: %s, err: %s", step.ImagePath, err)
-				break
+				return fmt.Errorf("failed to find images by pattern '%s': %w", step.ImagePath, err)
 			}
 
 			base64Image, err = fs.ImageToBase64(imagePath)
 			if err != nil {
-				log.Error().Err(err).Msgf("failed to get base64 of image: %s, err: %s", imagePath, err)
-				break
+				return fmt.Errorf("failed to encode image '%s': %w", imagePath, err)
 			}
 
 			promptBuilder.AddValue(base64Image[:15], step.Name, "image", imagePath)
@@ -124,9 +136,10 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 
 		if cfg.ValidateResponse && hasSchemaSchema {
 			log.Debug().Msg("Validating response from LLM using JSON schema")
-			err := step.JSONSchema.ValidateJSONText(response.Text)
-			if err != nil {
-				log.Error().Msgf("JSON response: %s, not following JSON schema. List of errors: %s, retrying", response.Text, err.Error())
+			if err := step.JSONSchema.ValidateJSONText(response.Text); err != nil {
+				if failErr := registerInvalid(err, response.Text); failErr != nil {
+					return failErr
+				}
 				continue
 			}
 		}
@@ -135,16 +148,18 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 
 		lineEntity, err := jsonl.NewLineEntity(response.Text, userPrompt, hasSchemaSchema, promptBuilder.GetValues())
 		if err != nil {
-			log.Err(err).Msgf("got invalid JSON: %+v", response.Text)
+			if failErr := registerInvalid(err, response.Text); failErr != nil {
+				return failErr
+			}
 			continue
 		}
 
 		err = writer.WriteLine(lineEntity)
 		if err != nil {
-			log.Error().Err(err).Msg("failed to write jsonl line to file")
-			break
+			return fmt.Errorf("failed to write output line: %w", err)
 		}
 
+		invalidAttempts = 0
 		i++
 	}
 

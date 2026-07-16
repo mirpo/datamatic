@@ -2,9 +2,11 @@ package jsonschema
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoadSchema(t *testing.T) {
@@ -357,4 +359,45 @@ func TestExtractFieldByPathAsString(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStrictCompatibilityIssues(t *testing.T) {
+	schema, err := LoadSchema(`{
+		"type": "object",
+		"properties": {
+			"companies": {
+				"type": "array",
+				"items": {
+					"type": "object",
+					"properties": {
+						"name": {"type": "string"},
+						"location": {"type": "string"}
+					},
+					"required": ["name"]
+				}
+			}
+		},
+		"required": ["companies"],
+		"additionalProperties": false
+	}`)
+	require.NoError(t, err)
+
+	issues := schema.StrictCompatibilityIssues()
+
+	assert.NotEmpty(t, issues)
+	joined := strings.Join(issues, "; ")
+	assert.Contains(t, joined, "companies.items", "must point at the offending path")
+	assert.Contains(t, joined, "location", "optional nested property must be flagged")
+}
+
+func TestStrictCompatibilityIssues_CleanSchema(t *testing.T) {
+	schema, err := LoadSchema(`{
+		"type": "object",
+		"properties": {"title": {"type": "string"}},
+		"required": ["title"],
+		"additionalProperties": false
+	}`)
+	require.NoError(t, err)
+
+	assert.Empty(t, schema.StrictCompatibilityIssues())
 }

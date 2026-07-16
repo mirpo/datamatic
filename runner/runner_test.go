@@ -1,11 +1,13 @@
 package runner_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/mirpo/datamatic/config"
+	"github.com/mirpo/datamatic/runner"
 	"github.com/mirpo/datamatic/utils"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
@@ -62,4 +64,20 @@ func setupTestEnvVars(t *testing.T, path string) {
 			os.Unsetenv("MODEL")
 		})
 	}
+}
+
+func TestRun_CancelledContextStopsExecution(t *testing.T) {
+	dir := t.TempDir()
+	cfg := config.NewConfig()
+	cfg.OutputFolder = dir
+	cfg.Steps = []config.Step{
+		{Name: "s1", Type: config.ShellStepType, Run: "sleep 5", WorkDir: dir, OutputFilename: filepath.Join(dir, "x.jsonl")},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // already cancelled
+
+	err := runner.NewRunner(cfg).Run(ctx)
+
+	assert.Error(t, err)
 }

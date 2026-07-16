@@ -146,11 +146,11 @@ Datamatic outputs structured data in JSONl format:
 
 ```go
 type LineEntity struct {
-	ID       string      `json:"id"`
-	Format   string      `json:"format"`
-	Prompt   string      `json:"prompt"`
-	Response interface{} `json:"response"`
-	Values   interface{} `json:"values"`
+	ID       string                              `json:"id"`
+	Format   string                              `json:"format"`
+	Prompt   string                              `json:"prompt"`
+	Response interface{}                         `json:"response"`
+	Values   map[string]promptbuilder.ValueShort `json:"values,omitempty"`
 }
 ```
 

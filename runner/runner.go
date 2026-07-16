@@ -72,12 +72,16 @@ func (r *Runner) resolveMaxResults(step *config.Step) error {
 	return fmt.Errorf("unexpected MaxResults value: %v", step.MaxResults)
 }
 
-func (r *Runner) Run() error {
+func (r *Runner) Run(ctx context.Context) error {
 	if err := r.PrepareOutputDirectory(); err != nil {
 		return err
 	}
 
 	for _, stepConfig := range r.cfg.Steps {
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("run cancelled: %w", err)
+		}
+
 		log.Info().Msgf("Starting step: '%s' (type: '%s')", stepConfig.Name, stepConfig.Type)
 
 		if stepConfig.Type == config.PromptStepType {
@@ -92,10 +96,10 @@ func (r *Runner) Run() error {
 			return err
 		}
 
-		err = runner.Run(context.Background(), r.cfg, stepConfig, r.cfg.OutputFolder)
+		err = runner.Run(ctx, r.cfg, stepConfig, r.cfg.OutputFolder)
 		if err != nil {
 			log.Error().Err(err).Msgf("step '%s' failed", stepConfig.Name)
-			return err
+			return fmt.Errorf("step '%s': %w", stepConfig.Name, err)
 		}
 
 		log.Info().Msgf("Completed step: %s", stepConfig.Name)

@@ -46,7 +46,7 @@ const (
 )
 
 type Step struct {
-	Type               StepType
+	Type               StepType    `yaml:"type,omitempty"`
 	Name               string      `yaml:"name"`
 	Model              string      `yaml:"model"`
 	Prompt             string      `yaml:"prompt"`

@@ -151,6 +151,40 @@ func (s *Schema) HasFieldPath(path string) bool {
 	return true
 }
 
+// StrictCompatibilityIssues walks the schema and reports paths that break
+// OpenAI strict structured-output requirements: every object level must
+// require all of its properties and set additionalProperties: false.
+func (s *Schema) StrictCompatibilityIssues() []string {
+	if !s.HasSchemaDefinition() {
+		return nil
+	}
+	var issues []string
+	walkStrict(s.schema, "$", &issues)
+	return issues
+}
+
+func walkStrict(node *jsonschema.Schema, path string, issues *[]string) {
+	if node == nil {
+		return
+	}
+
+	if node.Properties != nil {
+		for name, child := range *node.Properties {
+			if !slices.Contains(node.Required, name) {
+				*issues = append(*issues, fmt.Sprintf("%s: property %q is not required", path, name))
+			}
+			walkStrict(child, path+"."+name, issues)
+		}
+		if node.AdditionalProperties == nil || node.AdditionalProperties.Boolean == nil || *node.AdditionalProperties.Boolean {
+			*issues = append(*issues, fmt.Sprintf("%s: additionalProperties is not false", path))
+		}
+	}
+
+	if node.Items != nil {
+		walkStrict(node.Items, path+".items", issues)
+	}
+}
+
 // extractFieldByPath extracts a field from JSON data using a dot path.
 func extractFieldByPath(data interface{}, path string) (interface{}, error) {
 	if path == "" {
