@@ -41,3 +41,18 @@ func TestGetStepByName(t *testing.T) {
 		assert.Nil(t, step)
 	})
 }
+
+func TestParseYAML_UnknownFieldsRejected(t *testing.T) {
+	yamlText := `
+version: 1.0
+steps:
+  - name: gen
+    model: ollama:m
+    prompt: hi
+    maxResults: 5
+`
+	var cfg Config
+	err := ParseYAML([]byte(yamlText), &cfg)
+	assert.Error(t, err, "removed/unknown keys must not be silently ignored")
+	assert.Contains(t, err.Error(), "maxResults")
+}

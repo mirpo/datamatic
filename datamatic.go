@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/goforj/godump"
@@ -70,7 +72,7 @@ func main() {
 		log.Fatal().Err(err).Msg("Expanding environment variables in config file")
 	}
 
-	err = yaml.Unmarshal([]byte(expandedYaml), &cfg)
+	err = config.ParseYAML([]byte(expandedYaml), cfg)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Parsing config file")
 	}
@@ -83,6 +85,11 @@ func main() {
 	err = cfg.Validate()
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to validate config file")
+	}
+
+	if commands := cfg.ShellCommands(); !cfg.SkipCliWarning && len(commands) > 0 {
+		fmt.Fprintf(os.Stderr, "⚠️ WARNING: External application call detected! The author assumes no responsibility for execution results. Please verify all external calls before proceeding. Use at your own risk.\n\nCalls: \n- %s\n\nPress Enter to continue", strings.Join(commands, "\n- "))
+		fmt.Scanln() //nolint:golint,errcheck
 	}
 
 	if cfg.Verbose {

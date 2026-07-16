@@ -93,9 +93,9 @@ func TestExpandEnv(t *testing.T) {
 		},
 		{
 			name:    "datamatic internal syntax preserved",
-			input:   "maxResults: convert_to_jsonl.$length",
+			input:   "prompt: item costs $100, quantity $length",
 			envVars: map[string]string{},
-			want:    "maxResults: convert_to_jsonl.$length",
+			want:    "prompt: item costs $100, quantity $length",
 		},
 	}
 

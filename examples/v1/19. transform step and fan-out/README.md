@@ -4,7 +4,7 @@ Shows the built-in `jq` transform step turning **one structured LLM answer into 
 
 1. `team_roster` — LLM generates 3 team rosters, each with an array of members (JSON schema enforced)
 2. `members` — transform step explodes `members[]`: 3 roster rows become N member rows, no external tools
-3. `bio` — one LLM call per member (`maxResults: members.$length`), referencing `{{.members.name}}` and `{{.members.role}}`
+3. `bio` — one LLM call per member (`forEach: members`), referencing the current row as `{{.item.name}}` and `{{.item.role}}`
 
 This 1-row → N-rows pattern was impossible without shell + external `jq` before; now it's one YAML step and jq programs are validated at config load.
 

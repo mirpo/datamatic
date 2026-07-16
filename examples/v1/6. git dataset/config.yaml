@@ -6,7 +6,7 @@ steps:
     prompt: |
       I am building a dataset of Git-related questions and commands. List exactly 30 distinct subtopics that comprehensively cover core and advanced Git usage. Do not number the subtopics. Separate them only with commas, with no additional text or formatting.
       Each subtopic should be a short phrase, and they should be relevant to Git commands, concepts, or workflows. The subtopics should be diverse and cover various aspects of Git, including but not limited to version control, branching, merging, rebasing, conflict resolution, and collaboration.
-    maxResults: 1
+    count: 1
     jsonSchema:
       type: object
       properties:
@@ -19,11 +19,11 @@ steps:
       required:
         - subtopics
 
+  # built-in transform: dedupe within the single roster row and fan out to
+  # one row per subtopic (jq sees the response value, not the file format)
   - name: split_into_unique_subtopics
-    type: shell
-    run: |
-      cat ./generate_subtopics.jsonl | jq -c '.response.subtopics[]' | sort | uniq | jq -c '{id: . | @base64, topic: .}' > ./split_into_unique_subtopics.jsonl
-    outputFilename: split_into_unique_subtopics.jsonl
+    from: generate_subtopics
+    jq: '.subtopics | unique | .[] | {id: (. | @base64), topic: .}'
 
   - name: generate_instructions
     model: ollama:llama3.2
@@ -38,7 +38,7 @@ steps:
     modelConfig:
       temperature: 0.9
       maxTokens: 5000
-    maxResults: split_into_unique_subtopics.$length # for each unique subtopic generate N instructions
+    forEach: split_into_unique_subtopics
     jsonSchema:
       type: object
       properties:
@@ -49,6 +49,8 @@ steps:
       required:
         - instructions
 
+  # stays a shell step: dedupe ACROSS rows needs the whole file at once,
+  # which per-row transform steps can't do yet (fan-in)
   - name: split_into_unique_instructions
     type: shell
     run: |
@@ -66,7 +68,7 @@ steps:
       - Avoid unnecessary tangents or deep Git internals unless the instruction explicitly requires it.
 
       Instruction: "{{.split_into_unique_instructions.instruction}}"
-    maxResults: split_into_unique_instructions.$length
+    forEach: split_into_unique_instructions
 
   - name: instruction_response
     type: shell
@@ -131,7 +133,7 @@ steps:
     modelConfig:
       temperature: 0.9
       maxTokens: 5000
-    maxResults: instruction_response.$length # for each instruction-response pair generate an evaluation
+    forEach: instruction_response
     jsonSchema:
       type: object
       properties:

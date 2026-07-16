@@ -51,7 +51,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           ollama pull llama3.2
-          # for simplicity, we set maxResults == 1
-          sed -i -e 's/maxResults: 10/maxResults: 1/g' ./examples/v1/3.\ complex\ json,\ linked\ steps/config.yaml
+          # for simplicity, we set count == 1
+          sed -i -e 's/count: 10/count: 1/g' ./examples/v1/3.\ complex\ json,\ linked\ steps/config.yaml
           ./datamatic --config ./examples/v1/3.\ complex\ json,\ linked\ steps/config.yaml --verbose
           cat ./dataset/text_about_country.jsonl | jq

@@ -36,11 +36,11 @@ func promptStepConfig(t *testing.T, srvURL string) (*config.Config, config.Step,
 	cfg.OutputFolder = dir
 
 	step := config.Step{
-		Name:               "gen",
-		Type:               config.PromptStepType,
-		Prompt:             "generate something",
-		ResolvedMaxResults: 3,
-		OutputFilename:     filepath.Join(dir, "gen.jsonl"),
+		Name:           "gen",
+		Type:           config.PromptStepType,
+		Prompt:         "generate something",
+		ResolvedCount:  3,
+		OutputFilename: filepath.Join(dir, "gen.jsonl"),
 		ModelConfig: config.ModelConfig{
 			ModelProvider: llm.ProviderOllama,
 			ModelName:     "test-model",
@@ -57,7 +57,7 @@ func countLines(t *testing.T, path string) int {
 	return lines
 }
 
-func TestPromptStepRun_WritesMaxResultsLines(t *testing.T) {
+func TestPromptStepRun_WritesResolvedCountLines(t *testing.T) {
 	srv := llmtest.NewServer(t, "hello world")
 	cfg, step, dir := promptStepConfig(t, srv.URL)
 

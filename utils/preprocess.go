@@ -11,6 +11,8 @@ import (
 	"github.com/mirpo/datamatic/jq"
 	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/mirpo/datamatic/llm"
+	"github.com/mirpo/datamatic/promptbuilder"
+	"github.com/mirpo/datamatic/retry"
 )
 
 // setStepType determines and sets the step type based on step configuration
@@ -60,7 +62,13 @@ func PreprocessConfig(cfg *config.Config) error {
 		return fmt.Errorf("setting root output folder: %w", err)
 	}
 
+	// retryConfig not set in YAML (zero values) falls back to defaults
+	if cfg.RetryConfig.MaxAttempts == 0 {
+		cfg.RetryConfig = retry.NewDefaultConfig()
+	}
+
 	stepNames := make(map[string]bool, len(cfg.Steps))
+	stepByName := make(map[string]*config.Step, len(cfg.Steps))
 
 	for i := range cfg.Steps {
 		step := &cfg.Steps[i]
@@ -70,7 +78,10 @@ func PreprocessConfig(cfg *config.Config) error {
 			return fmt.Errorf("step at index %d: name can't be empty", i)
 		}
 		if strings.ToUpper(step.Name) == "SYSTEM" {
-			return fmt.Errorf("using 'SYSTEM' as step name is not allowed")
+			return fmt.Errorf("using 'SYSTEM' as step name is not allowed (reserved)")
+		}
+		if step.Name == promptbuilder.ItemAliasName {
+			return fmt.Errorf("using '%s' as step name is not allowed (reserved for forEach references)", promptbuilder.ItemAliasName)
 		}
 		if stepNames[step.Name] {
 			return fmt.Errorf("duplicate step name found: '%s'", step.Name)
@@ -131,9 +142,8 @@ func PreprocessConfig(cfg *config.Config) error {
 			if step.From == "" {
 				return fmt.Errorf("step '%s': 'from' is required for transform steps", step.Name)
 			}
-			// stepNames holds earlier steps only (this step registers below)
-			if !stepNames[step.From] {
-				return fmt.Errorf("step '%s': 'from' references unknown step '%s' (must be an earlier step)", step.Name, step.From)
+			if err := requireEarlierStep(stepNames, "from", step.From); err != nil {
+				return fmt.Errorf("step '%s': %w", step.Name, err)
 			}
 			if step.Limit < 0 {
 				return fmt.Errorf("step '%s': limit must be >= 0", step.Name)
@@ -157,12 +167,62 @@ func PreprocessConfig(cfg *config.Config) error {
 			}
 		}
 
-		// Apply MaxResults defaults
-		if err := setMaxResultsDefaults(step); err != nil {
+		// Iteration settings (count / forEach); resolves the {{.item}} alias,
+		// so placeholder validation below sees canonical references
+		if err := setIterationDefaults(step, stepNames); err != nil {
 			return fmt.Errorf("step '%s': %w", step.Name, err)
 		}
 
+		if step.Type == config.PromptStepType {
+			if err := validatePromptPlaceholders(step, stepByName); err != nil {
+				return fmt.Errorf("step '%s': %w", step.Name, err)
+			}
+		}
+
 		stepNames[step.Name] = true
+		stepByName[step.Name] = step
+	}
+
+	return nil
+}
+
+// validatePromptPlaceholders checks every {{.step.field}} reference in the
+// prompt against earlier steps: the step must exist, field references into
+// prompt steps must match their JSON schema, and a step may not be referenced
+// both as a whole and by field in one prompt.
+func validatePromptPlaceholders(step *config.Step, stepByName map[string]*config.Step) error {
+	builder := promptbuilder.NewPromptBuilder(step.Prompt)
+	if !builder.HasPlaceholders() {
+		return nil
+	}
+
+	keysByStep := map[string]map[bool]bool{} // step -> {isWhole -> seen}
+
+	for _, ref := range builder.GetPlaceholders() {
+		refStep, ok := stepByName[ref.Step]
+		if !ok {
+			return fmt.Errorf("prompt references unknown step '%s' (must be an earlier step)", ref.Step)
+		}
+
+		if keysByStep[ref.Step] == nil {
+			keysByStep[ref.Step] = map[bool]bool{}
+		}
+		keysByStep[ref.Step][ref.Key == ""] = true
+
+		if ref.Key != "" && refStep.Type == config.PromptStepType {
+			if !refStep.JSONSchema.HasSchemaDefinition() {
+				return fmt.Errorf("step '%s' must have a JSON schema to reference field '%s'", ref.Step, ref.Key)
+			}
+			if !refStep.JSONSchema.HasFieldPath(ref.Key) {
+				return fmt.Errorf("field path '%s' not found in step '%s' JSON schema", ref.Key, ref.Step)
+			}
+		}
+	}
+
+	for name, kinds := range keysByStep {
+		if kinds[true] && kinds[false] {
+			return fmt.Errorf("step '%s' is referenced both as a whole ({{.%s}}) and by field — use one style", name, name)
+		}
 	}
 
 	return nil
@@ -246,31 +306,45 @@ func setImagePath(step *config.Step, outputFolder string) error {
 	return nil
 }
 
-// setMaxResultsDefaults sets default MaxResults for nil, empty string, and int <= 0 cases
-func setMaxResultsDefaults(step *config.Step) error {
-	switch v := step.MaxResults.(type) {
-	case nil:
-		step.MaxResults = config.DefaultStepMinMaxResults
-		return nil
+// requireEarlierStep checks that a cross-step reference points at an already
+// defined step. stepNames must hold earlier steps only.
+func requireEarlierStep(stepNames map[string]bool, field, name string) error {
+	if !stepNames[name] {
+		return fmt.Errorf("'%s' references unknown step '%s' (must be an earlier step)", field, name)
+	}
+	return nil
+}
 
-	case string:
-		if v == "" {
-			step.MaxResults = config.DefaultStepMinMaxResults
-			return nil
+// setIterationDefaults validates count/forEach and resolves the {{.item}}
+// alias to the forEach source, so every later consumer sees one canonical
+// prompt. Iteration counts themselves are resolved at runtime by the runner.
+func setIterationDefaults(step *config.Step, stepNames map[string]bool) error {
+	if step.Type != config.PromptStepType {
+		if step.Count != 0 || step.ForEach != "" {
+			return fmt.Errorf("'count' and 'forEach' are only valid on prompt steps")
 		}
-		// check dynamic strings (like "foo.$length") in validation phase
-		return nil
-
-	case int:
-		if v <= 0 {
-			step.MaxResults = config.DefaultStepMinMaxResults
-		}
-		// positive int values passed as-is
-		return nil
-
-	default:
 		return nil
 	}
+
+	if step.Count < 0 {
+		return fmt.Errorf("count must be >= 0")
+	}
+	if step.Count > 0 && step.ForEach != "" {
+		return fmt.Errorf("either 'count' or 'forEach' may be set, not both")
+	}
+	if step.ForEach != "" {
+		if err := requireEarlierStep(stepNames, "forEach", step.ForEach); err != nil {
+			return err
+		}
+	}
+
+	prompt, err := promptbuilder.ResolveItemAlias(step.Prompt, step.ForEach)
+	if err != nil {
+		return err
+	}
+	step.Prompt = prompt
+
+	return nil
 }
 
 // isValidName validates filename according to filesystem rules

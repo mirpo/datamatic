@@ -13,7 +13,7 @@ steps:
   - name: explain_code
     type: prompt
     model: ollama:llama3.2
-    maxResults: pick_first_20.$length # use the result length of the referenced step
+    forEach: pick_first_20
     systemPrompt: |
       You are an expert software engineer and code analyst with deep understanding of algorithms, data structures, and software design patterns. Your task is to analyze code and explain its logic in clear, precise terms. Focus on:
       - Breaking down complex logic into understandable steps
@@ -41,14 +41,14 @@ steps:
   - name: unit_test
     type: prompt
     model: ollama:llama3.2
-    maxResults: explain_code.$length # use the result length of the referenced step
+    forEach: explain_code
     systemPrompt: |
       You are an expert software engineer and test automation specialist. Your task is to generate comprehensive, accurate unit tests based on provided code descriptions and code snippets. Follow these instructions:
 
       - Cover expected behavior, edge cases, and invalid input scenarios
       - Use `pytest` syntax and idioms for Python tests
       - Avoid wrapping your output in triple backticks (e.g., ```python)
-      - Output tests as a structured JSON array with each test's name, description, and code
+      - Output a single runnable test file, nothing else
       - Focus on clarity, correctness, and high code coverage
     prompt: |
       Generate a complete, production-ready unit test file for the following code. Your output should:

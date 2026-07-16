@@ -230,7 +230,6 @@ func TestPromptBuilder_GetValues(t *testing.T) {
 	builder := NewPromptBuilder("Test prompt.")
 	builder.AddValue("1", "USER", "name", "John Doe")
 	builder.AddValue("2", "USER", "email", "john.doe@example.com")
-	builder.AddValue("3", "SYSTEM", "version", "v1.0")
 	builder.AddValue("4", "INPUT", "query", "search term")
 
 	expected := map[string]ValueShort{
@@ -252,4 +251,34 @@ func TestPromptBuilder_GetValues_WholeStepReference(t *testing.T) {
 	assert.Equal(t, map[string]ValueShort{
 		".generate_cv": {ID: "1", Value: "full cv text"},
 	}, actual, "no trailing dot for whole-step references")
+}
+
+func TestResolveItemAlias(t *testing.T) {
+	tests := []struct {
+		name    string
+		prompt  string
+		source  string
+		want    string
+		wantErr string
+	}{
+		{"no item placeholders", "plain {{.other.x}}", "src", "plain {{.other.x}}", ""},
+		{"whole item", "use {{.item}}", "src", "use {{.src}}", ""},
+		{"item field", "use {{.item.title}}", "src", "use {{.src.title}}", ""},
+		{"item nested field", "use {{.item.a.b}}", "src", "use {{.src.a.b}}", ""},
+		{"multiple mixed", "{{.item.a}} and {{.src.b}} and {{.item}}", "src", "{{.src.a}} and {{.src.b}} and {{.src}}", ""},
+		{"spaces inside braces", "use {{ .item.title }}", "src", "use {{.src.title}}", ""},
+		{"item without forEach", "use {{.item.x}}", "", "", "no forEach"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ResolveItemAlias(tt.prompt, tt.source)
+			if tt.wantErr != "" {
+				assert.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }

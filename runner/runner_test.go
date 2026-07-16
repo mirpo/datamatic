@@ -13,7 +13,6 @@ import (
 	"github.com/mirpo/datamatic/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
 )
 
 func TestValidateConfigFromExamples(t *testing.T) {
@@ -37,8 +36,8 @@ func TestValidateConfigFromExamples(t *testing.T) {
 			assert.NoError(t, err, "Failed to expand env vars for file: %s", path)
 
 			var cfg config.Config
-			err = yaml.Unmarshal([]byte(expandedYaml), &cfg)
-			assert.NoError(t, err, "Failed to unmarshal YAML: %s", path)
+			err = config.ParseYAML([]byte(expandedYaml), &cfg)
+			assert.NoError(t, err, "Failed to parse YAML: %s", path)
 
 			cfg.OutputFolder = "test"
 			cfg.SkipCliWarning = true
@@ -101,10 +100,9 @@ func TestRun_TransformPipelineEndToEnd(t *testing.T) {
 	cfg.Version = "1.0"
 	cfg.Steps = []config.Step{
 		{
-			Name:       "seed",
-			Model:      "ollama:test-model",
-			MaxResults: 3,
-			Prompt:     "Suggest a topic",
+			Name:   "seed", // no count: generator default (3) resolved at runtime
+			Model:  "ollama:test-model",
+			Prompt: "Suggest a topic",
 			JSONSchemaRaw: `{
 				"type": "object",
 				"properties": {"topic": {"type": "string"}, "keep": {"type": "boolean"}},
@@ -121,10 +119,10 @@ func TestRun_TransformPipelineEndToEnd(t *testing.T) {
 			From: "seed",
 		},
 		{
-			Name:       "describe",
-			Model:      "ollama:test-model",
-			MaxResults: "picked.$length",
-			Prompt:     "Describe {{.picked}}",
+			Name:    "describe",
+			Model:   "ollama:test-model",
+			ForEach: "picked",
+			Prompt:  "Describe {{.item}}",
 			ModelConfig: config.ModelConfig{
 				BaseURL: srv.URL,
 			},

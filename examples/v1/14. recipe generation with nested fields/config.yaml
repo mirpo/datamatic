@@ -2,13 +2,13 @@ version: 1.0
 steps:
   - name: recipe_data
     model: ollama:llama3.2
-    maxResults: 5
+    count: 5
     modelConfig:
       temperature: 0.8
     prompt: |
       Generate a complete recipe with detailed ingredients, nutrition information, and cooking details.
       Create a diverse and interesting recipe from any cuisine. Include specific ingredient quantities
-      and nutritional values. Return the data in the structured JSON format below.
+      and nutritional values. Return as JSON.
     jsonSchema:
       type: object
       properties:
@@ -110,7 +110,7 @@ steps:
 
   - name: cooking_guide
     model: ollama:llama3.2
-    maxResults: recipe_data.$length
+    forEach: recipe_data
     modelConfig:
       temperature: 0.7
       maxTokens: 1500

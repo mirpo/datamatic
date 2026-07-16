@@ -4,7 +4,7 @@ steps:
   - name: generate_documents
     type: prompt
     model: ollama:llama3.2
-    maxResults: 10
+    count: 10
     modelConfig:
       temperature: 0.9
     systemPrompt: |
@@ -35,7 +35,7 @@ steps:
   - name: classify_documents
     type: prompt
     model: ollama:llama3.2
-    maxResults: generate_documents.$length
+    forEach: generate_documents
     modelConfig:
       temperature: 0.3
       maxTokens: 2000
@@ -55,7 +55,7 @@ steps:
       Document:
       {{.generate_documents.text}}
 
-      Analyze the document and provide a complete classification following the schema below.
+      Analyze the document and provide a complete classification as JSON.
     jsonSchema:
       type: object
       properties:

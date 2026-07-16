@@ -26,7 +26,7 @@ func NewLineScanner(r io.Reader) *bufio.Scanner {
 var lineCountCache sync.Map // path -> int
 
 func ReadLineFromFile(path string, lineNumber int) (string, error) {
-	lineCount, err := cachedLineCount(path)
+	lineCount, err := CachedLineCount(path)
 	if err != nil {
 		return "", err
 	}
@@ -59,7 +59,9 @@ func ReadLineFromFile(path string, lineNumber int) (string, error) {
 	return "", errors.New("unexpected error: target line not found")
 }
 
-func cachedLineCount(path string) (int, error) {
+// CachedLineCount returns the line count of a step-output file, caching it for
+// the lifetime of the run (step outputs are immutable once their step completes).
+func CachedLineCount(path string) (int, error) {
 	if v, ok := lineCountCache.Load(path); ok {
 		return v.(int), nil
 	}

@@ -27,7 +27,7 @@ steps:
 
   - name: analyze_complexity
     model: $PROVIDER:$MODEL
-    maxResults: convert_to_jsonl.$length
+    forEach: convert_to_jsonl
     systemPrompt: |
       You are an expert in analyzing instructional prompts and assessing their complexity.
       Rate prompts based on:

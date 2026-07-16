@@ -8,7 +8,7 @@ steps:
     prompt: |
       Generate a unique and creative title for a science fiction story.
       The title should be intriguing and capture the reader's attention.
-    maxResults: 5
+    count: 5
     modelConfig:
       temperature: 0.7
       maxTokens: 100
@@ -23,7 +23,7 @@ steps:
       - Age (between 25-65)
       - Occupation
       - Brief backstory (2-3 sentences)
-    maxResults: 3
+    count: 3
     modelConfig:
       temperature: 0.8
     jsonSchema:

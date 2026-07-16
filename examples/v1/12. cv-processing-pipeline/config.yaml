@@ -21,14 +21,14 @@ steps:
       - Measurable achievements and impact
 
       Format as a professional CV text document.
-    maxResults: 3
+    count: 3
     modelConfig:
       temperature: 0.8
       maxTokens: 3000
 
   - name: extract_companies
     model: ollama:llama3.2
-    maxResults: generate_cv.$length
+    forEach: generate_cv
     prompt: |
       Extract all employment information from this CV. Focus on companies, roles, and dates.
 
@@ -93,7 +93,7 @@ steps:
 
   - name: extract_courses
     model: ollama:llama3.2
-    maxResults: generate_cv.$length
+    forEach: generate_cv
     prompt: |
       Extract all education and certification information from this CV.
 

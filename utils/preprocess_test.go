@@ -56,25 +56,24 @@ func TestPreprocessConfig_Success(t *testing.T) {
 				Prompt:         "Generate something",
 				OutputFilename: "custom",
 				ImagePath:      "images/photo.jpg",
-				MaxResults:     nil, // should default
+				// no count/forEach: image step, iterations resolved at runtime
 			},
 			{
 				Name:           "cli1",
 				Run:            "echo hi",
 				OutputFilename: "cli1",
-				MaxResults:     -1, // should default
 			},
 			{
-				Name:       "prompt2",
-				Model:      "openai:gpt-4",
-				Prompt:     "More text",
-				MaxResults: 5,
+				Name:   "prompt2",
+				Model:  "openai:gpt-4",
+				Prompt: "More text",
+				Count:  5,
 			},
 			{
-				Name:       "prompt3",
-				Model:      "gemini:gemini-pro",
-				Prompt:     "Dynamic",
-				MaxResults: "prompt1.$length",
+				Name:    "prompt3",
+				Model:   "gemini:gemini-pro",
+				Prompt:  "Dynamic",
+				ForEach: "prompt1",
 			},
 		},
 	}
@@ -103,11 +102,12 @@ func TestPreprocessConfig_Success(t *testing.T) {
 	expectedImage, _ := filepath.Abs(filepath.Join(outputFolder, "images", "photo.jpg"))
 	assert.Equal(t, expectedImage, cfg.Steps[0].ImagePath)
 
-	// MaxResults
-	assert.Equal(t, config.DefaultStepMinMaxResults, cfg.Steps[0].MaxResults)
-	assert.Equal(t, config.DefaultStepMinMaxResults, cfg.Steps[1].MaxResults)
-	assert.Equal(t, 5, cfg.Steps[2].MaxResults)
-	assert.Equal(t, "prompt1.$length", cfg.Steps[3].MaxResults)
+	// Iteration settings
+	assert.Equal(t, 0, cfg.Steps[0].Count, "image step: iterations resolved at runtime, no default count")
+	assert.Equal(t, 0, cfg.Steps[1].Count, "shell steps have no count")
+	assert.Equal(t, 5, cfg.Steps[2].Count)
+	assert.Equal(t, "prompt1", cfg.Steps[3].ForEach)
+	assert.Equal(t, 0, cfg.Steps[3].Count)
 }
 
 func TestSetWorkDir(t *testing.T) {
@@ -302,5 +302,148 @@ func TestPreprocessConfig_TransformStep(t *testing.T) {
 		cfg.Steps[1].Limit = -1
 		err := PreprocessConfig(cfg)
 		assert.ErrorContains(t, err, "limit")
+	})
+}
+
+func TestPreprocessConfig_CountAndForEach(t *testing.T) {
+	base := func() *config.Config {
+		cfg := config.NewConfig()
+		cfg.OutputFolder = t.TempDir()
+		cfg.Steps = []config.Step{
+			{Name: "seed", Prompt: "p", Model: "ollama:m", Count: 2},
+			{Name: "per_row", Prompt: "use {{.item}}", Model: "ollama:m", ForEach: "seed"},
+		}
+		return cfg
+	}
+
+	t.Run("valid count and forEach pass", func(t *testing.T) {
+		cfg := base()
+		assert.NoError(t, PreprocessConfig(cfg))
+	})
+
+	t.Run("generator count stays 0 (default applied at runtime)", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[0].Count = 0
+		assert.NoError(t, PreprocessConfig(cfg))
+		assert.Equal(t, 0, cfg.Steps[0].Count, "runner.resolveIterations owns the default")
+	})
+
+	t.Run("item alias rewritten to forEach source", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[0].JSONSchemaRaw = `{
+			"type": "object",
+			"properties": {"title": {"type": "string"}, "tag": {"type": "string"}},
+			"required": ["title", "tag"],
+			"additionalProperties": false
+		}`
+		cfg.Steps[1].Prompt = "use {{.item.title}} and {{.item.tag}}"
+		assert.NoError(t, PreprocessConfig(cfg))
+		assert.Equal(t, "use {{.seed.title}} and {{.seed.tag}}", cfg.Steps[1].Prompt)
+	})
+
+	t.Run("item without forEach fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].ForEach = ""
+		cfg.Steps[1].Count = 2
+		assert.ErrorContains(t, PreprocessConfig(cfg), "no forEach")
+	})
+
+	t.Run("count and forEach together fail", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].Count = 5
+		assert.ErrorContains(t, PreprocessConfig(cfg), "either 'count' or 'forEach'")
+	})
+
+	t.Run("forEach referencing unknown step fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].ForEach = "ghost"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "unknown step 'ghost'")
+	})
+
+	t.Run("forEach referencing itself fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].ForEach = "per_row"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "unknown step 'per_row'")
+	})
+
+	t.Run("negative count fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[0].Count = -1
+		assert.ErrorContains(t, PreprocessConfig(cfg), "count")
+	})
+
+	t.Run("forEach on shell step fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps = append(cfg.Steps, config.Step{
+			Name: "sh", Run: "echo hi > x.jsonl", OutputFilename: "x.jsonl", ForEach: "seed",
+		})
+		assert.ErrorContains(t, PreprocessConfig(cfg), "forEach")
+	})
+
+	t.Run("step named item is reserved", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[0].Name = "item"
+		cfg.Steps[1].ForEach = "item"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "not allowed")
+	})
+}
+
+func TestPreprocessConfig_PromptPlaceholders(t *testing.T) {
+	base := func() *config.Config {
+		cfg := config.NewConfig()
+		cfg.OutputFolder = t.TempDir()
+		cfg.Steps = []config.Step{
+			{
+				Name: "src", Prompt: "gen", Model: "ollama:m", Count: 2,
+				JSONSchemaRaw: `{
+					"type": "object",
+					"properties": {"title": {"type": "string"}},
+					"required": ["title"],
+					"additionalProperties": false
+				}`,
+			},
+			{Name: "use", Prompt: "x {{.src.title}}", Model: "ollama:m", ForEach: "src"},
+		}
+		return cfg
+	}
+
+	t.Run("valid cross-step reference passes", func(t *testing.T) {
+		assert.NoError(t, PreprocessConfig(base()))
+	})
+
+	t.Run("SYSTEM placeholder is rejected (feature removed)", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[0].Prompt = "follow this schema: {{.SYSTEM.JSON_SCHEMA}}"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "unknown step 'SYSTEM'")
+	})
+
+	t.Run("self reference fails at config time", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].Prompt = "continue {{.use}}"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "unknown step 'use'")
+	})
+
+	t.Run("reference to later step fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[0].Prompt = "peek ahead {{.use.title}}"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "unknown step 'use'")
+	})
+
+	t.Run("field missing from source schema fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].Prompt = "x {{.src.nope}}"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "nope")
+	})
+
+	t.Run("field reference to schema-less prompt step fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[0].JSONSchemaRaw = nil
+		assert.ErrorContains(t, PreprocessConfig(cfg), "JSON schema")
+	})
+
+	t.Run("mixing whole and field references to one step fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].Prompt = "all: {{.src}} title: {{.src.title}}"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "both as a whole")
 	})
 }
