@@ -1,0 +1,40 @@
+version: 1.0
+
+steps:
+  - name: team_roster
+    model: ollama:llama3.2
+    maxResults: 3
+    modelConfig:
+      temperature: 0.9
+    prompt: |
+      Invent a small fictional software team of 2-4 people. Return members with name and role.
+    jsonSchema:
+      type: object
+      properties:
+        members:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              role:
+                type: string
+            required:
+              - name
+              - role
+            additionalProperties: false
+      required:
+        - members
+      additionalProperties: false
+
+  # fan-out: one roster row -> N member rows (built-in jq, no external CLI)
+  - name: members
+    from: team_roster
+    jq: '.members[]'
+
+  - name: bio
+    model: ollama:llama3.2
+    maxResults: members.$length
+    prompt: |
+      Write a two-sentence bio for {{.members.name}}, who works as {{.members.role}}.

@@ -64,6 +64,27 @@ func TestGetSourceDataFromLine(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "Transform step - object row",
+			step: config.Step{Type: config.TransformStepType},
+			line: `{"q": "question", "a": "answer"}`,
+			wantData: map[string]interface{}{
+				"q": "question",
+				"a": "answer",
+			},
+		},
+		{
+			name:     "Transform step - scalar row",
+			step:     config.Step{Type: config.TransformStepType},
+			line:     `"just a string"`,
+			wantData: "just a string",
+		},
+		{
+			name:    "Transform step - invalid JSON",
+			step:    config.Step{Type: config.TransformStepType},
+			line:    `{oops`,
+			wantErr: true,
+		},
+		{
 			name:    "Unsupported step type",
 			step:    config.Step{Type: "unknown"},
 			line:    `{"valid": "json"}`,

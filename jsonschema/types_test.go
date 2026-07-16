@@ -344,7 +344,7 @@ func TestExtractFieldByPathAsString(t *testing.T) {
 		{"Non-existent field", "missing", "", true, "field 'missing' not found at path 'missing'"},
 		{"Non-existent nested field", "user.missing", "", true, "field 'missing' not found at path 'user.missing'"},
 		{"Traverse non-object", "name.field", "", true, "cannot traverse field 'field' on non-object type string"},
-		{"Empty path", "", "", true, "path cannot be empty"},
+		{"Empty path returns whole value", "", `{"name":"John","user":{"profile":{"age":30,"tags":["developer","golang"]}}}`, false, ""},
 	}
 
 	for _, tt := range tests {

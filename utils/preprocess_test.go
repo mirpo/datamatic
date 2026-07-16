@@ -162,7 +162,7 @@ func TestPreprocessConfig_Failures(t *testing.T) {
 			&config.Config{OutputFolder: "/tmp", Steps: []config.Step{
 				{Name: "bad", Prompt: "p", Run: "c"},
 			}},
-			"either 'prompt' or 'run' should be defined",
+			"exactly one of 'prompt', 'run' or 'jq' must be defined",
 		},
 		{
 			"Missing provider colon",
@@ -230,6 +230,10 @@ func TestSetStepType_ExplicitTypeValidation(t *testing.T) {
 		{"explicit shell but prompt defined", config.Step{Type: "shell", Prompt: "p"}, "does not match", ""},
 		{"explicit prompt but run defined", config.Step{Type: "prompt", Run: "r"}, "does not match", ""},
 		{"unknown explicit type", config.Step{Type: "banana", Run: "r"}, "unknown step type", ""},
+		{"jq field infers transform", config.Step{JQ: ".x"}, "", config.TransformStepType},
+		{"explicit transform matches", config.Step{Type: "transform", JQ: ".x"}, "", config.TransformStepType},
+		{"jq and prompt both defined", config.Step{JQ: ".x", Prompt: "p"}, "exactly one", ""},
+		{"nothing defined", config.Step{}, "exactly one", ""},
 	}
 
 	for _, tt := range tests {
@@ -244,4 +248,59 @@ func TestSetStepType_ExplicitTypeValidation(t *testing.T) {
 			assert.Equal(t, tt.want, tt.step.Type)
 		})
 	}
+}
+
+func TestPreprocessConfig_TransformStep(t *testing.T) {
+	base := func() *config.Config {
+		cfg := config.NewConfig()
+		cfg.OutputFolder = t.TempDir()
+		cfg.Steps = []config.Step{
+			{Name: "src", Run: "echo '{}' > src.jsonl", OutputFilename: "src.jsonl"},
+			{Name: "pick", JQ: `select(.ok)`, From: "src"},
+		}
+		return cfg
+	}
+
+	t.Run("valid transform step compiles and gets output path", func(t *testing.T) {
+		cfg := base()
+		err := PreprocessConfig(cfg)
+		assert.NoError(t, err)
+		assert.NotNil(t, cfg.Steps[1].JQProgram)
+		assert.Contains(t, cfg.Steps[1].OutputFilename, "pick.jsonl")
+	})
+
+	t.Run("missing from fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].From = ""
+		err := PreprocessConfig(cfg)
+		assert.ErrorContains(t, err, "'from' is required")
+	})
+
+	t.Run("from referencing unknown step fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].From = "ghost"
+		err := PreprocessConfig(cfg)
+		assert.ErrorContains(t, err, "unknown step 'ghost'")
+	})
+
+	t.Run("from referencing itself fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].From = "pick" // itself — not an earlier step
+		err := PreprocessConfig(cfg)
+		assert.ErrorContains(t, err, "unknown step 'pick'")
+	})
+
+	t.Run("invalid jq program fails at preprocess", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].JQ = ".foo | select("
+		err := PreprocessConfig(cfg)
+		assert.ErrorContains(t, err, "invalid jq program")
+	})
+
+	t.Run("negative limit fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].Limit = -1
+		err := PreprocessConfig(cfg)
+		assert.ErrorContains(t, err, "limit")
+	})
 }

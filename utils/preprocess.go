@@ -8,32 +8,33 @@ import (
 	"strings"
 
 	"github.com/mirpo/datamatic/config"
+	"github.com/mirpo/datamatic/jq"
 	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/mirpo/datamatic/llm"
 )
 
 // setStepType determines and sets the step type based on step configuration
 func setStepType(step *config.Step) error {
-	promptDefined := len(step.Prompt) > 0
-	runDefined := len(step.Run) > 0
-
-	if promptDefined && runDefined {
-		return errors.New("either 'prompt' or 'run' should be defined, not both")
+	switch step.Type {
+	case "", config.PromptStepType, config.ShellStepType, config.TransformStepType:
+	default:
+		return fmt.Errorf("unknown step type '%s' (expected 'prompt', 'shell' or 'transform')", step.Type)
 	}
 
-	if !promptDefined && !runDefined {
-		return errors.New("either 'prompt' or 'run' must be defined")
+	var inferred config.StepType
+	var sourceField string
+	count := 0
+	if step.Prompt != "" {
+		inferred, sourceField, count = config.PromptStepType, "prompt", count+1
 	}
-
-	if step.Type != "" && step.Type != config.PromptStepType && step.Type != config.ShellStepType {
-		return fmt.Errorf("unknown step type '%s' (expected 'prompt' or 'shell')", step.Type)
+	if step.Run != "" {
+		inferred, sourceField, count = config.ShellStepType, "run", count+1
 	}
-
-	inferred := config.ShellStepType
-	sourceField := "run"
-	if promptDefined {
-		inferred = config.PromptStepType
-		sourceField = "prompt"
+	if step.JQ != "" {
+		inferred, sourceField, count = config.TransformStepType, "jq", count+1
+	}
+	if count != 1 {
+		return errors.New("exactly one of 'prompt', 'run' or 'jq' must be defined")
 	}
 
 	if step.Type != "" && step.Type != inferred {
@@ -74,9 +75,8 @@ func PreprocessConfig(cfg *config.Config) error {
 		if stepNames[step.Name] {
 			return fmt.Errorf("duplicate step name found: '%s'", step.Name)
 		}
-		stepNames[step.Name] = true
 
-		// Step type (prompt vs shell)
+		// Step type (prompt vs shell vs transform)
 		if err := setStepType(step); err != nil {
 			return fmt.Errorf("step '%s': %w", step.Name, err)
 		}
@@ -126,6 +126,30 @@ func PreprocessConfig(cfg *config.Config) error {
 			}
 		}
 
+		// Transform steps
+		if step.Type == config.TransformStepType {
+			if step.From == "" {
+				return fmt.Errorf("step '%s': 'from' is required for transform steps", step.Name)
+			}
+			// stepNames holds earlier steps only (this step registers below)
+			if !stepNames[step.From] {
+				return fmt.Errorf("step '%s': 'from' references unknown step '%s' (must be an earlier step)", step.Name, step.From)
+			}
+			if step.Limit < 0 {
+				return fmt.Errorf("step '%s': limit must be >= 0", step.Name)
+			}
+
+			program, err := jq.Compile(step.JQ)
+			if err != nil {
+				return fmt.Errorf("step '%s': %w", step.Name, err)
+			}
+			step.JQProgram = program
+
+			if err := setOutputFilename(step, cfg.OutputFolder); err != nil {
+				return fmt.Errorf("step '%s': %w", step.Name, err)
+			}
+		}
+
 		// Normalize image path if needed
 		if step.HasImages() {
 			if err := setImagePath(step, cfg.OutputFolder); err != nil {
@@ -137,6 +161,8 @@ func PreprocessConfig(cfg *config.Config) error {
 		if err := setMaxResultsDefaults(step); err != nil {
 			return fmt.Errorf("step '%s': %w", step.Name, err)
 		}
+
+		stepNames[step.Name] = true
 	}
 
 	return nil

@@ -7,9 +7,12 @@ import (
 	"testing"
 
 	"github.com/mirpo/datamatic/config"
+	"github.com/mirpo/datamatic/fs"
+	"github.com/mirpo/datamatic/internal/llmtest"
 	"github.com/mirpo/datamatic/runner"
 	"github.com/mirpo/datamatic/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
 
@@ -80,4 +83,44 @@ func TestRun_CancelledContextStopsExecution(t *testing.T) {
 	err := runner.NewRunner(cfg).Run(ctx)
 
 	assert.Error(t, err)
+}
+
+func TestRun_TransformPipelineEndToEnd(t *testing.T) {
+	srv := llmtest.NewServer(t, "analyzed")
+	dir := t.TempDir()
+
+	cfg := config.NewConfig()
+	cfg.OutputFolder = dir
+	cfg.SkipCliWarning = true
+	cfg.Version = "1.0"
+	cfg.Steps = []config.Step{
+		{
+			Name:           "seed",
+			Run:            `printf '%s\n' '{"topic":"go","keep":true}' '{"topic":"js","keep":false}' '{"topic":"rust","keep":true}' > seed.jsonl`,
+			OutputFilename: "seed.jsonl",
+		},
+		{
+			Name: "picked",
+			JQ:   `select(.keep) | .topic`,
+			From: "seed",
+		},
+		{
+			Name:       "describe",
+			Model:      "ollama:test-model",
+			MaxResults: "picked.$length",
+			Prompt:     "Describe {{.picked}}",
+			ModelConfig: config.ModelConfig{
+				BaseURL: srv.URL,
+			},
+		},
+	}
+
+	require.NoError(t, utils.PreprocessConfig(cfg))
+	require.NoError(t, cfg.Validate())
+	require.NoError(t, runner.NewRunner(cfg).Run(context.Background()))
+
+	lines, err := fs.CountLinesInFile(cfg.Steps[2].OutputFilename)
+	require.NoError(t, err)
+	assert.Equal(t, 2, lines, "2 of 3 seed rows survive the filter")
+	assert.Equal(t, 2, srv.CallCount())
 }

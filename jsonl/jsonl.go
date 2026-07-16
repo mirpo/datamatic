@@ -24,9 +24,14 @@ func NewWriter(path string) (*Writer, error) {
 }
 
 func (w *Writer) WriteLine(entity LineEntity) error {
-	jsonData, err := json.Marshal(entity)
+	return w.WriteJSON(entity)
+}
+
+// WriteJSON writes any value as one compact JSON line (used by transform steps).
+func (w *Writer) WriteJSON(v interface{}) error {
+	jsonData, err := json.Marshal(v)
 	if err != nil {
-		return fmt.Errorf("failed to marshal line entity: %w", err)
+		return fmt.Errorf("failed to marshal value: %w", err)
 	}
 
 	log.Debug().Msgf("writing jsonl line: %s", string(jsonData))
