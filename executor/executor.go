@@ -5,8 +5,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
-	"runtime"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -22,12 +20,7 @@ func ExecuteCommand(ctx context.Context, command string, workingDir string, time
 		defer cancelFunc()
 	}
 
-	var cmd *exec.Cmd
-	if runtime.GOOS == "windows" {
-		cmd = exec.CommandContext(cmdCtx, "cmd", "/C", command)
-	} else {
-		cmd = exec.CommandContext(cmdCtx, "sh", "-c", "set -e; "+command)
-	}
+	cmd := newShellCommand(cmdCtx, command)
 
 	cmd.Dir = workingDir
 	cmd.Env = os.Environ()
