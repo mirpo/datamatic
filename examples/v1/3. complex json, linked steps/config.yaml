@@ -6,7 +6,7 @@ steps:
     modelConfig:
       temperature: 0.9
     prompt: |
-      Provide up-to-date information about a randomly selected country, including its name, population, land area, UN membership status, capital city, GDP per capita, official languages, and year of independence. Return the data in a structured JSON format according to the schema below.
+      Provide up-to-date information about a randomly selected country, including its name, population, land area, UN membership status, capital city, GDP per capita, official languages, and year of independence. Return as JSON.
     jsonSchema:
       type: object
       properties:

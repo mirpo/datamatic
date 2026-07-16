@@ -122,7 +122,7 @@ func TestRun_TransformPipelineEndToEnd(t *testing.T) {
 			Name:    "describe",
 			Model:   "ollama:test-model",
 			ForEach: "picked",
-			Prompt:  "Describe {{.item}}", // .item alias resolved during preprocessing
+			Prompt:  "Describe {{.item}}",
 			ModelConfig: config.ModelConfig{
 				BaseURL: srv.URL,
 			},

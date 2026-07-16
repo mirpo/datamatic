@@ -55,7 +55,7 @@ steps:
       Document:
       {{.generate_documents.text}}
 
-      Analyze the document and provide a complete classification following the schema below.
+      Analyze the document and provide a complete classification as JSON.
     jsonSchema:
       type: object
       properties:

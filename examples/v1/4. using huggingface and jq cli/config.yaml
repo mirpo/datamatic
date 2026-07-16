@@ -48,7 +48,7 @@ steps:
       - Cover expected behavior, edge cases, and invalid input scenarios
       - Use `pytest` syntax and idioms for Python tests
       - Avoid wrapping your output in triple backticks (e.g., ```python)
-      - Output tests as a structured JSON array with each test's name, description, and code
+      - Output a single runnable test file, nothing else
       - Focus on clarity, correctness, and high code coverage
     prompt: |
       Generate a complete, production-ready unit test file for the following code. Your output should:

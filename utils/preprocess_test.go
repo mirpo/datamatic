@@ -330,9 +330,15 @@ func TestPreprocessConfig_CountAndForEach(t *testing.T) {
 
 	t.Run("item alias rewritten to forEach source", func(t *testing.T) {
 		cfg := base()
-		cfg.Steps[1].Prompt = "use {{.item.title}} and {{.item}}"
+		cfg.Steps[0].JSONSchemaRaw = `{
+			"type": "object",
+			"properties": {"title": {"type": "string"}, "tag": {"type": "string"}},
+			"required": ["title", "tag"],
+			"additionalProperties": false
+		}`
+		cfg.Steps[1].Prompt = "use {{.item.title}} and {{.item.tag}}"
 		assert.NoError(t, PreprocessConfig(cfg))
-		assert.Equal(t, "use {{.seed.title}} and {{.seed}}", cfg.Steps[1].Prompt)
+		assert.Equal(t, "use {{.seed.title}} and {{.seed.tag}}", cfg.Steps[1].Prompt)
 	})
 
 	t.Run("item without forEach fails", func(t *testing.T) {
@@ -379,5 +385,65 @@ func TestPreprocessConfig_CountAndForEach(t *testing.T) {
 		cfg.Steps[0].Name = "item"
 		cfg.Steps[1].ForEach = "item"
 		assert.ErrorContains(t, PreprocessConfig(cfg), "not allowed")
+	})
+}
+
+func TestPreprocessConfig_PromptPlaceholders(t *testing.T) {
+	base := func() *config.Config {
+		cfg := config.NewConfig()
+		cfg.OutputFolder = t.TempDir()
+		cfg.Steps = []config.Step{
+			{
+				Name: "src", Prompt: "gen", Model: "ollama:m", Count: 2,
+				JSONSchemaRaw: `{
+					"type": "object",
+					"properties": {"title": {"type": "string"}},
+					"required": ["title"],
+					"additionalProperties": false
+				}`,
+			},
+			{Name: "use", Prompt: "x {{.src.title}}", Model: "ollama:m", ForEach: "src"},
+		}
+		return cfg
+	}
+
+	t.Run("valid cross-step reference passes", func(t *testing.T) {
+		assert.NoError(t, PreprocessConfig(base()))
+	})
+
+	t.Run("SYSTEM placeholder is rejected (feature removed)", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[0].Prompt = "follow this schema: {{.SYSTEM.JSON_SCHEMA}}"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "unknown step 'SYSTEM'")
+	})
+
+	t.Run("self reference fails at config time", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].Prompt = "continue {{.use}}"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "unknown step 'use'")
+	})
+
+	t.Run("reference to later step fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[0].Prompt = "peek ahead {{.use.title}}"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "unknown step 'use'")
+	})
+
+	t.Run("field missing from source schema fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].Prompt = "x {{.src.nope}}"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "nope")
+	})
+
+	t.Run("field reference to schema-less prompt step fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[0].JSONSchemaRaw = nil
+		assert.ErrorContains(t, PreprocessConfig(cfg), "JSON schema")
+	})
+
+	t.Run("mixing whole and field references to one step fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].Prompt = "all: {{.src}} title: {{.src.title}}"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "both as a whole")
 	})
 }

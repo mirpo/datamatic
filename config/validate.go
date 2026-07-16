@@ -4,11 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/mirpo/datamatic/promptbuilder"
 	"github.com/mirpo/datamatic/retry"
 	"github.com/rs/zerolog/log"
 )
@@ -85,28 +83,16 @@ func (c *Config) Validate() error {
 		return err
 	}
 
-	// If retryConfig is not set in YAML (has zero values), use defaults
-	if c.RetryConfig.MaxAttempts == 0 {
-		c.RetryConfig = retry.NewDefaultConfig()
-	}
-
 	if err := validateRetryConfig(c.RetryConfig); err != nil {
 		return fmt.Errorf("retry config validation failed: %w", err)
 	}
 
-	stepNames := map[string]bool{}
-	cliCalls := []string{}
-
 	for index := range c.Steps {
 		step := &c.Steps[index]
-
-		stepNames[step.Name] = true
 
 		stepType := step.Type
 
 		if stepType == ShellStepType {
-			cliCalls = append(cliCalls, fmt.Sprintf("- %s", step.Run))
-
 			filename := filepath.Base(step.OutputFilename)
 			if !strings.Contains(step.Run, filename) {
 				log.Warn().Msgf("step '%s': output filename '%s' not found in run command — make sure the command actually creates this file",
@@ -124,54 +110,23 @@ func (c *Config) Validate() error {
 				}
 			}
 
-			if strings.Contains(step.Prompt, "{{.SYSTEM.JSON_SCHEMA}}") {
-				if err := step.JSONSchema.EnsureAllPropertiesRequired(); err != nil {
-					return fmt.Errorf("step '%s': JSON schema validation failed when using '{{.SYSTEM.JSON_SCHEMA}}' in prompt: %w", step.Name, err)
-				}
-			}
-
-			// {{.item}} aliases are already resolved during preprocessing
-			promptBuilder := promptbuilder.NewPromptBuilder(step.Prompt)
-			if promptBuilder.HasPlaceholders() {
-				placeholders := promptBuilder.GetPlaceholders()
-				for _, val := range placeholders {
-					if !stepNames[val.Step] {
-						return fmt.Errorf("placeholder has a references to unknown or not previous steps, step: %s, placeholder: %+v", step.Name, val)
-					}
-
-					// JSON key - supports nested paths like "user.profile.name"
-					if len(val.Key) > 0 {
-						refStep := c.GetStepByName(val.Step)
-						if refStep.Type == PromptStepType {
-							if !refStep.JSONSchema.HasSchemaDefinition() {
-								return fmt.Errorf("step %s must have JSON schema, key: %s", val.Step, val.Key)
-							}
-
-							if strings.Contains(val.Key, ".") {
-								if !refStep.JSONSchema.HasFieldPath(val.Key) {
-									return fmt.Errorf("field path '%s' not found in step %s JSON schema", val.Key, val.Step)
-								}
-							} else {
-								// For single field, use existing validation
-								if !refStep.JSONSchema.HasRequiredProperty(val.Key) {
-									return fmt.Errorf("'%s' key must be defined in step %s in JSON schema as a property and required", val.Key, val.Step)
-								}
-							}
-						}
-					}
-				}
-			}
-
 			if err := validateModelConfig(step.ModelConfig); err != nil {
 				return fmt.Errorf("step '%s': model config validation failed: %w", step.Name, err)
 			}
 		}
 	}
 
-	if !c.SkipCliWarning && len(cliCalls) > 0 {
-		fmt.Fprintf(os.Stderr, "⚠️ WARNING: External application call detected! The author assumes no responsibility for execution results. Please verify all external calls before proceeding. Use at your own risk.\n\nCalls: \n%s\n\nPress Enter to continue", strings.Join(cliCalls, "\n"))
-		fmt.Scanln() //nolint:golint,errcheck
-	}
-
 	return nil
+}
+
+// ShellCommands returns the run commands of all shell steps, used by the CLI
+// to warn the user before executing external applications.
+func (c *Config) ShellCommands() []string {
+	var commands []string
+	for _, step := range c.Steps {
+		if step.Type == ShellStepType {
+			commands = append(commands, step.Run)
+		}
+	}
+	return commands
 }

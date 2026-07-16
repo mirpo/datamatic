@@ -19,11 +19,11 @@ steps:
       required:
         - subtopics
 
+  # built-in transform: dedupe within the single roster row and fan out to
+  # one row per subtopic (jq sees the response value, not the file format)
   - name: split_into_unique_subtopics
-    type: shell
-    run: |
-      cat ./generate_subtopics.jsonl | jq -c '.response.subtopics[]' | sort | uniq | jq -c '{id: . | @base64, topic: .}' > ./split_into_unique_subtopics.jsonl
-    outputFilename: split_into_unique_subtopics.jsonl
+    from: generate_subtopics
+    jq: '.subtopics | unique | .[] | {id: (. | @base64), topic: .}'
 
   - name: generate_instructions
     model: ollama:llama3.2
@@ -49,6 +49,8 @@ steps:
       required:
         - instructions
 
+  # stays a shell step: dedupe ACROSS rows needs the whole file at once,
+  # which per-row transform steps can't do yet (fan-in)
   - name: split_into_unique_instructions
     type: shell
     run: |

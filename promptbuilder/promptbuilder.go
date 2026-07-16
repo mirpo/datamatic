@@ -180,10 +180,6 @@ func (pb *PromptBuilder) GetValues() map[string]ValueShort {
 	resultValues := map[string]ValueShort{}
 
 	for stepName, stepFields := range pb.stepData {
-		if strings.HasPrefix(stepName, "SYSTEM") {
-			continue
-		}
-
 		for fieldPath, stepValue := range stepFields {
 			key := "." + stepName
 			if fieldPath != "" {

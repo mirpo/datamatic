@@ -66,6 +66,8 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 		return fmt.Errorf("failed to create LLM provider: %w", err)
 	}
 
+	hasSchemaSchema := step.JSONSchema.HasSchemaDefinition()
+
 	for i < maxResult {
 		log.Info().
 			Str("step_name", step.Name).
@@ -74,12 +76,6 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 			Msg("Running step")
 
 		promptBuilder := promptbuilder.NewPromptBuilder(step.Prompt)
-		hasSchemaSchema := step.JSONSchema.HasSchemaDefinition()
-
-		if hasSchemaSchema {
-			jsonSchemaAsText := step.JSONSchema.ToJSONString()
-			promptBuilder.AddValue("-", "SYSTEM", "JSON_SCHEMA", jsonSchemaAsText)
-		}
 
 		if promptBuilder.HasPlaceholders() {
 			stepGroups := promptBuilder.GroupPlaceholdersByStep()

@@ -73,7 +73,6 @@ steps:
     model: ollama:deepseek-r1:1.5b
     forEach: flatten_question_chunk
     prompt: |
-      prompt: |
       Evaluate the provided question based *solely* on its alignment with the accompanying text chunk and the effectiveness of the supplied text evidence. Your assessment should be rigorous, ensuring accuracy and relevance to the given content.
 
       ---

@@ -8,7 +8,7 @@ steps:
     prompt: |
       Generate a complete recipe with detailed ingredients, nutrition information, and cooking details.
       Create a diverse and interesting recipe from any cuisine. Include specific ingredient quantities
-      and nutritional values. Return the data in the structured JSON format below.
+      and nutritional values. Return as JSON.
     jsonSchema:
       type: object
       properties:

@@ -12,6 +12,7 @@ import (
 	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/mirpo/datamatic/llm"
 	"github.com/mirpo/datamatic/promptbuilder"
+	"github.com/mirpo/datamatic/retry"
 )
 
 // setStepType determines and sets the step type based on step configuration
@@ -61,7 +62,13 @@ func PreprocessConfig(cfg *config.Config) error {
 		return fmt.Errorf("setting root output folder: %w", err)
 	}
 
+	// retryConfig not set in YAML (zero values) falls back to defaults
+	if cfg.RetryConfig.MaxAttempts == 0 {
+		cfg.RetryConfig = retry.NewDefaultConfig()
+	}
+
 	stepNames := make(map[string]bool, len(cfg.Steps))
+	stepByName := make(map[string]*config.Step, len(cfg.Steps))
 
 	for i := range cfg.Steps {
 		step := &cfg.Steps[i]
@@ -71,7 +78,7 @@ func PreprocessConfig(cfg *config.Config) error {
 			return fmt.Errorf("step at index %d: name can't be empty", i)
 		}
 		if strings.ToUpper(step.Name) == "SYSTEM" {
-			return fmt.Errorf("using 'SYSTEM' as step name is not allowed")
+			return fmt.Errorf("using 'SYSTEM' as step name is not allowed (reserved)")
 		}
 		if step.Name == promptbuilder.ItemAliasName {
 			return fmt.Errorf("using '%s' as step name is not allowed (reserved for forEach references)", promptbuilder.ItemAliasName)
@@ -160,12 +167,62 @@ func PreprocessConfig(cfg *config.Config) error {
 			}
 		}
 
-		// Iteration settings (count / forEach)
+		// Iteration settings (count / forEach); resolves the {{.item}} alias,
+		// so placeholder validation below sees canonical references
 		if err := setIterationDefaults(step, stepNames); err != nil {
 			return fmt.Errorf("step '%s': %w", step.Name, err)
 		}
 
+		if step.Type == config.PromptStepType {
+			if err := validatePromptPlaceholders(step, stepByName); err != nil {
+				return fmt.Errorf("step '%s': %w", step.Name, err)
+			}
+		}
+
 		stepNames[step.Name] = true
+		stepByName[step.Name] = step
+	}
+
+	return nil
+}
+
+// validatePromptPlaceholders checks every {{.step.field}} reference in the
+// prompt against earlier steps: the step must exist, field references into
+// prompt steps must match their JSON schema, and a step may not be referenced
+// both as a whole and by field in one prompt.
+func validatePromptPlaceholders(step *config.Step, stepByName map[string]*config.Step) error {
+	builder := promptbuilder.NewPromptBuilder(step.Prompt)
+	if !builder.HasPlaceholders() {
+		return nil
+	}
+
+	keysByStep := map[string]map[bool]bool{} // step -> {isWhole -> seen}
+
+	for _, ref := range builder.GetPlaceholders() {
+		refStep, ok := stepByName[ref.Step]
+		if !ok {
+			return fmt.Errorf("prompt references unknown step '%s' (must be an earlier step)", ref.Step)
+		}
+
+		if keysByStep[ref.Step] == nil {
+			keysByStep[ref.Step] = map[bool]bool{}
+		}
+		keysByStep[ref.Step][ref.Key == ""] = true
+
+		if ref.Key != "" && refStep.Type == config.PromptStepType {
+			if !refStep.JSONSchema.HasSchemaDefinition() {
+				return fmt.Errorf("step '%s' must have a JSON schema to reference field '%s'", ref.Step, ref.Key)
+			}
+			if !refStep.JSONSchema.HasFieldPath(ref.Key) {
+				return fmt.Errorf("field path '%s' not found in step '%s' JSON schema", ref.Key, ref.Step)
+			}
+		}
+	}
+
+	for name, kinds := range keysByStep {
+		if kinds[true] && kinds[false] {
+			return fmt.Errorf("step '%s' is referenced both as a whole ({{.%s}}) and by field — use one style", name, name)
+		}
 	}
 
 	return nil

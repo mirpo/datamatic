@@ -230,7 +230,6 @@ func TestPromptBuilder_GetValues(t *testing.T) {
 	builder := NewPromptBuilder("Test prompt.")
 	builder.AddValue("1", "USER", "name", "John Doe")
 	builder.AddValue("2", "USER", "email", "john.doe@example.com")
-	builder.AddValue("3", "SYSTEM", "version", "v1.0")
 	builder.AddValue("4", "INPUT", "query", "search term")
 
 	expected := map[string]ValueShort{
