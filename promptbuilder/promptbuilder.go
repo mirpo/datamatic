@@ -2,6 +2,7 @@ package promptbuilder
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -56,6 +57,24 @@ func parseTemplatePlaceholders(input string) map[string]PlaceholderInfo {
 	}
 
 	return placeholders
+}
+
+// ItemAliasName is the reserved placeholder name for the forEach source row;
+// step names must not shadow it (enforced during preprocessing).
+const ItemAliasName = "item"
+
+var itemAliasRe = regexp.MustCompile(`{{\s*\.item(\.[^\s}]+)?\s*}}`)
+
+// ResolveItemAlias rewrites {{.item...}} placeholders to the forEach source
+// step, so downstream parsing/validation sees a regular step reference.
+func ResolveItemAlias(prompt string, forEachSource string) (string, error) {
+	if !itemAliasRe.MatchString(prompt) {
+		return prompt, nil
+	}
+	if forEachSource == "" {
+		return "", errors.New("prompt uses {{.item}} but the step has no forEach")
+	}
+	return itemAliasRe.ReplaceAllString(prompt, "{{."+forEachSource+"$1}}"), nil
 }
 
 func NewPromptBuilder(prompt string) *PromptBuilder {

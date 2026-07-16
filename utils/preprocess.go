@@ -11,6 +11,7 @@ import (
 	"github.com/mirpo/datamatic/jq"
 	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/mirpo/datamatic/llm"
+	"github.com/mirpo/datamatic/promptbuilder"
 )
 
 // setStepType determines and sets the step type based on step configuration
@@ -72,6 +73,9 @@ func PreprocessConfig(cfg *config.Config) error {
 		if strings.ToUpper(step.Name) == "SYSTEM" {
 			return fmt.Errorf("using 'SYSTEM' as step name is not allowed")
 		}
+		if step.Name == promptbuilder.ItemAliasName {
+			return fmt.Errorf("using '%s' as step name is not allowed (reserved for forEach references)", promptbuilder.ItemAliasName)
+		}
 		if stepNames[step.Name] {
 			return fmt.Errorf("duplicate step name found: '%s'", step.Name)
 		}
@@ -131,9 +135,8 @@ func PreprocessConfig(cfg *config.Config) error {
 			if step.From == "" {
 				return fmt.Errorf("step '%s': 'from' is required for transform steps", step.Name)
 			}
-			// stepNames holds earlier steps only (this step registers below)
-			if !stepNames[step.From] {
-				return fmt.Errorf("step '%s': 'from' references unknown step '%s' (must be an earlier step)", step.Name, step.From)
+			if err := requireEarlierStep(stepNames, "from", step.From); err != nil {
+				return fmt.Errorf("step '%s': %w", step.Name, err)
 			}
 			if step.Limit < 0 {
 				return fmt.Errorf("step '%s': limit must be >= 0", step.Name)
@@ -157,8 +160,8 @@ func PreprocessConfig(cfg *config.Config) error {
 			}
 		}
 
-		// Apply MaxResults defaults
-		if err := setMaxResultsDefaults(step); err != nil {
+		// Iteration settings (count / forEach)
+		if err := setIterationDefaults(step, stepNames); err != nil {
 			return fmt.Errorf("step '%s': %w", step.Name, err)
 		}
 
@@ -246,31 +249,45 @@ func setImagePath(step *config.Step, outputFolder string) error {
 	return nil
 }
 
-// setMaxResultsDefaults sets default MaxResults for nil, empty string, and int <= 0 cases
-func setMaxResultsDefaults(step *config.Step) error {
-	switch v := step.MaxResults.(type) {
-	case nil:
-		step.MaxResults = config.DefaultStepMinMaxResults
-		return nil
+// requireEarlierStep checks that a cross-step reference points at an already
+// defined step. stepNames must hold earlier steps only.
+func requireEarlierStep(stepNames map[string]bool, field, name string) error {
+	if !stepNames[name] {
+		return fmt.Errorf("'%s' references unknown step '%s' (must be an earlier step)", field, name)
+	}
+	return nil
+}
 
-	case string:
-		if v == "" {
-			step.MaxResults = config.DefaultStepMinMaxResults
-			return nil
+// setIterationDefaults validates count/forEach and resolves the {{.item}}
+// alias to the forEach source, so every later consumer sees one canonical
+// prompt. Iteration counts themselves are resolved at runtime by the runner.
+func setIterationDefaults(step *config.Step, stepNames map[string]bool) error {
+	if step.Type != config.PromptStepType {
+		if step.Count != 0 || step.ForEach != "" {
+			return fmt.Errorf("'count' and 'forEach' are only valid on prompt steps")
 		}
-		// check dynamic strings (like "foo.$length") in validation phase
-		return nil
-
-	case int:
-		if v <= 0 {
-			step.MaxResults = config.DefaultStepMinMaxResults
-		}
-		// positive int values passed as-is
-		return nil
-
-	default:
 		return nil
 	}
+
+	if step.Count < 0 {
+		return fmt.Errorf("count must be >= 0")
+	}
+	if step.Count > 0 && step.ForEach != "" {
+		return fmt.Errorf("either 'count' or 'forEach' may be set, not both")
+	}
+	if step.ForEach != "" {
+		if err := requireEarlierStep(stepNames, "forEach", step.ForEach); err != nil {
+			return err
+		}
+	}
+
+	prompt, err := promptbuilder.ResolveItemAlias(step.Prompt, step.ForEach)
+	if err != nil {
+		return err
+	}
+	step.Prompt = prompt
+
+	return nil
 }
 
 // isValidName validates filename according to filesystem rules

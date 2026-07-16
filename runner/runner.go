@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/mirpo/datamatic/config"
 	"github.com/mirpo/datamatic/fs"
@@ -32,44 +31,42 @@ func (r *Runner) PrepareOutputDirectory() error {
 	return nil
 }
 
-func (r *Runner) resolveMaxResults(step *config.Step) error {
-	switch v := step.MaxResults.(type) {
-	case int:
-		step.ResolvedMaxResults = v
-		return nil
-
-	case string:
-		if strings.HasSuffix(v, ".$length") {
-			refStepName := strings.TrimSuffix(v, ".$length")
-			refStep := r.cfg.GetStepByName(refStepName)
-
-			if refStep == nil {
-				return fmt.Errorf("reference step '%s' not found", refStepName)
-			}
-
-			isImageStep := step.HasImages()
-			if isImageStep {
-				imagesCount, err := fs.CountFiles(step.ImagePath)
-				if err != nil {
-					return fmt.Errorf("failed to count images in folder '%s': %w", step.ImagePath, err)
-				}
-				step.ResolvedMaxResults = imagesCount
-				log.Debug().Msgf("Resolved MaxResults for step '%s' to %d from refStep: %s", step.Name, imagesCount, refStepName)
-			} else {
-				lines, err := fs.CountLinesInFile(refStep.OutputFilename)
-				if err != nil {
-					return fmt.Errorf("failed to count lines in '%s': %w", refStep.OutputFilename, err)
-				}
-
-				step.ResolvedMaxResults = lines
-				log.Debug().Msgf("Resolved MaxResults for step '%s' to %d from refStep: %s", step.Name, lines, refStepName)
-			}
-
-			return nil
+// resolveIterations sets how many rows a prompt step produces: forEach source
+// row count, image-glob match count, explicit count, or the generator default.
+// This is the single place the iteration-source decision lives.
+func (r *Runner) resolveIterations(step *config.Step) error {
+	switch {
+	case step.ForEach != "":
+		refStep := r.cfg.GetStepByName(step.ForEach)
+		if refStep == nil {
+			return fmt.Errorf("forEach references unknown step '%s'", step.ForEach)
 		}
+
+		lines, err := fs.CachedLineCount(refStep.OutputFilename)
+		if err != nil {
+			return fmt.Errorf("failed to count rows of step '%s': %w", step.ForEach, err)
+		}
+
+		step.ResolvedCount = lines
+		log.Debug().Msgf("Resolved iterations for step '%s' to %d from forEach: %s", step.Name, lines, step.ForEach)
+
+	case step.HasImages() && step.Count == 0:
+		images, err := fs.CountFiles(step.ImagePath)
+		if err != nil {
+			return fmt.Errorf("failed to count images matching '%s': %w", step.ImagePath, err)
+		}
+
+		step.ResolvedCount = images
+		log.Debug().Msgf("Resolved iterations for step '%s' to %d from imagePath: %s", step.Name, images, step.ImagePath)
+
+	case step.Count == 0:
+		step.ResolvedCount = config.DefaultStepCount
+
+	default:
+		step.ResolvedCount = step.Count
 	}
 
-	return fmt.Errorf("unexpected MaxResults value: %v", step.MaxResults)
+	return nil
 }
 
 func (r *Runner) Run(ctx context.Context) error {
@@ -85,8 +82,8 @@ func (r *Runner) Run(ctx context.Context) error {
 		log.Info().Msgf("Starting step: '%s' (type: '%s')", stepConfig.Name, stepConfig.Type)
 
 		if stepConfig.Type == config.PromptStepType {
-			if err := r.resolveMaxResults(&stepConfig); err != nil {
-				return fmt.Errorf("failed to resolve MaxResults for step '%s', err: %w", stepConfig.Name, err)
+			if err := r.resolveIterations(&stepConfig); err != nil {
+				return fmt.Errorf("failed to resolve iterations for step '%s': %w", stepConfig.Name, err)
 			}
 		}
 

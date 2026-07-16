@@ -19,7 +19,7 @@ Build multi-step AI workflows with schema-guided reasoning. Works with Ollama, L
 ### Workflow Capabilities
 - **JSON Schema Validation** - Structured output with type safety (YAML-native or JSON string formats)
 - **Text Generation** - Flexible content creation
-- **Multi-step Chaining** - Link generation steps together with template variables
+- **Explicit Iteration** - `count: N` for generators, `forEach: step` to run once per row of an earlier step; reference the current row as `{{.item.field}}`
 - **Schema-Guided Reasoning (SGR)** - Guide LLMs through systematic analysis using structured schemas
 - **Image Analysis** - Visual model integration
 
@@ -72,6 +72,7 @@ version: 1.0
 steps:
   - name: generate_titles
     model: ollama:llama3.2
+    count: 5                    # generate 5 rows
     prompt: Generate a catchy news title
     jsonSchema:
       type: object
@@ -89,9 +90,10 @@ steps:
 
   - name: analyze_title
     model: ollama:llama3.2
+    forEach: generate_titles    # one iteration per generated title
     prompt: |
       Analyze this news title and provide sentiment and category analysis:
-      Title: {{.generate_titles.title}}
+      Title: {{.item.title}}
     jsonSchema: |
       {
         "type": "object",

@@ -3,7 +3,7 @@ version: 1.0
 steps:
   - name: team_roster
     model: ollama:llama3.2
-    maxResults: 3
+    count: 3
     modelConfig:
       temperature: 0.9
     prompt: |
@@ -35,6 +35,6 @@ steps:
 
   - name: bio
     model: ollama:llama3.2
-    maxResults: members.$length
+    forEach: members
     prompt: |
-      Write a two-sentence bio for {{.members.name}}, who works as {{.members.role}}.
+      Write a two-sentence bio for {{.item.name}}, who works as {{.item.role}}.

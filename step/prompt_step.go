@@ -39,7 +39,7 @@ func (p *PromptStep) retryLLMGeneration(ctx context.Context, cfg *config.Config,
 }
 
 func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.Step, outputFolder string) error {
-	maxResult := step.ResolvedMaxResults
+	maxResult := step.ResolvedCount
 	i := 0
 
 	// registerInvalid tracks consecutive invalid LLM responses; it returns a

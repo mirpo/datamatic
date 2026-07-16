@@ -1,14 +1,18 @@
 package config
 
 import (
+	"bytes"
+	"fmt"
+
 	"github.com/mirpo/datamatic/jq"
 	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/mirpo/datamatic/llm"
 	"github.com/mirpo/datamatic/retry"
+	"gopkg.in/yaml.v3"
 )
 
 const (
-	DefaultStepMinMaxResults = 3
+	DefaultStepCount = 3
 )
 
 func NewConfig() *Config {
@@ -48,23 +52,24 @@ const (
 )
 
 type Step struct {
-	Type               StepType    `yaml:"type,omitempty"`
-	Name               string      `yaml:"name"`
-	Model              string      `yaml:"model"`
-	Prompt             string      `yaml:"prompt"`
-	Run                string      `yaml:"run"`
-	JQ                 string      `yaml:"jq"`    // transform steps: jq program
-	From               string      `yaml:"from"`  // transform steps: source step name
-	Limit              int         `yaml:"limit"` // transform steps: cap output rows (0 = no cap)
-	WorkDir            string      `yaml:"workDir,omitempty"`
-	SystemPrompt       string      `yaml:"systemPrompt"`
-	MaxResults         interface{} `yaml:"maxResults"`
-	ModelConfig        ModelConfig `yaml:"modelConfig"`
-	OutputFilename     string      `yaml:"outputFilename"`
-	JSONSchemaRaw      interface{} `yaml:"jsonSchema"`
-	ImagePath          string      `yaml:"imagePath"`
-	ResolvedMaxResults int
-	JSONSchema         jsonschema.Schema
+	Type           StepType    `yaml:"type,omitempty"`
+	Name           string      `yaml:"name"`
+	Model          string      `yaml:"model"`
+	Prompt         string      `yaml:"prompt"`
+	Run            string      `yaml:"run"`
+	JQ             string      `yaml:"jq"`    // transform steps: jq program
+	From           string      `yaml:"from"`  // transform steps: source step name
+	Limit          int         `yaml:"limit"` // transform steps: cap output rows (0 = no cap)
+	WorkDir        string      `yaml:"workDir,omitempty"`
+	SystemPrompt   string      `yaml:"systemPrompt"`
+	Count          int         `yaml:"count"`   // generator steps: how many rows to produce (default 3)
+	ForEach        string      `yaml:"forEach"` // iterate once per row of an earlier step
+	ModelConfig    ModelConfig `yaml:"modelConfig"`
+	OutputFilename string      `yaml:"outputFilename"`
+	JSONSchemaRaw  interface{} `yaml:"jsonSchema"`
+	ImagePath      string      `yaml:"imagePath"`
+	ResolvedCount  int
+	JSONSchema     jsonschema.Schema
 	// JQProgram holds the compiled jq program (set during preprocessing)
 	JQProgram *jq.Program
 }
@@ -75,6 +80,17 @@ type ModelConfig struct {
 	BaseURL       string   `yaml:"baseUrl"`
 	Temperature   *float64 `yaml:"temperature"`
 	MaxTokens     *int     `yaml:"maxTokens"`
+}
+
+// ParseYAML decodes a config strictly: unknown keys (typos, removed syntax
+// like maxResults) are errors instead of being silently ignored.
+func ParseYAML(data []byte, cfg *Config) error {
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(cfg); err != nil {
+		return fmt.Errorf("failed to parse config: %w", err)
+	}
+	return nil
 }
 
 func (c *Config) GetStepByName(name string) *Step {

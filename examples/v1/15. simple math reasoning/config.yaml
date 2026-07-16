@@ -16,7 +16,7 @@ steps:
   - name: solve_with_reasoning
     type: prompt
     model: ollama:llama3.2
-    maxResults: math_problems_10.$length
+    forEach: math_problems_10
     modelConfig:
       temperature: 0.7
     prompt: |

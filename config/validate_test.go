@@ -100,21 +100,21 @@ func TestValidateConfig(t *testing.T) {
 						MaxTokens:   &maxTokens500,
 						BaseURL:     "http://localhost:11434",
 					},
-					MaxResults: 10,
+					Count: 10,
 				},
 				{
-					Name:       "step2_cli",
-					Type:       PromptStepType,
-					Model:      "ollama:dummy",
-					Prompt:     "Generate new.",
-					MaxResults: DefaultStepMinMaxResults,
+					Name:   "step2_cli",
+					Type:   PromptStepType,
+					Model:  "ollama:dummy",
+					Prompt: "Generate new.",
+					Count:  DefaultStepCount,
 				},
 				{
-					Name:       "step3_default_maxresults",
-					Type:       PromptStepType,
-					Model:      "lmstudio:dummy",
-					Prompt:     "Another prompt.",
-					MaxResults: 1,
+					Name:   "step3_count_one",
+					Type:   PromptStepType,
+					Model:  "lmstudio:dummy",
+					Prompt: "Another prompt.",
+					Count:  1,
 				},
 			},
 		}
@@ -126,13 +126,13 @@ func TestValidateConfig(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Equal(t, PromptStepType, cfg.Steps[0].Type)
-		assert.Equal(t, 10, cfg.Steps[0].MaxResults)
+		assert.Equal(t, 10, cfg.Steps[0].Count)
 
 		assert.Equal(t, PromptStepType, cfg.Steps[1].Type)
-		assert.Equal(t, DefaultStepMinMaxResults, cfg.Steps[1].MaxResults)
+		assert.Equal(t, DefaultStepCount, cfg.Steps[1].Count)
 
 		assert.Equal(t, PromptStepType, cfg.Steps[2].Type)
-		assert.Equal(t, 1, cfg.Steps[2].MaxResults)
+		assert.Equal(t, 1, cfg.Steps[2].Count)
 	})
 
 	t.Run("Step With Invalid Model Config", func(t *testing.T) {
@@ -143,48 +143,6 @@ func TestValidateConfig(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "step 'step1': model config validation failed: temperature must be between 0 and 2")
 	})
-
-	t.Run("MaxResults Defaults Correctly", func(t *testing.T) {
-		cfg := validConfig()
-
-		err := cfg.Validate()
-		assert.NoError(t, err)
-
-		assert.Equal(t, 10, cfg.Steps[0].MaxResults, "step with MaxResults > 0 should keep its value")
-		assert.Equal(t, DefaultStepMinMaxResults, cfg.Steps[1].MaxResults, "step with MaxResults = nil should default")
-		assert.Equal(t, 1, cfg.Steps[2].MaxResults, "step with MaxResults < 0 should default")
-	})
-}
-
-func TestValidateMaxResults(t *testing.T) {
-	stepNames := map[string]bool{"foo": true, "bar": true}
-
-	tests := []struct {
-		name        string
-		input       interface{}
-		expectError bool
-	}{
-		{"nil input", nil, false},
-		{"empty string", "", false},
-		{"valid step reference", "foo.$length", false},
-		{"invalid step reference", "unknown.$length", true},
-		{"invalid string", "invalid", true},
-		{"zero int", 0, false},
-		{"positive int", 5, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			step := &Step{MaxResults: tt.input}
-			err := validateMaxResults(step, stepNames)
-
-			if tt.expectError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
 }
 
 func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {

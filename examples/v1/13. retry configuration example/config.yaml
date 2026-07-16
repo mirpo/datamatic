@@ -12,4 +12,4 @@ steps:
     prompt: |
       Generate a creative short story title about time travel.
       Make it intriguing and unique. Return only the title.
-    maxResults: 3
+    count: 3

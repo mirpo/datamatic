@@ -2,7 +2,7 @@ version: 1.0
 steps:
   - name: recipe_data
     model: ollama:llama3.2
-    maxResults: 5
+    count: 5
     modelConfig:
       temperature: 0.8
     prompt: |
@@ -110,7 +110,7 @@ steps:
 
   - name: cooking_guide
     model: ollama:llama3.2
-    maxResults: recipe_data.$length
+    forEach: recipe_data
     modelConfig:
       temperature: 0.7
       maxTokens: 1500

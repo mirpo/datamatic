@@ -70,7 +70,7 @@ func main() {
 		log.Fatal().Err(err).Msg("Expanding environment variables in config file")
 	}
 
-	err = yaml.Unmarshal([]byte(expandedYaml), &cfg)
+	err = config.ParseYAML([]byte(expandedYaml), cfg)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Parsing config file")
 	}

@@ -16,7 +16,7 @@ steps:
   - name: generate_sql_with_reasoning
     type: prompt
     model: ollama:llama3.2
-    maxResults: convert_to_jsonl.$length
+    forEach: convert_to_jsonl
     modelConfig:
       temperature: 0.3
     systemPrompt: |

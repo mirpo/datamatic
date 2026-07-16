@@ -13,7 +13,7 @@ steps:
 
   - name: questions_per_chunk
     model: ollama:deepseek-r1:1.5b
-    maxResults: chopdoc_by_sentence.$length # for each chunk generate 3 questions
+    forEach: chopdoc_by_sentence
     prompt: |
       For the following text chunk, generate exactly **3 questions**, each based on a different level of cognitive thinking. For each question, you must also provide direct text evidence from the chunk that supports or relates to the question.
 
@@ -71,7 +71,7 @@ steps:
 
   - name: validate_questions
     model: ollama:deepseek-r1:1.5b
-    maxResults: flatten_question_chunk.$length # for each question chunk validate
+    forEach: flatten_question_chunk
     prompt: |
       prompt: |
       Evaluate the provided question based *solely* on its alignment with the accompanying text chunk and the effectiveness of the supplied text evidence. Your assessment should be rigorous, ensuring accuracy and relevance to the given content.

@@ -80,30 +80,6 @@ func validateRetryConfig(cfg retry.Config) error {
 	return nil
 }
 
-func validateMaxResults(step *Step, stepNames map[string]bool) error {
-	switch v := step.MaxResults.(type) {
-	case nil, int:
-		return nil
-	case string:
-		if v == "" {
-			// Empty string case is handled in preprocessing
-			return nil
-		}
-
-		if strings.HasSuffix(v, ".$length") {
-			stepName := strings.TrimSuffix(v, ".$length")
-			if !stepNames[stepName] {
-				return fmt.Errorf("maxResults reference to unknown step '%s'", stepName)
-			}
-			return nil
-		}
-
-		return fmt.Errorf("invalid string format for maxResults: '%s'", v)
-	}
-
-	return fmt.Errorf("maxResults unsupported type '%T'", step.MaxResults)
-}
-
 func (c *Config) Validate() error {
 	if err := validateVersion(c.Version); err != nil {
 		return err
@@ -154,6 +130,7 @@ func (c *Config) Validate() error {
 				}
 			}
 
+			// {{.item}} aliases are already resolved during preprocessing
 			promptBuilder := promptbuilder.NewPromptBuilder(step.Prompt)
 			if promptBuilder.HasPlaceholders() {
 				placeholders := promptBuilder.GetPlaceholders()
@@ -187,10 +164,6 @@ func (c *Config) Validate() error {
 
 			if err := validateModelConfig(step.ModelConfig); err != nil {
 				return fmt.Errorf("step '%s': model config validation failed: %w", step.Name, err)
-			}
-
-			if err := validateMaxResults(step, stepNames); err != nil {
-				return fmt.Errorf("step '%s': maxResults validation failed: %w", step.Name, err)
 			}
 		}
 	}
