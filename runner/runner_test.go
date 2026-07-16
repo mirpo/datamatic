@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/mirpo/datamatic/config"
@@ -87,24 +86,34 @@ func TestRun_CancelledContextStopsExecution(t *testing.T) {
 }
 
 func TestRun_TransformPipelineEndToEnd(t *testing.T) {
-	srv := llmtest.NewServer(t, "analyzed")
+	// prompt(seed) -> transform -> prompt(describe); the mock server first
+	// returns the 3 seed rows, then "analyzed" for every describe call
+	srv := llmtest.NewServer(t,
+		`{"topic":"go","keep":true}`,
+		`{"topic":"js","keep":false}`,
+		`{"topic":"rust","keep":true}`,
+		"analyzed",
+	)
 	dir := t.TempDir()
-
-	// shell steps run via `sh -c` on unix and `cmd /C` on windows — quoting differs
-	seedCmd := `printf '%s\n' '{"topic":"go","keep":true}' '{"topic":"js","keep":false}' '{"topic":"rust","keep":true}' > seed.jsonl`
-	if runtime.GOOS == "windows" {
-		seedCmd = `(echo {"topic":"go","keep":true}& echo {"topic":"js","keep":false}& echo {"topic":"rust","keep":true}) > seed.jsonl`
-	}
 
 	cfg := config.NewConfig()
 	cfg.OutputFolder = dir
-	cfg.SkipCliWarning = true
 	cfg.Version = "1.0"
 	cfg.Steps = []config.Step{
 		{
-			Name:           "seed",
-			Run:            seedCmd,
-			OutputFilename: "seed.jsonl",
+			Name:       "seed",
+			Model:      "ollama:test-model",
+			MaxResults: 3,
+			Prompt:     "Suggest a topic",
+			JSONSchemaRaw: `{
+				"type": "object",
+				"properties": {"topic": {"type": "string"}, "keep": {"type": "boolean"}},
+				"required": ["topic", "keep"],
+				"additionalProperties": false
+			}`,
+			ModelConfig: config.ModelConfig{
+				BaseURL: srv.URL,
+			},
 		},
 		{
 			Name: "picked",
@@ -129,5 +138,5 @@ func TestRun_TransformPipelineEndToEnd(t *testing.T) {
 	lines, err := fs.CountLinesInFile(cfg.Steps[2].OutputFilename)
 	require.NoError(t, err)
 	assert.Equal(t, 2, lines, "2 of 3 seed rows survive the filter")
-	assert.Equal(t, 2, srv.CallCount())
+	assert.Equal(t, 5, srv.CallCount(), "3 seed generations + 2 describe calls")
 }
