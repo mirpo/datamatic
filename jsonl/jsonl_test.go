@@ -3,9 +3,11 @@ package jsonl
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewWriter(t *testing.T) {
@@ -74,5 +76,19 @@ func TestWriteLine_ErrorOnMarshal(t *testing.T) {
 
 	err = writer.WriteLine(entity)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to marshal line entity")
+	assert.Contains(t, err.Error(), "failed to marshal value")
+}
+
+func TestWriteJSON_RawValues(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "out.jsonl")
+	w, err := NewWriter(path)
+	require.NoError(t, err)
+
+	require.NoError(t, w.WriteJSON(map[string]interface{}{"a": 1}))
+	require.NoError(t, w.WriteJSON("scalar"))
+	require.NoError(t, w.Close())
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "{\"a\":1}\n\"scalar\"\n", string(data))
 }

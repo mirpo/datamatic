@@ -4,11 +4,22 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"sync"
 
 	"github.com/rs/zerolog/log"
 )
+
+const maxScanLineSize = 16 * 1024 * 1024 // long LLM responses can exceed bufio's 64KB default
+
+// NewLineScanner returns a line scanner sized for datamatic JSONL files,
+// where a single line may hold a long LLM response.
+func NewLineScanner(r io.Reader) *bufio.Scanner {
+	scanner := bufio.NewScanner(r)
+	scanner.Buffer(nil, maxScanLineSize)
+	return scanner
+}
 
 // lineCountCache caches line counts per path. Safe because step outputs are
 // immutable once the producing step completes and steps run sequentially.
@@ -35,7 +46,7 @@ func ReadLineFromFile(path string, lineNumber int) (string, error) {
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
+	scanner := NewLineScanner(file)
 	for i := 0; scanner.Scan(); i++ {
 		if i == effectiveIndex {
 			return scanner.Text(), nil
@@ -73,7 +84,7 @@ func CountLinesInFile(filePath string) (int, error) {
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
+	scanner := NewLineScanner(file)
 	lineCount := 0
 	for scanner.Scan() {
 		lineCount++

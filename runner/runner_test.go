@@ -7,9 +7,12 @@ import (
 	"testing"
 
 	"github.com/mirpo/datamatic/config"
+	"github.com/mirpo/datamatic/fs"
+	"github.com/mirpo/datamatic/internal/llmtest"
 	"github.com/mirpo/datamatic/runner"
 	"github.com/mirpo/datamatic/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
 
@@ -80,4 +83,60 @@ func TestRun_CancelledContextStopsExecution(t *testing.T) {
 	err := runner.NewRunner(cfg).Run(ctx)
 
 	assert.Error(t, err)
+}
+
+func TestRun_TransformPipelineEndToEnd(t *testing.T) {
+	// prompt(seed) -> transform -> prompt(describe); the mock server first
+	// returns the 3 seed rows, then "analyzed" for every describe call
+	srv := llmtest.NewServer(t,
+		`{"topic":"go","keep":true}`,
+		`{"topic":"js","keep":false}`,
+		`{"topic":"rust","keep":true}`,
+		"analyzed",
+	)
+	dir := t.TempDir()
+
+	cfg := config.NewConfig()
+	cfg.OutputFolder = dir
+	cfg.Version = "1.0"
+	cfg.Steps = []config.Step{
+		{
+			Name:       "seed",
+			Model:      "ollama:test-model",
+			MaxResults: 3,
+			Prompt:     "Suggest a topic",
+			JSONSchemaRaw: `{
+				"type": "object",
+				"properties": {"topic": {"type": "string"}, "keep": {"type": "boolean"}},
+				"required": ["topic", "keep"],
+				"additionalProperties": false
+			}`,
+			ModelConfig: config.ModelConfig{
+				BaseURL: srv.URL,
+			},
+		},
+		{
+			Name: "picked",
+			JQ:   `select(.keep) | .topic`,
+			From: "seed",
+		},
+		{
+			Name:       "describe",
+			Model:      "ollama:test-model",
+			MaxResults: "picked.$length",
+			Prompt:     "Describe {{.picked}}",
+			ModelConfig: config.ModelConfig{
+				BaseURL: srv.URL,
+			},
+		},
+	}
+
+	require.NoError(t, utils.PreprocessConfig(cfg))
+	require.NoError(t, cfg.Validate())
+	require.NoError(t, runner.NewRunner(cfg).Run(context.Background()))
+
+	lines, err := fs.CountLinesInFile(cfg.Steps[2].OutputFilename)
+	require.NoError(t, err)
+	assert.Equal(t, 2, lines, "2 of 3 seed rows survive the filter")
+	assert.Equal(t, 5, srv.CallCount(), "3 seed generations + 2 describe calls")
 }

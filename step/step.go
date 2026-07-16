@@ -17,6 +17,8 @@ func NewStepRunner(step config.Step) (StepRunner, error) {
 		return &PromptStep{}, nil
 	case config.ShellStepType:
 		return &ShellStep{}, nil
+	case config.TransformStepType:
+		return &TransformStep{}, nil
 	default:
 		return nil, errors.New("unsupported step type")
 	}

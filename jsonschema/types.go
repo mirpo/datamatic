@@ -186,9 +186,10 @@ func walkStrict(node *jsonschema.Schema, path string, issues *[]string) {
 }
 
 // extractFieldByPath extracts a field from JSON data using a dot path.
+// An empty path means identity (the whole value), matching jq's '.'.
 func extractFieldByPath(data interface{}, path string) (interface{}, error) {
 	if path == "" {
-		return nil, fmt.Errorf("path cannot be empty")
+		return data, nil
 	}
 
 	current := data

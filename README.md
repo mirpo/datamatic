@@ -26,7 +26,7 @@ Build multi-step AI workflows with schema-guided reasoning. Works with Ollama, L
 ### Extensibility
 - **CLI Integration** - Use any command-line tool as a step
 - **Dataset Loading** - Import from [Huggingface](https://huggingface.co/datasets)
-- **Data Transformation** - Built-in [jq](https://github.com/jqlang/jq) support
+- **Transform Steps** - Embedded [jq](https://jqlang.github.io/jq/) (via gojq): filter, reshape, and fan out data between steps — no external binary needed
 - **Environment Variables** - Dynamic configuration with `$VAR` syntax
 - **Retry Logic** - Smart error handling and recovery
 
@@ -116,6 +116,24 @@ datamatic -config config.yaml -verbose -log-pretty
 - OpenAI: `model: openai:gpt-4o-mini` + `export OPENAI_API_KEY=sk-...`
 - OpenRouter: `model: openrouter:meta-llama/llama-3.2-3b` + `export OPENROUTER_API_KEY=sk-...`
 - Gemini: `model: gemini:gemini-2.0-flash` + `export GEMINI_API_KEY=...`
+
+### Transform Steps
+
+Reshape, filter, and fan out data between steps with embedded [jq](https://jqlang.github.io/jq/) (via [gojq](https://github.com/itchyny/gojq) — no external binary needed):
+
+```yaml
+steps:
+  - name: picked
+    from: source_step
+    jq: 'select(.score > 5) | {q: .question, a: .answer}'
+    limit: 100
+```
+
+- `from` — source step; the jq program sees each row's value (for prompt steps: the `response`)
+- `jq` — any jq program; emitting multiple values fans out (1 row → N rows), `select()` filters rows out
+- `limit` — optional cap on output rows
+
+jq programs are validated when the config loads. Transform steps run instantly, produce regular JSONL, and don't trigger the external-CLI warning. See the [Fan-Out example](./examples/v1/19.%20transform%20step%20and%20fan-out/README.md).
 
 ### Environment Variables
 
@@ -253,3 +271,4 @@ Options:
 | [SQL Reasoning](./examples/v1/16.%20sql%20reasoning%20with%20checklist/README.md) | SQL generation with reasoning checklist | Ollama |
 | [Document Classification](./examples/v1/17.%20document%20classification%20with%20schema-guided%20reasoning/README.md) | Schema-guided classification workflow | Ollama |
 | [Multi-Stage Pipeline](./examples/v1/18.%20workdir-multi-stage-pipeline/README.md) | workDir control and environment variables | Ollama |
+| [Transform & Fan-Out](./examples/v1/19.%20transform%20step%20and%20fan-out/README.md) | Built-in jq: one structured answer → N rows | Ollama |

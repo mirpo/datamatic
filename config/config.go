@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/mirpo/datamatic/jq"
 	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/mirpo/datamatic/llm"
 	"github.com/mirpo/datamatic/retry"
@@ -40,9 +41,10 @@ type Config struct {
 type StepType string
 
 const (
-	PromptStepType  StepType = "prompt"
-	ShellStepType   StepType = "shell"
-	UnknownStepType StepType = "unknown"
+	PromptStepType    StepType = "prompt"
+	ShellStepType     StepType = "shell"
+	TransformStepType StepType = "transform"
+	UnknownStepType   StepType = "unknown"
 )
 
 type Step struct {
@@ -51,6 +53,9 @@ type Step struct {
 	Model              string      `yaml:"model"`
 	Prompt             string      `yaml:"prompt"`
 	Run                string      `yaml:"run"`
+	JQ                 string      `yaml:"jq"`    // transform steps: jq program
+	From               string      `yaml:"from"`  // transform steps: source step name
+	Limit              int         `yaml:"limit"` // transform steps: cap output rows (0 = no cap)
 	WorkDir            string      `yaml:"workDir,omitempty"`
 	SystemPrompt       string      `yaml:"systemPrompt"`
 	MaxResults         interface{} `yaml:"maxResults"`
@@ -60,6 +65,8 @@ type Step struct {
 	ImagePath          string      `yaml:"imagePath"`
 	ResolvedMaxResults int
 	JSONSchema         jsonschema.Schema
+	// JQProgram holds the compiled jq program (set during preprocessing)
+	JQProgram *jq.Program
 }
 
 type ModelConfig struct {

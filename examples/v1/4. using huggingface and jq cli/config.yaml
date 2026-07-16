@@ -6,8 +6,9 @@ steps:
     outputFilename: python-codes-25k.jsonl
 
   - name: pick_first_20
-    run: jq -c 'select(.instruction | test("Convert|Open"))' ./python-codes-25k.jsonl | head -n 20 > ./Convert_Open_20.jsonl
-    outputFilename: Convert_Open_20.jsonl
+    from: download_dataset
+    jq: 'select(.instruction | test("Convert|Open"))'
+    limit: 20
 
   - name: explain_code
     type: prompt

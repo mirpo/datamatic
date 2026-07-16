@@ -12,9 +12,9 @@ steps:
     outputFilename: output.json
 
   - name: synthetic_math
-    type: shell
-    run: jq -c 'select(.source | test("synthetic_math"))' ./output.json | head -n 100 > ./synthetic_math_100.jsonl
-    outputFilename: synthetic_math_100.jsonl
+    from: convert_to_jsonl
+    jq: 'select(.source | test("synthetic_math"))'
+    limit: 100
 
   - name: explain_math
     type: prompt

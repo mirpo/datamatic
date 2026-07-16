@@ -57,3 +57,10 @@ func TestNewProviderConfigFromStep(t *testing.T) {
 	assert.Equal(t, &temp, result.Temperature)
 	assert.Equal(t, &maxTokens, result.MaxTokens)
 }
+
+func TestNewStepRunner_TransformStep(t *testing.T) {
+	runner, err := NewStepRunner(config.Step{Type: config.TransformStepType})
+
+	assert.NoError(t, err)
+	assert.IsType(t, &TransformStep{}, runner)
+}
