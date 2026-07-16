@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/mirpo/datamatic/config"
@@ -89,6 +90,12 @@ func TestRun_TransformPipelineEndToEnd(t *testing.T) {
 	srv := llmtest.NewServer(t, "analyzed")
 	dir := t.TempDir()
 
+	// shell steps run via `sh -c` on unix and `cmd /C` on windows — quoting differs
+	seedCmd := `printf '%s\n' '{"topic":"go","keep":true}' '{"topic":"js","keep":false}' '{"topic":"rust","keep":true}' > seed.jsonl`
+	if runtime.GOOS == "windows" {
+		seedCmd = `(echo {"topic":"go","keep":true}& echo {"topic":"js","keep":false}& echo {"topic":"rust","keep":true}) > seed.jsonl`
+	}
+
 	cfg := config.NewConfig()
 	cfg.OutputFolder = dir
 	cfg.SkipCliWarning = true
@@ -96,7 +103,7 @@ func TestRun_TransformPipelineEndToEnd(t *testing.T) {
 	cfg.Steps = []config.Step{
 		{
 			Name:           "seed",
-			Run:            `printf '%s\n' '{"topic":"go","keep":true}' '{"topic":"js","keep":false}' '{"topic":"rust","keep":true}' > seed.jsonl`,
+			Run:            seedCmd,
 			OutputFilename: "seed.jsonl",
 		},
 		{
