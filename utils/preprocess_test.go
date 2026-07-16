@@ -217,3 +217,31 @@ func TestPreprocessConfig_Failures(t *testing.T) {
 		})
 	}
 }
+
+func TestSetStepType_ExplicitTypeValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		step    config.Step
+		wantErr string // empty = no error
+		want    config.StepType
+	}{
+		{"explicit prompt matches", config.Step{Type: "prompt", Prompt: "p"}, "", config.PromptStepType},
+		{"explicit shell matches", config.Step{Type: "shell", Run: "r"}, "", config.ShellStepType},
+		{"explicit shell but prompt defined", config.Step{Type: "shell", Prompt: "p"}, "does not match", ""},
+		{"explicit prompt but run defined", config.Step{Type: "prompt", Run: "r"}, "does not match", ""},
+		{"unknown explicit type", config.Step{Type: "banana", Run: "r"}, "unknown step type", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := setStepType(&tt.step)
+			if tt.wantErr != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, tt.step.Type)
+		})
+	}
+}

@@ -41,8 +41,10 @@ func TestValidateUrl(t *testing.T) {
 func TestValidateModelConfig(t *testing.T) {
 	temp0_5 := 0.5
 	temp1_0 := 1.0
+	temp1_5 := 1.5
+	temp2_0 := 2.0
 	tempNeg := -0.1
-	tempOver := 1.1
+	tempOver := 2.1
 
 	maxTokens100 := 100
 	maxTokensNeg := -1
@@ -56,9 +58,11 @@ func TestValidateModelConfig(t *testing.T) {
 	}{
 		{"Valid Mid", ModelConfig{Temperature: &temp0_5, MaxTokens: &maxTokens100, BaseURL: "http://example.com"}, false, ""},
 		{"Valid Max", ModelConfig{Temperature: &temp1_0, MaxTokens: &maxTokensLarge, BaseURL: "https://test.org/api"}, false, ""},
+		{"Valid Above 1 (OpenAI range)", ModelConfig{Temperature: &temp1_5, MaxTokens: &maxTokens100}, false, ""},
+		{"Valid Upper Bound 2.0", ModelConfig{Temperature: &temp2_0, MaxTokens: &maxTokens100}, false, ""},
 		{"Valid Nil Temp", ModelConfig{Temperature: nil, MaxTokens: &maxTokens100, BaseURL: ""}, false, ""},
-		{"Invalid Temp Below 0", ModelConfig{Temperature: &tempNeg, MaxTokens: &maxTokens100}, true, "temperature must be between 0 and 1"},
-		{"Invalid Temp Above 1", ModelConfig{Temperature: &tempOver, MaxTokens: &maxTokens100}, true, "temperature must be between 0 and 1"},
+		{"Invalid Temp Below 0", ModelConfig{Temperature: &tempNeg, MaxTokens: &maxTokens100}, true, "temperature must be between 0 and 2"},
+		{"Invalid Temp Above 2", ModelConfig{Temperature: &tempOver, MaxTokens: &maxTokens100}, true, "temperature must be between 0 and 2"},
 		{"Invalid MaxTokens Negative", ModelConfig{Temperature: &temp0_5, MaxTokens: &maxTokensNeg}, true, "maxTokens must be > 0"},
 		{"Invalid BaseUrl", ModelConfig{Temperature: &temp0_5, MaxTokens: &maxTokens100, BaseURL: "not a url"}, true, "invalid baseUrl"},
 	}
@@ -137,7 +141,7 @@ func TestValidateConfig(t *testing.T) {
 		cfg.Steps[0].ModelConfig.Temperature = &tempNeg
 		err := cfg.Validate()
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "step 'step1': model config validation failed: temperature must be between 0 and 1")
+		assert.Contains(t, err.Error(), "step 'step1': model config validation failed: temperature must be between 0 and 2")
 	})
 
 	t.Run("MaxResults Defaults Correctly", func(t *testing.T) {
@@ -238,23 +242,23 @@ func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
 		assert.NoError(t, err, "Should pass because full path matches exactly")
 	})
 
-	t.Run("Shell step without filename in command fails", func(t *testing.T) {
+	t.Run("Shell step without filename in command warns but passes", func(t *testing.T) {
 		cfg := &Config{
-			Version:     "1.0",
-			RetryConfig: retry.NewDefaultConfig(),
+			Version:        "1.0",
+			RetryConfig:    retry.NewDefaultConfig(),
+			SkipCliWarning: true,
 			Steps: []Step{
 				{
 					Name:           "download_only",
 					Type:           ShellStepType,
-					Run:            `curl -o different_name.json https://api.example.com/data`,
+					Run:            `./scripts/fetch.sh`, // writes expected.json internally
 					OutputFilename: "/abs/path/to/output/expected.json",
 				},
 			},
 		}
 
 		err := cfg.Validate()
-		assert.Error(t, err, "Should fail because neither 'expected.json' nor full path is in command")
-		assert.Contains(t, err.Error(), "output filename should match output result of external shell")
+		assert.NoError(t, err, "filename-in-command is a heuristic; must warn, not fail")
 	})
 }
 

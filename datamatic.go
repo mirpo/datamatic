@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/goforj/godump"
 	"github.com/mirpo/datamatic/config"
@@ -24,13 +27,13 @@ func main() {
 
 	var ver bool
 	flag.BoolVar(&ver, "version", false, "Get current version of datamatic")
-	flag.BoolVar(&cfg.Verbose, "verbose", false, "Enable DEBUG logging level")
-	flag.BoolVar(&cfg.LogPretty, "log-pretty", true, "Enable pretty logging, JSON when false")
-	flag.StringVar(&cfg.ConfigFile, "config", "", "Config file path")
-	flag.StringVar(&cfg.OutputFolder, "output", "dataset", "Output folder path")
-	flag.IntVar(&cfg.HTTPTimeout, "http-timeout", 300, "HTTP timeout: 0 - no timeout, if number - recommended to put high on poor hardware")
-	flag.BoolVar(&cfg.ValidateResponse, "validate-response", true, "Validate JSON response from server to match the schema")
-	flag.BoolVar(&cfg.SkipCliWarning, "skip-cli-warning", false, "Skip external CLI warning")
+	flag.BoolVar(&cfg.Verbose, "verbose", cfg.Verbose, "Enable DEBUG logging level")
+	flag.BoolVar(&cfg.LogPretty, "log-pretty", cfg.LogPretty, "Enable pretty logging, JSON when false")
+	flag.StringVar(&cfg.ConfigFile, "config", cfg.ConfigFile, "Config file path")
+	flag.StringVar(&cfg.OutputFolder, "output", cfg.OutputFolder, "Output folder path")
+	flag.IntVar(&cfg.HTTPTimeout, "http-timeout", cfg.HTTPTimeout, "HTTP timeout: 0 - no timeout, if number - recommended to put high on poor hardware")
+	flag.BoolVar(&cfg.ValidateResponse, "validate-response", cfg.ValidateResponse, "Validate JSON response from server to match the schema")
+	flag.BoolVar(&cfg.SkipCliWarning, "skip-cli-warning", cfg.SkipCliWarning, "Skip external CLI warning")
 
 	flag.Parse()
 
@@ -86,9 +89,11 @@ func main() {
 		godump.Dump(cfg)
 	}
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	r := runner.NewRunner(cfg)
-	if err := r.Run(); err != nil {
+	if err := r.Run(ctx); err != nil {
 		log.Fatal().Err(err).Msg("failed to execute runner")
-		os.Exit(1)
 	}
 }

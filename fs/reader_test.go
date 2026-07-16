@@ -1,10 +1,14 @@
 package fs
 
 import (
+	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNormalizeIndex(t *testing.T) {
@@ -84,7 +88,7 @@ func TestReadLineFromFile_EmptyFile(t *testing.T) {
 func TestReadLineFromFile_FileNotExist(t *testing.T) {
 	_, err := ReadLineFromFile("non_existent_file.txt", 0)
 	assert.Error(t, err)
-	assert.True(t, os.IsNotExist(err), "Expected 'file not exist' error, but got: %v", err)
+	assert.True(t, errors.Is(err, os.ErrNotExist), "Expected 'file not exist' error, but got: %v", err)
 }
 
 func TestCountLinesInFile(t *testing.T) {
@@ -113,5 +117,16 @@ func TestCountLinesInFile(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, count)
 		})
+	}
+}
+
+func TestReadLineFromFile_RepeatedReadsStayCorrect(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "f.jsonl")
+	require.NoError(t, os.WriteFile(path, []byte("l0\nl1\nl2\n"), 0o644))
+
+	for i := range 10 {
+		line, err := ReadLineFromFile(path, i)
+		require.NoError(t, err)
+		assert.Equal(t, fmt.Sprintf("l%d", i%3), line)
 	}
 }

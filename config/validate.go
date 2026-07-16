@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/mirpo/datamatic/promptbuilder"
 	"github.com/mirpo/datamatic/retry"
+	"github.com/rs/zerolog/log"
 )
 
 func validateVersion(version string) error {
@@ -38,8 +40,8 @@ func validateURL(input string) error {
 
 func validateModelConfig(step ModelConfig) error {
 	if step.Temperature != nil {
-		if *step.Temperature < 0 || *step.Temperature > 1 {
-			return errors.New("temperature must be between 0 and 1")
+		if *step.Temperature < 0 || *step.Temperature > 2 {
+			return errors.New("temperature must be between 0 and 2")
 		}
 	}
 
@@ -131,8 +133,8 @@ func (c *Config) Validate() error {
 
 			filename := filepath.Base(step.OutputFilename)
 			if !strings.Contains(step.Run, filename) {
-				return fmt.Errorf("step '%s': output filename should match output result of external shell command; run: [%s], output file: %s",
-					step.Name, step.Run, filename)
+				log.Warn().Msgf("step '%s': output filename '%s' not found in run command — make sure the command actually creates this file",
+					step.Name, filename)
 			}
 		}
 
@@ -140,6 +142,9 @@ func (c *Config) Validate() error {
 			if step.JSONSchema.HasSchemaDefinition() {
 				if err := step.JSONSchema.EnsureAllPropertiesRequired(); err != nil {
 					return fmt.Errorf("step '%s': %w", step.Name, err)
+				}
+				for _, issue := range step.JSONSchema.StrictCompatibilityIssues() {
+					log.Warn().Msgf("step '%s': schema is not strict-mode compatible (may be rejected by OpenAI): %s", step.Name, issue)
 				}
 			}
 
@@ -191,7 +196,7 @@ func (c *Config) Validate() error {
 	}
 
 	if !c.SkipCliWarning && len(cliCalls) > 0 {
-		fmt.Printf("⚠️ WARNING: External application call detected! The author assumes no responsibility for execution results. Please verify all external calls before proceeding. Use at your own risk.\n\nCalls: \n%s\n\nPress Enter to continue", strings.Join(cliCalls, "\n"))
+		fmt.Fprintf(os.Stderr, "⚠️ WARNING: External application call detected! The author assumes no responsibility for execution results. Please verify all external calls before proceeding. Use at your own risk.\n\nCalls: \n%s\n\nPress Enter to continue", strings.Join(cliCalls, "\n"))
 		fmt.Scanln() //nolint:golint,errcheck
 	}
 

@@ -17,15 +17,14 @@ type LineEntity struct {
 }
 
 func cleanResponse(input string) string {
-	input = strings.TrimPrefix(input, "\"")
-	input = strings.TrimSuffix(input, "\"")
-
-	input = strings.TrimPrefix(input, "```json")
-	input = strings.TrimPrefix(input, "```")
-
-	input = strings.TrimSuffix(input, "```")
-
 	input = strings.TrimSpace(input)
+
+	if strings.HasPrefix(input, "```") {
+		input = strings.TrimPrefix(input, "```json")
+		input = strings.TrimPrefix(input, "```")
+		input = strings.TrimSuffix(strings.TrimSpace(input), "```")
+		input = strings.TrimSpace(input)
+	}
 
 	return input
 }
@@ -47,7 +46,7 @@ func NewLineEntity(response string, prompt string, isJSON bool, values map[strin
 
 	return LineEntity{
 		ID:       uuid.New().String(),
-		Prompt:   cleanResponse(prompt),
+		Prompt:   strings.TrimSpace(prompt),
 		Response: parsedResponse,
 		Format:   format,
 		Values:   values,

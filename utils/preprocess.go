@@ -25,12 +25,23 @@ func setStepType(step *config.Step) error {
 		return errors.New("either 'prompt' or 'run' must be defined")
 	}
 
-	if promptDefined {
-		step.Type = config.PromptStepType
-	} else {
-		step.Type = config.ShellStepType
+	if step.Type != "" && step.Type != config.PromptStepType && step.Type != config.ShellStepType {
+		return fmt.Errorf("unknown step type '%s' (expected 'prompt' or 'shell')", step.Type)
 	}
 
+	inferred := config.ShellStepType
+	sourceField := "run"
+	if promptDefined {
+		inferred = config.PromptStepType
+		sourceField = "prompt"
+	}
+
+	if step.Type != "" && step.Type != inferred {
+		return fmt.Errorf("explicit type '%s' does not match step definition (inferred '%s' from '%s' field)",
+			step.Type, inferred, sourceField)
+	}
+
+	step.Type = inferred
 	return nil
 }
 

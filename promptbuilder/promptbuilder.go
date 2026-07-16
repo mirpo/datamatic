@@ -166,7 +166,10 @@ func (pb *PromptBuilder) GetValues() map[string]ValueShort {
 		}
 
 		for fieldPath, stepValue := range stepFields {
-			key := "." + strings.Join(append([]string{stepName}, fieldPath), ".")
+			key := "." + stepName
+			if fieldPath != "" {
+				key += "." + fieldPath
+			}
 			resultValues[key] = ValueShort{
 				ID:    stepValue.ID,
 				Value: stepValue.Content,

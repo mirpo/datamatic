@@ -3,6 +3,9 @@ package llm
 import (
 	"context"
 	"fmt"
+	"math"
+	"net/http"
+	"time"
 
 	"github.com/rs/zerolog/log"
 	"github.com/sashabaranov/go-openai"
@@ -20,6 +23,12 @@ func NewOpenAIProvider(config ProviderConfig) *OpenAIProvider {
 
 	if config.BaseURL != "" {
 		clientConfig.BaseURL = config.BaseURL
+	}
+
+	if config.HTTPTimeout > 0 {
+		clientConfig.HTTPClient = &http.Client{
+			Timeout: time.Duration(config.HTTPTimeout) * time.Second,
+		}
 	}
 
 	return &OpenAIProvider{
@@ -47,6 +56,11 @@ func (p *OpenAIProvider) Generate(ctx context.Context, request GenerateRequest) 
 
 	if p.config.Temperature != nil {
 		req.Temperature = float32(*p.config.Temperature)
+		if req.Temperature == 0 {
+			// go-openai marshals Temperature with omitempty, dropping 0;
+			// the smallest non-zero float is the documented workaround.
+			req.Temperature = math.SmallestNonzeroFloat32
+		}
 	}
 	if p.config.MaxTokens != nil {
 		req.MaxTokens = *p.config.MaxTokens

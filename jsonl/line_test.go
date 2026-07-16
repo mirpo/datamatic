@@ -20,9 +20,14 @@ func TestCleanResponse(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "removes surrounding quotes",
+			name:     "keeps surrounding quotes (legitimate content)",
 			input:    `"hello world"`,
-			expected: "hello world",
+			expected: `"hello world"`,
+		},
+		{
+			name:     "keeps inner fences when not wrapping",
+			input:    "text with ``` inside",
+			expected: "text with ``` inside",
 		},
 		{
 			name:     "removes ```json prefix and ``` suffix",
@@ -52,6 +57,16 @@ func TestCleanResponse(t *testing.T) {
 			assert.Equal(t, tt.expected, cleaned)
 		})
 	}
+}
+
+func TestNewLineEntity_PromptOnlyTrimmed(t *testing.T) {
+	prompt := "  ```json\nreturn this schema\n```  "
+
+	entity, err := NewLineEntity("response", prompt, false, nil)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "```json\nreturn this schema\n```", entity.Prompt,
+		"prompt must only be whitespace-trimmed, never fence/quote-stripped")
 }
 
 func TestNewTextLineEntity(t *testing.T) {
