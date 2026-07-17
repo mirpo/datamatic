@@ -11,4 +11,7 @@ Install:
 
 ## Run dataset generation
 
-`export GEMINI_API_KEY=XXXX datamatic --config ./config.yaml --verbose`
+```bash
+export GEMINI_API_KEY=XXXX
+datamatic --config ./config.yaml --verbose
+```

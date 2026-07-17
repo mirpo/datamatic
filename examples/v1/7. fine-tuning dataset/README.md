@@ -1,6 +1,6 @@
-# Multi step git commands dataset using Ollama
+# Fine-tuning Q&A dataset from a document (RAG-style) using Ollama
 
-Example shows dataset generation of git commands in natural language using Ollama.
+Example builds a fine-tuning dataset from a source document: it downloads an essay, splits it into chunks, generates cognitive-level (Bloom's taxonomy) questions with supporting text evidence per chunk, then validates and rates each question and keeps only the high-quality ones.
 
 ## Requirements
 

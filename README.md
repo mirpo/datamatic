@@ -110,15 +110,15 @@ steps:
 
 ```bash
 # Generate data
-datamatic -config config.yaml
+datamatic --config config.yaml
 
 # With debug output
-datamatic -config config.yaml -verbose -log-pretty
+datamatic --config config.yaml --verbose --log-pretty
 
 # Check a config without running anything (great as a CI step for
 # committed workflows): parses, preprocesses and validates — schemas,
 # cross-step references, jq programs — and exits non-zero on any error
-datamatic validate -config config.yaml
+datamatic validate --config config.yaml
 ```
 
 **Other providers:**
@@ -183,7 +183,7 @@ steps:
 ```
 
 ```bash
-PROVIDER=ollama MODEL=llama3.2 datamatic -config config.yaml
+PROVIDER=ollama MODEL=llama3.2 datamatic --config config.yaml
 ```
 
 Variables listed in `envVars` are validated before execution (fail-fast). See [Multi-Stage Pipeline example](./examples/v1/18.%20workdir-multi-stage-pipeline/README.md) for more details.

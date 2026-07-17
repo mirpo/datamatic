@@ -6,6 +6,10 @@ This example demonstrates how to configure retry logic in datamatic for handling
 
 Retry configuration allows datamatic to automatically retry failed API calls with intelligent backoff strategies. This is especially useful when:
 
+- The provider is rate-limiting requests (429) during large runs
+- A local server (Ollama/LM Studio) is briefly overloaded or still loading a model
+- Transient network timeouts or 5xx errors interrupt a long generation
+
 ## Configuration Parameters
 
 ### `retryConfig` Section
@@ -19,6 +23,8 @@ Retry configuration allows datamatic to automatically retry failed API calls wit
 | `backoffMultiplier` | `2.0`   | Exponential backoff multiplier                    |
 
 ### Retry Strategy
+
+Failed attempts wait `initialDelay`, then grow the delay by `backoffMultiplier` after each retry (exponential backoff), capped at `maxDelay`, up to `maxAttempts` total attempts.
 
 ### Error Types
 

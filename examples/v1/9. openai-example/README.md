@@ -11,4 +11,7 @@ Install:
 
 ## Run dataset generation
 
-`export OPENAI_API_KEY=sk-XXXXX datamatic --config ./config.yaml --verbose`
+```bash
+export OPENAI_API_KEY=sk-XXXXX
+datamatic --config ./config.yaml --verbose
+```

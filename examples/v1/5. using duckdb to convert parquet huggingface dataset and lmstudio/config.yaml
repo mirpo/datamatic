@@ -8,8 +8,8 @@ steps:
 
   - name: convert_to_jsonl
     type: shell
-    run: duckdb -c "COPY (SELECT * FROM read_parquet('./data/test-00000-of-00001.parquet')) TO 'output.json' (FORMAT JSON);"
-    outputFilename: output.json
+    run: duckdb -c "COPY (SELECT * FROM read_parquet('./data/test-00000-of-00001.parquet')) TO 'output.jsonl' (FORMAT JSON);"
+    outputFilename: output.jsonl
 
   - name: synthetic_math
     from: convert_to_jsonl
