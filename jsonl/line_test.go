@@ -144,3 +144,25 @@ func TestNewJSONLineEntityError(t *testing.T) {
 
 	assert.Error(t, err)
 }
+
+func TestUnfoldLineage(t *testing.T) {
+	t.Run("keys unfold into nested plain maps", func(t *testing.T) {
+		parent := UnfoldLineage(map[string]promptbuilder.ValueShort{
+			".chopdoc.chunk": {ID: "c1", Value: "source text"},
+			".chopdoc.n":     {ID: "c1", Value: 7},
+			".other":         {ID: "o1", Value: "whole"},
+		})
+
+		m := parent.(map[string]interface{})
+		chop := m["chopdoc"].(map[string]interface{})
+		assert.Equal(t, "source text", chop["chunk"])
+		assert.Equal(t, 7, chop["n"])
+		assert.Equal(t, "whole", m["other"])
+	})
+
+	t.Run("empty lineage is untyped nil", func(t *testing.T) {
+		assert.Nil(t, UnfoldLineage(nil))
+		parent := UnfoldLineage(map[string]promptbuilder.ValueShort{})
+		assert.True(t, parent == nil, "must be untyped nil so $parent renders as jq null")
+	})
+}

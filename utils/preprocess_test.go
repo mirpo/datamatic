@@ -447,3 +447,50 @@ func TestPreprocessConfig_PromptPlaceholders(t *testing.T) {
 		assert.ErrorContains(t, PreprocessConfig(cfg), "both as a whole")
 	})
 }
+
+func TestPreprocessConfig_CollectValidation(t *testing.T) {
+	t.Run("collect only valid on transform steps", func(t *testing.T) {
+		cfg := config.NewConfig()
+		cfg.OutputFolder = t.TempDir()
+		cfg.Steps = []config.Step{
+			{Name: "gen", Prompt: "p", Model: "ollama:m", Count: 2, Collect: true},
+		}
+		assert.ErrorContains(t, PreprocessConfig(cfg), "collect")
+	})
+}
+
+func TestPreprocessConfig_SourceFormat(t *testing.T) {
+	base := func() *config.Config {
+		cfg := config.NewConfig()
+		cfg.OutputFolder = t.TempDir()
+		cfg.Steps = []config.Step{
+			{Name: "src", Run: "echo '[]' > src.json", OutputFilename: "src.json"},
+			{Name: "pick", JQ: `.[]`, From: "src", SourceFormat: "json"},
+		}
+		return cfg
+	}
+
+	t.Run("json format on transform passes", func(t *testing.T) {
+		assert.NoError(t, PreprocessConfig(base()))
+	})
+
+	t.Run("unknown format fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].SourceFormat = "yaml"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "sourceFormat")
+	})
+
+	t.Run("sourceFormat on prompt step fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps = append(cfg.Steps, config.Step{
+			Name: "gen", Prompt: "p", Model: "ollama:m", Count: 1, SourceFormat: "json",
+		})
+		assert.ErrorContains(t, PreprocessConfig(cfg), "sourceFormat")
+	})
+
+	t.Run("collect with json source fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].Collect = true
+		assert.ErrorContains(t, PreprocessConfig(cfg), "collect")
+	})
+}

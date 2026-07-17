@@ -49,13 +49,12 @@ steps:
       required:
         - instructions
 
-  # stays a shell step: dedupe ACROSS rows needs the whole file at once,
-  # which per-row transform steps can't do yet (fan-in)
+  # fan-in: collect gives jq an array of ALL rows, so cross-row dedupe
+  # is one expression — no external jq, no envelope digging
   - name: split_into_unique_instructions
-    type: shell
-    run: |
-      cat ./generate_instructions.jsonl | jq -c '.response.instructions[]' | sort | uniq | jq -c '{id: . | @base64, instruction: .}' > ./split_into_unique_instructions.jsonl
-    outputFilename: split_into_unique_instructions.jsonl
+    from: generate_instructions
+    collect: true
+    jq: 'map(.instructions[]) | unique[] | {id: @base64, instruction: .}'
 
   - name: generate_answer
     model: ollama:llama3.2
@@ -70,11 +69,10 @@ steps:
       Instruction: "{{.split_into_unique_instructions.instruction}}"
     forEach: split_into_unique_instructions
 
+  # join the generated answer with its source instruction via $parent
   - name: instruction_response
-    type: shell
-    run: |
-      cat ./generate_answer.jsonl | jq -c '{instruction: .values.".split_into_unique_instructions.instruction".value, response: .response}' > ./instruction_response.jsonl
-    outputFilename: instruction_response.jsonl
+    from: generate_answer
+    jq: '{instruction: $parent.split_into_unique_instructions.instruction, response: .}' 
 
   - name: rate
     model: ollama:llama3.2
@@ -164,8 +162,8 @@ steps:
         - complexity
         - verbosity
 
+  # final dataset rows; note: the old shell version wrote response into
+  # both fields — fixed here via $parent
   - name: result
-    type: shell
-    run: |
-      cat ./rate.jsonl | jq -c '{instruction: .values.".instruction_response.response".value, response: .values.".instruction_response.response".value, evaluation: .response}' > result.jsonl
-    outputFilename: result.jsonl
+    from: rate
+    jq: '{instruction: $parent.instruction_response.instruction, response: $parent.instruction_response.response, evaluation: .}' 

@@ -18,34 +18,37 @@ func uuidFromString(input string) string {
 	return uuid.NewMD5(uuid.NameSpaceOID, []byte(input)).String()
 }
 
-// getSourceDataFromLine extracts the data and record ID from a step line
-// Shell steps: full line is an unknown JSON
-// Prompt steps: line contains JSON created with datamatic
-func getSourceDataFromLine(step config.Step, line string) (interface{}, string, error) {
+// getSourceDataFromLine extracts the data, record ID and raw lineage values
+// from a step line.
+// Shell steps: full line is an unknown JSON, no lineage.
+// Prompt steps: line is a datamatic LineEntity — data is the response;
+// lineage values come back as-is (unfold them lazily via jsonl.UnfoldLineage).
+// Transform steps: full line is a raw JSON value, no lineage.
+func getSourceDataFromLine(step config.Step, line string) (interface{}, string, map[string]promptbuilder.ValueShort, error) {
 	switch step.Type {
 	case config.ShellStepType:
 		var decoded map[string]interface{}
 		if err := json.Unmarshal([]byte(line), &decoded); err != nil {
-			return nil, "", fmt.Errorf("shell step: failed to parse JSON: %w", err)
+			return nil, "", nil, fmt.Errorf("shell step: failed to parse JSON: %w", err)
 		}
-		return decoded, "", nil
+		return decoded, "", nil, nil
 
 	case config.PromptStepType:
 		var decoded jsonl.LineEntity
 		if err := json.Unmarshal([]byte(line), &decoded); err != nil {
-			return nil, "", fmt.Errorf("prompt step: failed to parse JSON: %w", err)
+			return nil, "", nil, fmt.Errorf("prompt step: failed to parse JSON: %w", err)
 		}
-		return decoded.Response, decoded.ID, nil
+		return decoded.Response, decoded.ID, decoded.Values, nil
 
 	case config.TransformStepType:
 		var decoded interface{}
 		if err := json.Unmarshal([]byte(line), &decoded); err != nil {
-			return nil, "", fmt.Errorf("transform step: failed to parse JSON: %w", err)
+			return nil, "", nil, fmt.Errorf("transform step: failed to parse JSON: %w", err)
 		}
-		return decoded, "", nil
+		return decoded, "", nil, nil
 
 	default:
-		return nil, "", fmt.Errorf("unsupported step type '%s'", step.Type)
+		return nil, "", nil, fmt.Errorf("unsupported step type '%s'", step.Type)
 	}
 }
 
@@ -86,7 +89,7 @@ func readStepValuesBatch(step config.Step, outputFolder string, lineNumber int, 
 		return nil, err
 	}
 
-	sourceData, recordID, err := getSourceDataFromLine(step, line)
+	sourceData, recordID, _, err := getSourceDataFromLine(step, line)
 	if err != nil {
 		return nil, fmt.Errorf("line %d: %w", lineNumber, err)
 	}

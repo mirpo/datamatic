@@ -15,6 +15,12 @@ import (
 	"github.com/mirpo/datamatic/retry"
 )
 
+// jqParentVar is the variable name per-row transform programs may declare to
+// access the source row's lineage (see jsonl.UnfoldLineage for its shape);
+// the runtime passes its value positionally, so only the compile site here
+// needs the name.
+const jqParentVar = "$parent"
+
 // setStepType determines and sets the step type based on step configuration
 func setStepType(step *config.Step) error {
 	switch step.Type {
@@ -137,10 +143,25 @@ func PreprocessConfig(cfg *config.Config) error {
 			}
 		}
 
-		// Transform steps
+		// Transform steps (collect/sourceFormat are their fields — reject elsewhere)
+		if step.Collect && step.Type != config.TransformStepType {
+			return fmt.Errorf("step '%s': 'collect' is only valid on transform steps", step.Name)
+		}
+		if step.SourceFormat != "" && step.Type != config.TransformStepType {
+			return fmt.Errorf("step '%s': 'sourceFormat' is only valid on transform steps", step.Name)
+		}
 		if step.Type == config.TransformStepType {
 			if step.From == "" {
 				return fmt.Errorf("step '%s': 'from' is required for transform steps", step.Name)
+			}
+			switch step.SourceFormat {
+			case "", config.SourceFormatJSONL: // default: one row per line
+			case config.SourceFormatJSON:
+				if step.Collect {
+					return fmt.Errorf("step '%s': 'collect' has no effect with sourceFormat json — the program already runs once over the whole file", step.Name)
+				}
+			default:
+				return fmt.Errorf("step '%s': unknown sourceFormat '%s' (expected 'jsonl' or 'json')", step.Name, step.SourceFormat)
 			}
 			if err := requireEarlierStep(stepNames, "from", step.From); err != nil {
 				return fmt.Errorf("step '%s': %w", step.Name, err)
@@ -149,7 +170,14 @@ func PreprocessConfig(cfg *config.Config) error {
 				return fmt.Errorf("step '%s': limit must be >= 0", step.Name)
 			}
 
+			// probe without variables first: success means the program never
+			// references $parent, so the runtime can skip lineage work; collect
+			// programs see an array of rows and must not use $parent at all
 			program, err := jq.Compile(step.JQ)
+			if err != nil && !step.Collect {
+				program, err = jq.Compile(step.JQ, jqParentVar)
+				step.UsesParent = err == nil
+			}
 			if err != nil {
 				return fmt.Errorf("step '%s': %w", step.Name, err)
 			}
