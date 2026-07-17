@@ -7,11 +7,12 @@ steps:
       hf download --repo-type dataset TIGER-Lab/MathInstruct --local-dir ./ --include MathInstruct.json
     outputFilename: MathInstruct.json
 
+  # the download is a pretty-printed JSON array — sourceFormat: json reads
+  # it as one value, no external jq needed
   - name: math_problems_10
-    type: shell
-    run: |
-      jq -c '.[:10][]' ./MathInstruct.json > ./10_math_problems.jsonl
-    outputFilename: 10_math_problems.jsonl
+    from: download_dataset
+    sourceFormat: json
+    jq: '.[:10][]'
 
   - name: solve_with_reasoning
     type: prompt

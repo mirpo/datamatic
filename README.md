@@ -135,6 +135,7 @@ steps:
 - `from` — source step; the jq program sees each row's value (for prompt steps: the `response`)
 - `jq` — any jq program; emitting multiple values fans out (1 row → N rows), `select()` filters rows out
 - `collect: true` — fan-in: the program runs once over an **array of all source rows** (`unique`, `group_by`, `sort_by` across the whole dataset)
+- `sourceFormat: json` — the source file is a single JSON value (e.g. a pretty-printed array from an API dump) instead of JSONL
 - `$parent` — per-row programs can reach the source row's lineage as `$parent.step.field` (e.g. carry the original chunk while fanning out extracted questions); not available with `collect`, where there is no single parent row
 - `limit` — optional cap on output rows
 

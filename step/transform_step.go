@@ -2,6 +2,7 @@ package step
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -20,22 +21,58 @@ func (p *TransformStep) Run(ctx context.Context, cfg *config.Config, step config
 		return fmt.Errorf("'from' references unknown step '%s'", step.From)
 	}
 
-	src, err := os.Open(srcStep.OutputFilename)
-	if err != nil {
-		return fmt.Errorf("failed to open source '%s': %w", srcStep.OutputFilename, err)
-	}
-	defer src.Close()
-
 	writer, err := jsonl.NewWriter(step.OutputFilename)
 	if err != nil {
 		return fmt.Errorf("failed to create JSONL writer: %w", err)
 	}
 	defer writer.Close()
 
+	if step.SourceFormat == config.SourceFormatJSON {
+		return runWholeJSON(step, srcStep.OutputFilename, writer)
+	}
+
+	src, err := os.Open(srcStep.OutputFilename)
+	if err != nil {
+		return fmt.Errorf("failed to open source '%s': %w", srcStep.OutputFilename, err)
+	}
+	defer src.Close()
+
 	if step.Collect {
 		return runCollect(ctx, *srcStep, step, src, writer)
 	}
 	return runPerRow(ctx, *srcStep, step, src, writer)
+}
+
+// runWholeJSON decodes the source file as a single JSON value (e.g. a
+// pretty-printed array from an API dump) and runs the program once over it.
+func runWholeJSON(step config.Step, path string, writer *jsonl.Writer) error {
+	data, err := os.ReadFile(path) // presized by file stat, unlike io.ReadAll
+	if err != nil {
+		return fmt.Errorf("failed to read source: %w", err)
+	}
+
+	var value interface{}
+	if err := json.Unmarshal(data, &value); err != nil {
+		return fmt.Errorf("sourceFormat json: failed to parse source: %w", err)
+	}
+
+	written := 0
+	if err := runProgram(step, value, limitedEmit(writer, step.Limit, &written), nil); err != nil {
+		return err
+	}
+
+	log.Info().Msgf("transform produced %d rows", written)
+	return nil
+}
+
+// runProgram runs the compiled program over one input, passing $parent only
+// when it was declared at compile time (the argument count must match the
+// variables declared in preprocessing).
+func runProgram(step config.Step, input interface{}, emit func(interface{}) (bool, error), parent interface{}) error {
+	if step.UsesParent {
+		return step.JQProgram.RunEach(input, emit, parent)
+	}
+	return step.JQProgram.RunEach(input, emit)
 }
 
 // runPerRow streams the source: the jq program runs once per row, each
@@ -59,12 +96,7 @@ func runPerRow(ctx context.Context, srcStep config.Step, step config.Step, src i
 			return fmt.Errorf("line %d: %w", lineNo, err)
 		}
 
-		if step.UsesParent {
-			err = step.JQProgram.RunEach(value, emit, jsonl.UnfoldLineage(lineage))
-		} else {
-			err = step.JQProgram.RunEach(value, emit)
-		}
-		if err != nil {
+		if err := runProgram(step, value, emit, jsonl.UnfoldLineage(lineage)); err != nil {
 			return fmt.Errorf("line %d: %w", lineNo, err)
 		}
 	}

@@ -143,13 +143,25 @@ func PreprocessConfig(cfg *config.Config) error {
 			}
 		}
 
-		// Transform steps (collect is their field — reject it elsewhere)
+		// Transform steps (collect/sourceFormat are their fields — reject elsewhere)
 		if step.Collect && step.Type != config.TransformStepType {
 			return fmt.Errorf("step '%s': 'collect' is only valid on transform steps", step.Name)
+		}
+		if step.SourceFormat != "" && step.Type != config.TransformStepType {
+			return fmt.Errorf("step '%s': 'sourceFormat' is only valid on transform steps", step.Name)
 		}
 		if step.Type == config.TransformStepType {
 			if step.From == "" {
 				return fmt.Errorf("step '%s': 'from' is required for transform steps", step.Name)
+			}
+			switch step.SourceFormat {
+			case "", config.SourceFormatJSONL: // default: one row per line
+			case config.SourceFormatJSON:
+				if step.Collect {
+					return fmt.Errorf("step '%s': 'collect' has no effect with sourceFormat json — the program already runs once over the whole file", step.Name)
+				}
+			default:
+				return fmt.Errorf("step '%s': unknown sourceFormat '%s' (expected 'jsonl' or 'json')", step.Name, step.SourceFormat)
 			}
 			if err := requireEarlierStep(stepNames, "from", step.From); err != nil {
 				return fmt.Errorf("step '%s': %w", step.Name, err)

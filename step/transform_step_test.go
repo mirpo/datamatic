@@ -179,3 +179,48 @@ func TestTransformStepRun_ParentVariable(t *testing.T) {
 		`{"chunk":"the source chunk","q":"how?"}`,
 	}, readOutput(t, step.OutputFilename))
 }
+
+func TestTransformStepRun_JSONSourceFormat(t *testing.T) {
+	// pretty-printed JSON array file — unreadable line-by-line, the exact
+	// shape of downloaded API responses and HF dataset dumps
+	pretty := `[
+    {
+        "instruction": "problem one"
+    },
+    {
+        "instruction": "problem two"
+    },
+    {
+        "instruction": "problem three"
+    }
+]`
+	cfg, step := transformFixture(t, config.ShellStepType, pretty, `.[:2][]`, 0)
+	step.SourceFormat = "json"
+
+	err := (&TransformStep{}).Run(context.Background(), cfg, step, cfg.OutputFolder)
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{
+		`{"instruction":"problem one"}`,
+		`{"instruction":"problem two"}`,
+	}, readOutput(t, step.OutputFilename))
+}
+
+func TestTransformStepRun_JSONSourceRespectsLimit(t *testing.T) {
+	cfg, step := transformFixture(t, config.ShellStepType, `[1, 2, 3, 4]`, `.[]`, 2)
+	step.SourceFormat = "json"
+
+	err := (&TransformStep{}).Run(context.Background(), cfg, step, cfg.OutputFolder)
+
+	require.NoError(t, err)
+	assert.Len(t, readOutput(t, step.OutputFilename), 2)
+}
+
+func TestTransformStepRun_JSONSourceInvalidJSONFails(t *testing.T) {
+	cfg, step := transformFixture(t, config.ShellStepType, `[1, 2,`, `.[]`, 0)
+	step.SourceFormat = "json"
+
+	err := (&TransformStep{}).Run(context.Background(), cfg, step, cfg.OutputFolder)
+
+	assert.Error(t, err)
+}
