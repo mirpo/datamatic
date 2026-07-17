@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -493,4 +494,96 @@ func TestPreprocessConfig_SourceFormat(t *testing.T) {
 		cfg.Steps[1].Collect = true
 		assert.ErrorContains(t, PreprocessConfig(cfg), "collect")
 	})
+}
+
+func TestLoadConfigFile(t *testing.T) {
+	write := func(t *testing.T, content string) string {
+		t.Helper()
+		p := filepath.Join(t.TempDir(), "config.yaml")
+		if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+
+	valid := `
+version: 1.0
+steps:
+  - name: gen
+    model: ollama:m
+    prompt: hi
+    count: 2
+  - name: pick
+    from: gen
+    jq: '.'
+`
+
+	t.Run("valid config loads, preprocesses and validates", func(t *testing.T) {
+		cfg := config.NewConfig()
+		cfg.ConfigFile = write(t, valid)
+		cfg.OutputFolder = t.TempDir()
+
+		err := LoadConfigFile(cfg)
+
+		assert.NoError(t, err)
+		assert.Len(t, cfg.Steps, 2)
+		assert.Equal(t, config.TransformStepType, cfg.Steps[1].Type)
+		assert.NotNil(t, cfg.Steps[1].JQProgram, "preprocessing ran")
+	})
+
+	t.Run("missing declared env var fails", func(t *testing.T) {
+		cfg := config.NewConfig()
+		cfg.ConfigFile = write(t, "version: 1.0\nenvVars:\n  - DATAMATIC_TEST_MISSING_VAR\nsteps:\n  - name: g\n    model: ollama:m\n    prompt: p\n")
+		cfg.OutputFolder = t.TempDir()
+
+		assert.ErrorContains(t, LoadConfigFile(cfg), "DATAMATIC_TEST_MISSING_VAR")
+	})
+
+	t.Run("missing file fails", func(t *testing.T) {
+		cfg := config.NewConfig()
+		cfg.ConfigFile = filepath.Join(t.TempDir(), "nope.yaml")
+		cfg.OutputFolder = t.TempDir()
+
+		assert.Error(t, LoadConfigFile(cfg))
+	})
+}
+
+func TestValidateConfigFromExamples(t *testing.T) {
+	matches, err := filepath.Glob("../examples/**/**/*.yaml")
+	assert.NoError(t, err, "Failed to glob YAML files")
+
+	assert.NotEmpty(t, matches, "No YAML files found in examples directory")
+
+	for _, path := range matches {
+		t.Logf("Testing file: %s", path)
+
+		testName := filepath.ToSlash(path)
+
+		t.Run(testName, func(t *testing.T) {
+			setupTestEnvVars(t, path)
+
+			cfg := config.NewConfig()
+			cfg.ConfigFile = path
+			cfg.OutputFolder = "test"
+
+			assert.NoError(t, LoadConfigFile(cfg), "Config check failed for file: %s", path)
+		})
+	}
+}
+
+// setupTestEnvVars sets up environment variables needed for specific test configs
+func setupTestEnvVars(t *testing.T, path string) {
+	// For the workdir-multi-stage-pipeline example that uses env vars
+	if filepath.Base(filepath.Dir(path)) == "18. workdir-multi-stage-pipeline" {
+		os.Setenv("REQUIRED_FILE", "prompts.csv")
+		os.Setenv("DOWNLOAD_DIR", "downloads")
+		os.Setenv("PROVIDER", "ollama")
+		os.Setenv("MODEL", "llama3.2")
+		t.Cleanup(func() {
+			os.Unsetenv("REQUIRED_FILE")
+			os.Unsetenv("DOWNLOAD_DIR")
+			os.Unsetenv("PROVIDER")
+			os.Unsetenv("MODEL")
+		})
+	}
 }

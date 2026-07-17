@@ -113,6 +113,11 @@ datamatic -config config.yaml
 
 # With debug output
 datamatic -config config.yaml -verbose -log-pretty
+
+# Check a config without running anything (great as a CI step for
+# committed workflows): parses, preprocesses and validates — schemas,
+# cross-step references, jq programs — and exits non-zero on any error
+datamatic validate -config config.yaml
 ```
 
 **Other providers:**
@@ -223,7 +228,8 @@ With values from linked steps:
 ## CLI Reference
 
 ```bash
-datamatic [OPTIONS]
+datamatic [OPTIONS]            # run the workflow
+datamatic validate [OPTIONS]   # check the config and exit (0 = valid)
 
 Options:
   -config string
