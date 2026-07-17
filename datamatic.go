@@ -16,7 +16,6 @@ import (
 	"github.com/mirpo/datamatic/runner"
 	"github.com/mirpo/datamatic/utils"
 	"github.com/rs/zerolog/log"
-	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -25,6 +24,13 @@ var (
 )
 
 func main() {
+	// subcommand form: `datamatic validate -config x.yaml`
+	validateOnly := len(os.Args) > 1 && os.Args[1] == "validate"
+	args := os.Args[1:]
+	if validateOnly {
+		args = os.Args[2:]
+	}
+
 	cfg := config.NewConfig()
 
 	var ver bool
@@ -37,7 +43,7 @@ func main() {
 	flag.BoolVar(&cfg.ValidateResponse, "validate-response", cfg.ValidateResponse, "Validate JSON response from server to match the schema")
 	flag.BoolVar(&cfg.SkipCliWarning, "skip-cli-warning", cfg.SkipCliWarning, "Skip external CLI warning")
 
-	flag.Parse()
+	flag.CommandLine.Parse(args) //nolint:errcheck // flag.ExitOnError exits on failure
 
 	if ver {
 		slog.Info("datamatic", "version", version, "commit", commit)
@@ -54,37 +60,14 @@ func main() {
 		log.Fatal().Msg("Config path is required")
 	}
 
-	yamlConfig, err := os.ReadFile(cfg.ConfigFile)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Reading config file")
+	if err := utils.LoadConfigFile(cfg); err != nil {
+		log.Fatal().Err(err).Msg("Config check failed")
 	}
 
-	var tempCfg struct {
-		EnvVars []string `yaml:"envVars"`
-	}
-	err = yaml.Unmarshal(yamlConfig, &tempCfg)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Parsing config file for env vars")
-	}
-
-	expandedYaml, err := utils.ExpandEnv(string(yamlConfig), tempCfg.EnvVars)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Expanding environment variables in config file")
-	}
-
-	err = config.ParseYAML([]byte(expandedYaml), cfg)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Parsing config file")
-	}
-
-	err = utils.PreprocessConfig(cfg)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to preprocess config")
-	}
-
-	err = cfg.Validate()
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to validate config file")
+	if validateOnly {
+		// command result, not a log event: stable stdout regardless of log settings
+		fmt.Printf("Config is valid: %d steps\n", len(cfg.Steps))
+		return
 	}
 
 	if commands := cfg.ShellCommands(); !cfg.SkipCliWarning && len(commands) > 0 {
