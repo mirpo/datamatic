@@ -328,7 +328,7 @@ func TestPreprocessConfig_CountAndForEach(t *testing.T) {
 		assert.Equal(t, 0, cfg.Steps[0].Count, "runner.resolveIterations owns the default")
 	})
 
-	t.Run("item alias rewritten to forEach source", func(t *testing.T) {
+	t.Run("item alias validates against forEach source schema", func(t *testing.T) {
 		cfg := base()
 		cfg.Steps[0].JSONSchemaRaw = `{
 			"type": "object",
@@ -336,9 +336,9 @@ func TestPreprocessConfig_CountAndForEach(t *testing.T) {
 			"required": ["title", "tag"],
 			"additionalProperties": false
 		}`
-		cfg.Steps[1].Prompt = "use {{.item.title}} and {{.item.tag}}"
+		cfg.Steps[1].Prompt = "use {{.item.title}} and {{if .item.tag}}tagged{{end}}"
 		assert.NoError(t, PreprocessConfig(cfg))
-		assert.Equal(t, "use {{.seed.title}} and {{.seed.tag}}", cfg.Steps[1].Prompt)
+		assert.Contains(t, cfg.Steps[1].Prompt, "{{.item.title}}", "prompt is not rewritten; alias is semantic")
 	})
 
 	t.Run("item without forEach fails", func(t *testing.T) {

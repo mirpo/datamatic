@@ -68,6 +68,25 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 
 	hasSchemaSchema := step.JSONSchema.HasSchemaDefinition()
 
+	promptBuilder, err := promptbuilder.NewPromptBuilder(step.Prompt, step.ForEach)
+	if err != nil {
+		return err
+	}
+
+	// resolve referenced source steps once; only row values change per iteration
+	type sourceRef struct {
+		step       config.Step
+		fieldPaths []string
+	}
+	var sources []sourceRef
+	for stepName, fieldPaths := range promptBuilder.GroupPlaceholdersByStep() {
+		refStep := cfg.GetStepByName(stepName)
+		if refStep == nil {
+			return fmt.Errorf("prompt references unknown step '%s'", stepName)
+		}
+		sources = append(sources, sourceRef{step: *refStep, fieldPaths: fieldPaths})
+	}
+
 	for i < maxResult {
 		log.Info().
 			Str("step_name", step.Name).
@@ -75,27 +94,13 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 			Int("iteration", i).
 			Msg("Running step")
 
-		promptBuilder := promptbuilder.NewPromptBuilder(step.Prompt)
-
-		if promptBuilder.HasPlaceholders() {
-			stepGroups := promptBuilder.GroupPlaceholdersByStep()
-
-			for stepName, fieldPaths := range stepGroups {
-				refStep := cfg.GetStepByName(stepName)
-				if refStep == nil {
-					return fmt.Errorf("prompt references unknown step '%s'", stepName)
-				}
-
-				stepValues, err := readStepValuesBatch(*refStep, outputFolder, i, fieldPaths)
-				if err != nil {
-					return fmt.Errorf("failed to read values from step '%s': %w", stepName, err)
-				}
-				for fieldPath, stepValue := range stepValues {
-					log.Debug().Msgf("step: %s, field: %s, value: %s", stepName, fieldPath, stepValue.Content)
-				}
-
-				promptBuilder.AddStepValues(stepName, stepValues)
+		for _, src := range sources {
+			stepValues, err := readStepValuesBatch(src.step, outputFolder, i, src.fieldPaths)
+			if err != nil {
+				return fmt.Errorf("failed to read values from step '%s': %w", src.step.Name, err)
 			}
+
+			promptBuilder.AddStepValues(src.step.Name, stepValues)
 		}
 
 		userPrompt, err := promptBuilder.BuildPrompt()

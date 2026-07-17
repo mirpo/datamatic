@@ -2,6 +2,7 @@ package step
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -133,4 +134,39 @@ func TestPromptStepRun_RecoversAfterTransientInvalidResponse(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 3, countLines(t, step.OutputFilename))
 	assert.Equal(t, 4, srv.CallCount()) // 1 failed + 3 good
+}
+
+func TestPromptStepRun_NativeTemplateRendering(t *testing.T) {
+	srv := llmtest.NewServer(t, "summary written")
+	cfg, step, dir := promptStepConfig(t, srv.URL)
+
+	prevPath := filepath.Join(dir, "prev.jsonl")
+	prevLine := `{"id":"r1","format":"json","prompt":"p","response":{"member":false,"pop":6184000,"langs":["Kyrgyz","Russian"],"jobs":[{"name":"Acme","months":26},{"name":"Globex","months":14}]}}` + "\n"
+	require.NoError(t, os.WriteFile(prevPath, []byte(prevLine), 0o644))
+
+	cfg.Steps = []config.Step{
+		{Name: "prev", Type: config.PromptStepType, OutputFilename: prevPath, JSONSchema: testSchema(t, `{
+			"type":"object",
+			"properties":{"member":{"type":"boolean"},"pop":{"type":"integer"},"langs":{"type":"array"},"jobs":{"type":"array"}},
+			"required":["member","pop","langs","jobs"],
+			"additionalProperties":false
+		}`)},
+	}
+	step.ForEach = "prev"
+	step.ResolvedCount = 1
+	step.Prompt = `{{if .prev.member}}member{{else}}not-member{{end}};pop={{.prev.pop}};n={{len .prev.jobs}};{{range .prev.jobs}}{{.name}}({{.months}}mo) {{end}};langs={{.prev.langs}}`
+
+	err := (&PromptStep{}).Run(context.Background(), cfg, step, dir)
+	require.NoError(t, err)
+
+	messages := srv.Requests()[0]["messages"].([]interface{})
+	content := messages[len(messages)-1].(map[string]interface{})["content"].(string)
+	assert.Equal(t, "not-member;pop=6184000;n=2;Acme(26mo) Globex(14mo) ;langs=Kyrgyz, Russian", content)
+
+	// lineage keeps native types
+	data, err := os.ReadFile(step.OutputFilename)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"value":6184000`, "numbers stay numeric in values")
+	assert.Contains(t, string(data), `"value":["Kyrgyz","Russian"]`, "arrays stay arrays in values")
+	assert.Contains(t, string(data), `"value":false`, "booleans stay boolean in values")
 }

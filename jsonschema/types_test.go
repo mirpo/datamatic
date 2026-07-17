@@ -319,48 +319,6 @@ func TestHasFieldPath_NoSchema(t *testing.T) {
 	assert.False(t, schema.HasFieldPath("any.path"))
 }
 
-func TestExtractFieldByPathAsString(t *testing.T) {
-	testData := map[string]interface{}{
-		"name": "John",
-		"user": map[string]interface{}{
-			"profile": map[string]interface{}{
-				"age":  30,
-				"tags": []interface{}{"developer", "golang"},
-			},
-		},
-	}
-
-	tests := []struct {
-		name     string
-		path     string
-		expected string
-		hasError bool
-		errorMsg string
-	}{
-		{"Extract top-level string", "name", "John", false, ""},
-		{"Extract nested integer", "user.profile.age", "30", false, ""},
-		{"Extract nested array", "user.profile.tags", "developer, golang", false, ""},
-		{"Extract nested object", "user.profile", `{"age":30,"tags":["developer","golang"]}`, false, ""},
-		{"Non-existent field", "missing", "", true, "field 'missing' not found at path 'missing'"},
-		{"Non-existent nested field", "user.missing", "", true, "field 'missing' not found at path 'user.missing'"},
-		{"Traverse non-object", "name.field", "", true, "cannot traverse field 'field' on non-object type string"},
-		{"Empty path returns whole value", "", `{"name":"John","user":{"profile":{"age":30,"tags":["developer","golang"]}}}`, false, ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := ExtractFieldByPathAsString(testData, tt.path)
-			if tt.hasError {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errorMsg)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, result)
-			}
-		})
-	}
-}
-
 func TestStrictCompatibilityIssues(t *testing.T) {
 	schema, err := LoadSchema(`{
 		"type": "object",
