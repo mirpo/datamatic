@@ -15,6 +15,12 @@ import (
 	"github.com/mirpo/datamatic/retry"
 )
 
+// jqParentVar is the variable name per-row transform programs may declare to
+// access the source row's lineage (see jsonl.UnfoldLineage for its shape);
+// the runtime passes its value positionally, so only the compile site here
+// needs the name.
+const jqParentVar = "$parent"
+
 // setStepType determines and sets the step type based on step configuration
 func setStepType(step *config.Step) error {
 	switch step.Type {
@@ -157,7 +163,7 @@ func PreprocessConfig(cfg *config.Config) error {
 			// programs see an array of rows and must not use $parent at all
 			program, err := jq.Compile(step.JQ)
 			if err != nil && !step.Collect {
-				program, err = jq.Compile(step.JQ, jq.ParentVar)
+				program, err = jq.Compile(step.JQ, jqParentVar)
 				step.UsesParent = err == nil
 			}
 			if err != nil {

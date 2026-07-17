@@ -7,10 +7,6 @@ import (
 	"github.com/itchyny/gojq"
 )
 
-// ParentVar is the variable name per-row transform programs may declare to
-// access the source row's lineage (see jsonl.UnfoldLineage for its shape).
-const ParentVar = "$parent"
-
 type Program struct {
 	source string
 	code   *gojq.Code
