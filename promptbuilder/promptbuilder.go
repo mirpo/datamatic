@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 	"text/template"
+	"text/template/parse"
 
 	"github.com/rs/zerolog/log"
 )
@@ -22,9 +22,10 @@ type ValueShort struct {
 }
 
 type PromptBuilder struct {
-	prompt       string
+	tmpl         *template.Template
 	stepData     map[string]map[string]StepValue // step -> fieldPath -> value
 	placeholders map[string]PlaceholderInfo
+	itemSource   string // forEach source step that {{.item}} aliases, if any
 }
 
 type PlaceholderInfo struct {
@@ -32,59 +33,126 @@ type PlaceholderInfo struct {
 	Key  string
 }
 
-func parseTemplatePlaceholders(input string) map[string]PlaceholderInfo {
-	re := regexp.MustCompile(`{{\s*(\.[^\s}]+)\s*}}`)
-	matches := re.FindAllStringSubmatch(input, -1)
-
+// collectPlaceholders walks every tree of a parsed template (including
+// {{define}}/{{block}} bodies) and collects field chains evaluated against
+// the root context — i.e. real step references. Fields inside
+// {{range}}/{{with}} bodies are element-relative (dot is rebound) and are
+// NOT step references; {{if}} bodies keep the root scope.
+func collectPlaceholders(tmpl *template.Template) map[string]PlaceholderInfo {
 	placeholders := make(map[string]PlaceholderInfo)
-	for _, match := range matches {
-		if len(match) < 2 {
-			continue
+	for _, t := range tmpl.Templates() {
+		if t.Tree != nil {
+			collectRootFields(t.Root, true, placeholders)
 		}
-
-		placeholder := strings.TrimPrefix(match[1], ".")
-		if placeholder == "" {
-			continue
-		}
-
-		parts := strings.SplitN(placeholder, ".", 2)
-		info := PlaceholderInfo{Step: parts[0]}
-		if len(parts) > 1 {
-			info.Key = parts[1]
-		}
-
-		placeholders[match[1]] = info
 	}
-
 	return placeholders
+}
+
+func collectRootFields(node parse.Node, rootDot bool, out map[string]PlaceholderInfo) {
+	switch n := node.(type) {
+	case *parse.ListNode:
+		if n == nil {
+			return
+		}
+		for _, child := range n.Nodes {
+			collectRootFields(child, rootDot, out)
+		}
+	case *parse.ActionNode:
+		collectPipeFields(n.Pipe, rootDot, out)
+	case *parse.RangeNode:
+		collectPipeFields(n.Pipe, rootDot, out)
+		collectRootFields(n.List, false, out) // dot rebinds to the element
+		collectRootFields(n.ElseList, rootDot, out)
+	case *parse.WithNode:
+		collectPipeFields(n.Pipe, rootDot, out)
+		collectRootFields(n.List, false, out) // dot rebinds to the value
+		collectRootFields(n.ElseList, rootDot, out)
+	case *parse.IfNode:
+		collectPipeFields(n.Pipe, rootDot, out)
+		collectRootFields(n.List, rootDot, out) // dot unchanged inside if
+		collectRootFields(n.ElseList, rootDot, out)
+	case *parse.TemplateNode:
+		collectPipeFields(n.Pipe, rootDot, out)
+	}
+}
+
+func collectPipeFields(pipe *parse.PipeNode, rootDot bool, out map[string]PlaceholderInfo) {
+	if pipe == nil {
+		return
+	}
+	for _, cmd := range pipe.Cmds {
+		for _, arg := range cmd.Args {
+			switch a := arg.(type) {
+			case *parse.FieldNode:
+				if rootDot {
+					recordFieldChain(a.Ident, out)
+				}
+			case *parse.VariableNode:
+				// $.step.field is always root-relative, even inside range
+				if a.Ident[0] == "$" && len(a.Ident) > 1 {
+					recordFieldChain(a.Ident[1:], out)
+				}
+			case *parse.ChainNode:
+				// e.g. (index .src.list 0).name — collect from the base expression
+				if pipe, ok := a.Node.(*parse.PipeNode); ok {
+					collectPipeFields(pipe, rootDot, out)
+				}
+				if field, ok := a.Node.(*parse.FieldNode); ok && rootDot {
+					recordFieldChain(field.Ident, out)
+				}
+			case *parse.PipeNode:
+				collectPipeFields(a, rootDot, out)
+			}
+		}
+	}
+}
+
+func recordFieldChain(ident []string, out map[string]PlaceholderInfo) {
+	if len(ident) == 0 {
+		return
+	}
+	info := PlaceholderInfo{Step: ident[0]}
+	if len(ident) > 1 {
+		info.Key = strings.Join(ident[1:], ".")
+	}
+	out["."+strings.Join(ident, ".")] = info
 }
 
 // ItemAliasName is the reserved placeholder name for the forEach source row;
 // step names must not shadow it (enforced during preprocessing).
 const ItemAliasName = "item"
 
-var itemAliasRe = regexp.MustCompile(`{{\s*\.item(\.[^\s}]+)?\s*}}`)
-
-// ResolveItemAlias rewrites {{.item...}} placeholders to the forEach source
-// step, so downstream parsing/validation sees a regular step reference.
-func ResolveItemAlias(prompt string, forEachSource string) (string, error) {
-	if !itemAliasRe.MatchString(prompt) {
-		return prompt, nil
+// NewPromptBuilder parses the prompt template once (malformed templates fail
+// here, i.e. at config time) and collects step references. {{.item...}}
+// refers to the forEach source step: collected placeholders point at the
+// source, and at render time .item shares the source step's values. The alias
+// is semantic — it works anywhere in the template, including {{len .item.x}}
+// and {{range .item.xs}}. Pass forEachSource="" for steps without forEach.
+func NewPromptBuilder(prompt string, forEachSource string) (*PromptBuilder, error) {
+	tmpl, err := template.New("prompt").Option("missingkey=zero").Parse(prompt)
+	if err != nil {
+		return nil, fmt.Errorf("invalid prompt template: %w", err)
 	}
-	if forEachSource == "" {
-		return "", errors.New("prompt uses {{.item}} but the step has no forEach")
-	}
-	return itemAliasRe.ReplaceAllString(prompt, "{{."+forEachSource+"$1}}"), nil
-}
 
-func NewPromptBuilder(prompt string) *PromptBuilder {
-	placeholders := parseTemplatePlaceholders(prompt)
+	placeholders := collectPlaceholders(tmpl)
+
+	for key, info := range placeholders {
+		if info.Step != ItemAliasName {
+			continue
+		}
+		if forEachSource == "" {
+			return nil, errors.New("prompt uses {{.item}} but the step has no forEach")
+		}
+		info.Step = forEachSource
+		placeholders[key] = info
+	}
 
 	return &PromptBuilder{
-		prompt:       prompt,
+		tmpl:         tmpl,
 		stepData:     make(map[string]map[string]StepValue),
 		placeholders: placeholders,
-	}
+		itemSource:   forEachSource,
+	}, nil
 }
 
 // AddStepValues adds multiple values for a step in one batch operation
@@ -108,14 +176,14 @@ func (pb *PromptBuilder) AddValue(id string, step string, key string, value inte
 	}
 }
 
-func setNestedValue(target map[string]interface{}, path string, value interface{}) {
+func setNestedValue(target Object, path string, value interface{}) {
 	parts := strings.Split(path, ".")
 	current := target
 	for _, part := range parts[:len(parts)-1] {
-		if next, ok := current[part].(map[string]interface{}); ok {
+		if next, ok := current[part].(Object); ok {
 			current = next
 		} else {
-			next = make(map[string]interface{})
+			next = make(Object)
 			current[part] = next
 			current = next
 		}
@@ -123,15 +191,10 @@ func setNestedValue(target map[string]interface{}, path string, value interface{
 	current[parts[len(parts)-1]] = value
 }
 
-func (pb *PromptBuilder) executeTemplate(tmplString string) (string, error) {
-	tmpl, err := template.New("prompt").Option("missingkey=zero").Parse(tmplString)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse template: %w", err)
-	}
-
+func (pb *PromptBuilder) BuildPrompt() (string, error) {
 	values := make(map[string]interface{})
 	for stepName, stepFields := range pb.stepData {
-		stepObj := make(map[string]interface{})
+		stepObj := make(Object)
 		for fieldPath, stepValue := range stepFields {
 			if fieldPath == "" {
 				values[stepName] = stepValue.Content
@@ -144,19 +207,20 @@ func (pb *PromptBuilder) executeTemplate(tmplString string) (string, error) {
 		}
 	}
 
+	if pb.itemSource != "" {
+		if v, ok := values[pb.itemSource]; ok {
+			values[ItemAliasName] = v
+		}
+	}
+
 	log.Debug().Msgf("using values: %+v", values)
 
 	var output bytes.Buffer
-	err = tmpl.Execute(&output, values)
-	if err != nil {
+	if err := pb.tmpl.Execute(&output, values); err != nil {
 		return "", fmt.Errorf("failed to execute template: %w", err)
 	}
 
 	return output.String(), nil
-}
-
-func (pb *PromptBuilder) BuildPrompt() (string, error) {
-	return pb.executeTemplate(pb.prompt)
 }
 
 func (pb *PromptBuilder) GetPlaceholders() map[string]PlaceholderInfo {

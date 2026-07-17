@@ -57,4 +57,4 @@ steps:
       temperature: 0.9
       maxTokens: 5000
     prompt: |
-      Write nice tourist brochure about country {{.about_country.name}}, which capital is {{.about_country.capitalCity}}, area {{.about_country.totalCountryArea}}, independenceYear: {{.about_country.independenceYear}} and official languages are {{.about_country.languages}}.
+      Write nice tourist brochure about country {{.item.name}} ({{if .item.isUNMember}}a UN member state{{else}}not a UN member{{end}}), which capital is {{.item.capitalCity}}, area {{.item.totalCountryArea}}, independenceYear: {{.item.independenceYear}} and official languages ({{len .item.languages}} total): {{.item.languages}}.

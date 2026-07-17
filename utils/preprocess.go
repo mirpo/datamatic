@@ -167,9 +167,7 @@ func PreprocessConfig(cfg *config.Config) error {
 			}
 		}
 
-		// Iteration settings (count / forEach); resolves the {{.item}} alias,
-		// so placeholder validation below sees canonical references
-		if err := setIterationDefaults(step, stepNames); err != nil {
+		if err := validateIterationSettings(step, stepNames); err != nil {
 			return fmt.Errorf("step '%s': %w", step.Name, err)
 		}
 
@@ -187,11 +185,15 @@ func PreprocessConfig(cfg *config.Config) error {
 }
 
 // validatePromptPlaceholders checks every {{.step.field}} reference in the
-// prompt against earlier steps: the step must exist, field references into
-// prompt steps must match their JSON schema, and a step may not be referenced
-// both as a whole and by field in one prompt.
+// prompt against earlier steps: the step must exist ({{.item}} aliases the
+// forEach source), field references into prompt steps must match their JSON
+// schema, and a step may not be referenced both as a whole and by field in
+// one prompt.
 func validatePromptPlaceholders(step *config.Step, stepByName map[string]*config.Step) error {
-	builder := promptbuilder.NewPromptBuilder(step.Prompt)
+	builder, err := promptbuilder.NewPromptBuilder(step.Prompt, step.ForEach)
+	if err != nil {
+		return err
+	}
 	if !builder.HasPlaceholders() {
 		return nil
 	}
@@ -315,10 +317,9 @@ func requireEarlierStep(stepNames map[string]bool, field, name string) error {
 	return nil
 }
 
-// setIterationDefaults validates count/forEach and resolves the {{.item}}
-// alias to the forEach source, so every later consumer sees one canonical
-// prompt. Iteration counts themselves are resolved at runtime by the runner.
-func setIterationDefaults(step *config.Step, stepNames map[string]bool) error {
+// validateIterationSettings checks count/forEach consistency; iteration
+// counts themselves are resolved at runtime by the runner.
+func validateIterationSettings(step *config.Step, stepNames map[string]bool) error {
 	if step.Type != config.PromptStepType {
 		if step.Count != 0 || step.ForEach != "" {
 			return fmt.Errorf("'count' and 'forEach' are only valid on prompt steps")
@@ -337,12 +338,6 @@ func setIterationDefaults(step *config.Step, stepNames map[string]bool) error {
 			return err
 		}
 	}
-
-	prompt, err := promptbuilder.ResolveItemAlias(step.Prompt, step.ForEach)
-	if err != nil {
-		return err
-	}
-	step.Prompt = prompt
 
 	return nil
 }

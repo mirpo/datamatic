@@ -20,6 +20,7 @@ Build multi-step AI workflows with schema-guided reasoning. Works with Ollama, L
 - **JSON Schema Validation** - Structured output with type safety (YAML-native or JSON string formats)
 - **Text Generation** - Flexible content creation
 - **Explicit Iteration** - `count: N` for generators, `forEach: step` to run once per row of an earlier step; reference the current row as `{{.item.field}}`
+- **Native Template Values** - referenced values keep their JSON types: `{{range .item.companies}}`, `{{len .item.tags}}`, `{{if .item.isActive}}` all work; arrays still print as `a, b` and numbers verbatim
 - **Schema-Guided Reasoning (SGR)** - Guide LLMs through systematic analysis using structured schemas
 - **Image Analysis** - Visual model integration
 
@@ -208,9 +209,9 @@ With values from linked steps:
 {
   "id":"dc140355-6c41-4ce7-9127-b8145cf1a23e",
   "format":"text",
-  "prompt":"Write nice tourist brochure about country {{.about_country.name}}, which capital is {{.about_country.capitalCity}}, area {{.about_country.totalCountryArea}}, independenceYear: {{.about_country.independenceYear}} and official languages are {{.about_country.languages}}.",
+  "prompt":"Write nice tourist brochure about country Kyrgyzstan (a UN member state), which capital is Bishkek, area 199912, independenceYear: 1991 and official languages (2 total): Kyrgyz, Russian.",
   "response":"**Discover the Hidden Gem of Central Asia: Kyrgyzstan**\n\nTucked away in the heart of Central Asia, Kyrgyzstan is a land of breathtaking beauty, rich history, and warm hospitality. Our capital city, Bishkek, is a bustling metropolis surrounded by the stunning Tian Shan mountains, waiting to be explored.\n\n**A Brief History**\n\nKyrgyzstan gained its independence on August 31, 1991...",
-  "values":{".about_country.capitalCity":{"id":"cc437b10-63c6-443a-9b3e-a7d6c51fc0a0","content":"Bishkek"},".about_country.independenceYear":{"id":"cc437b10-63c6-443a-9b3e-a7d6c51fc0a0","content":"1991"},".about_country.languages":{"id":"cc437b10-63c6-443a-9b3e-a7d6c51fc0a0","content":"Kyr Kyrgyz, Russian"},".about_country.name":{"id":"cc437b10-63c6-443a-9b3e-a7d6c51fc0a0","content":"Kyrgyzstan"},".about_country.totalCountryArea":{"id":"cc437b10-63c6-443a-9b3e-a7d6c51fc0a0","content":"199912"}}
+  "values":{".about_country.capitalCity":{"id":"cc437b10-63c6-443a-9b3e-a7d6c51fc0a0","value":"Bishkek"},".about_country.independenceYear":{"id":"cc437b10-63c6-443a-9b3e-a7d6c51fc0a0","value":1991},".about_country.isUNMember":{"id":"cc437b10-63c6-443a-9b3e-a7d6c51fc0a0","value":true},".about_country.languages":{"id":"cc437b10-63c6-443a-9b3e-a7d6c51fc0a0","value":["Kyrgyz","Russian"]},".about_country.name":{"id":"cc437b10-63c6-443a-9b3e-a7d6c51fc0a0","value":"Kyrgyzstan"},".about_country.totalCountryArea":{"id":"cc437b10-63c6-443a-9b3e-a7d6c51fc0a0","value":199912}}
 }
 ```
 

@@ -80,6 +80,7 @@ steps:
                 description: "Key accomplishments and responsibilities"
             required:
               - company_name
+              - location
               - position
               - start_date
               - end_date
@@ -142,3 +143,18 @@ steps:
       }
     modelConfig:
       temperature: 0.1
+
+  # native template values: iterate the extracted companies array directly —
+  # one summary per CV, no transform step needed
+  - name: career_summary
+    model: ollama:llama3.2
+    forEach: extract_companies
+    modelConfig:
+      temperature: 0.4
+      maxTokens: 800
+    prompt: |
+      Write a short career-progression summary for a candidate with {{len .item.companies}} positions:
+      {{range .item.companies}}
+      - {{.company_name}} ({{.location}}), {{.position}}, {{.duration_months}} months, tech: {{.technologies}}
+      {{end}}
+      Focus on growth of responsibility and technology breadth. 3-4 sentences.

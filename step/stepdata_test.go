@@ -178,3 +178,68 @@ func TestReadStepValuesBatch(t *testing.T) {
 		})
 	}
 }
+
+func TestReadStepValuesBatch_NativeValues(t *testing.T) {
+	origRead := readLineFromFile
+	defer func() { readLineFromFile = origRead }()
+	readLineFromFile = func(_ string, _ int) (string, error) {
+		return `{"id":"r1","format":"json","prompt":"p","response":{"pop":6184000,"member":false,"langs":["a","b"],"jobs":[{"name":"Acme","months":26}]}}`, nil
+	}
+
+	step := config.Step{Type: config.PromptStepType, JSONSchema: testSchema(t, `{
+		"type":"object",
+		"properties":{"pop":{"type":"integer"},"member":{"type":"boolean"},"langs":{"type":"array"},"jobs":{"type":"array"}},
+		"required":["pop","member","langs","jobs"],
+		"additionalProperties":false
+	}`)}
+
+	result, err := readStepValuesBatch(step, "", 0, []string{"pop", "member", "langs", "jobs"})
+	require.NoError(t, err)
+
+	assert.Equal(t, promptbuilder.Number(6184000), result["pop"].Content, "numbers stay numeric")
+	assert.Equal(t, false, result["member"].Content, "booleans stay boolean")
+	assert.Equal(t, promptbuilder.List{"a", "b"}, result["langs"].Content, "arrays stay iterable")
+	jobs, ok := result["jobs"].Content.(promptbuilder.List)
+	require.True(t, ok)
+	assert.Equal(t, promptbuilder.Object{"name": "Acme", "months": promptbuilder.Number(26)}, jobs[0])
+}
+
+func TestExtractFieldByPath(t *testing.T) {
+	testData := map[string]interface{}{
+		"name": "John",
+		"user": map[string]interface{}{
+			"profile": map[string]interface{}{
+				"age":  30,
+				"tags": []interface{}{"developer", "golang"},
+			},
+		},
+	}
+
+	tests := []struct {
+		name     string
+		path     string
+		expected interface{}
+		errorMsg string
+	}{
+		{"top-level string", "name", "John", ""},
+		{"nested integer stays native", "user.profile.age", 30, ""},
+		{"nested array stays native", "user.profile.tags", []interface{}{"developer", "golang"}, ""},
+		{"nested object stays native", "user.profile", testData["user"].(map[string]interface{})["profile"], ""},
+		{"empty path returns whole value", "", testData, ""},
+		{"non-existent field", "missing", nil, "field 'missing' not found at path 'missing'"},
+		{"traverse non-object", "name.field", nil, "cannot traverse field 'field' on non-object type string"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := extractFieldByPath(testData, tt.path)
+			if tt.errorMsg != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

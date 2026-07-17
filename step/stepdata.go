@@ -3,12 +3,12 @@ package step
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/mirpo/datamatic/config"
 	"github.com/mirpo/datamatic/fs"
 	"github.com/mirpo/datamatic/jsonl"
-	"github.com/mirpo/datamatic/jsonschema"
 	"github.com/mirpo/datamatic/promptbuilder"
 )
 
@@ -51,6 +51,34 @@ func getSourceDataFromLine(step config.Step, line string) (interface{}, string, 
 
 var readLineFromFile = fs.ReadLineFromFile
 
+// extractFieldByPath extracts a field from a decoded JSON row using a dot
+// path, returning the native value. An empty path means identity (the whole
+// row), matching jq's '.'.
+func extractFieldByPath(data interface{}, path string) (interface{}, error) {
+	if path == "" {
+		return data, nil
+	}
+
+	current := data
+	parts := strings.Split(path, ".")
+
+	for i, part := range parts {
+		m, ok := current.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("cannot traverse field '%s' on non-object type %T at path '%s'", part, current, strings.Join(parts[:i], "."))
+		}
+
+		val, ok := m[part]
+		if !ok {
+			return nil, fmt.Errorf("field '%s' not found at path '%s'", part, strings.Join(parts[:i+1], "."))
+		}
+
+		current = val
+	}
+
+	return current, nil
+}
+
 // readStepValuesBatch reads multiple field values from a step in one operation
 func readStepValuesBatch(step config.Step, outputFolder string, lineNumber int, fieldPaths []string) (map[string]promptbuilder.StepValue, error) {
 	line, err := readLineFromFile(step.OutputFilename, lineNumber)
@@ -65,7 +93,7 @@ func readStepValuesBatch(step config.Step, outputFolder string, lineNumber int, 
 
 	result := make(map[string]promptbuilder.StepValue)
 	for _, fieldPath := range fieldPaths {
-		var value string
+		var value interface{}
 
 		if step.Type == config.PromptStepType && !step.JSONSchema.HasSchemaDefinition() {
 			str, ok := sourceData.(string)
@@ -74,15 +102,16 @@ func readStepValuesBatch(step config.Step, outputFolder string, lineNumber int, 
 			}
 			value = str
 		} else {
-			value, err = jsonschema.ExtractFieldByPathAsString(sourceData, fieldPath)
+			native, err := extractFieldByPath(sourceData, fieldPath)
 			if err != nil {
 				return nil, fmt.Errorf("failed to extract field '%s': %w", fieldPath, err)
 			}
+			value = promptbuilder.Wrap(native)
 		}
 
 		fieldID := recordID
 		if fieldID == "" { // Shell case
-			fieldID = uuidFromString(value)
+			fieldID = uuidFromString(fmt.Sprint(value))
 		}
 
 		result[fieldPath] = promptbuilder.StepValue{
