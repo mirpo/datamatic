@@ -137,7 +137,10 @@ func PreprocessConfig(cfg *config.Config) error {
 			}
 		}
 
-		// Transform steps
+		// Transform steps (collect is their field — reject it elsewhere)
+		if step.Collect && step.Type != config.TransformStepType {
+			return fmt.Errorf("step '%s': 'collect' is only valid on transform steps", step.Name)
+		}
 		if step.Type == config.TransformStepType {
 			if step.From == "" {
 				return fmt.Errorf("step '%s': 'from' is required for transform steps", step.Name)
@@ -149,7 +152,14 @@ func PreprocessConfig(cfg *config.Config) error {
 				return fmt.Errorf("step '%s': limit must be >= 0", step.Name)
 			}
 
+			// probe without variables first: success means the program never
+			// references $parent, so the runtime can skip lineage work; collect
+			// programs see an array of rows and must not use $parent at all
 			program, err := jq.Compile(step.JQ)
+			if err != nil && !step.Collect {
+				program, err = jq.Compile(step.JQ, jq.ParentVar)
+				step.UsesParent = err == nil
+			}
 			if err != nil {
 				return fmt.Errorf("step '%s': %w", step.Name, err)
 			}

@@ -94,7 +94,7 @@ func TestGetSourceDataFromLine(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotData, gotID, err := getSourceDataFromLine(tt.step, tt.line)
+			gotData, gotID, _, err := getSourceDataFromLine(tt.step, tt.line)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -242,4 +242,22 @@ func TestExtractFieldByPath(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestGetSourceDataFromLine_LineageValues(t *testing.T) {
+	t.Run("prompt row returns raw lineage values", func(t *testing.T) {
+		line := `{"id":"r1","format":"json","prompt":"p","response":{"ok":true},` +
+			`"values":{".chopdoc.chunk":{"id":"c1","value":"source text"}}}`
+
+		_, _, lineage, err := getSourceDataFromLine(config.Step{Type: config.PromptStepType}, line)
+
+		require.NoError(t, err)
+		assert.Equal(t, "source text", lineage[".chopdoc.chunk"].Value)
+	})
+
+	t.Run("shell row has no lineage", func(t *testing.T) {
+		_, _, lineage, err := getSourceDataFromLine(config.Step{Type: config.ShellStepType}, `{"a":1}`)
+		require.NoError(t, err)
+		assert.Nil(t, lineage)
+	})
 }

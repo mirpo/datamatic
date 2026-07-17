@@ -109,3 +109,9 @@ steps:
         - brief_summary
         - key_entities_mentioned
         - keywords
+
+  # fan-in QA: label distribution of the generated dataset in one expression
+  - name: label_distribution
+    from: classify_documents
+    collect: true
+    jq: 'group_by(.document_type) | map({document_type: .[0].document_type, count: length}) | sort_by(-.count) | .[]'

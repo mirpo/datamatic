@@ -447,3 +447,14 @@ func TestPreprocessConfig_PromptPlaceholders(t *testing.T) {
 		assert.ErrorContains(t, PreprocessConfig(cfg), "both as a whole")
 	})
 }
+
+func TestPreprocessConfig_CollectValidation(t *testing.T) {
+	t.Run("collect only valid on transform steps", func(t *testing.T) {
+		cfg := config.NewConfig()
+		cfg.OutputFolder = t.TempDir()
+		cfg.Steps = []config.Step{
+			{Name: "gen", Prompt: "p", Model: "ollama:m", Count: 2, Collect: true},
+		}
+		assert.ErrorContains(t, PreprocessConfig(cfg), "collect")
+	})
+}

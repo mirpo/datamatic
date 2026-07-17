@@ -134,7 +134,11 @@ steps:
 
 - `from` — source step; the jq program sees each row's value (for prompt steps: the `response`)
 - `jq` — any jq program; emitting multiple values fans out (1 row → N rows), `select()` filters rows out
+- `collect: true` — fan-in: the program runs once over an **array of all source rows** (`unique`, `group_by`, `sort_by` across the whole dataset)
+- `$parent` — per-row programs can reach the source row's lineage as `$parent.step.field` (e.g. carry the original chunk while fanning out extracted questions); not available with `collect`, where there is no single parent row
 - `limit` — optional cap on output rows
+
+Always wrap jq programs in single quotes: unquoted YAML silently truncates at `#`, misparses `{...}` object construction, and jq's own strings use double quotes anyway.
 
 jq programs are validated when the config loads. Transform steps run instantly, produce regular JSONL, and don't trigger the external-CLI warning. See the [Fan-Out example](./examples/v1/19.%20transform%20step%20and%20fan-out/README.md).
 

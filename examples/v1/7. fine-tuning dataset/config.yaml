@@ -63,11 +63,10 @@ steps:
       required:
         - questions
 
+  # fan-out questions while carrying the source chunk from lineage ($parent)
   - name: flatten_question_chunk
-    type: shell
-    run: |
-      cat ./questions_per_chunk.jsonl | jq -c '.values.".chopdoc_by_sentence.chunk".value as $chunk | .response.questions[] | { question: .question, chunk: $chunk, textEvidence: .textEvidence}' > flatten_question_chunk.jsonl
-    outputFilename: flatten_question_chunk.jsonl
+    from: questions_per_chunk
+    jq: '.questions[] | {question, chunk: $parent.chopdoc_by_sentence.chunk, textEvidence}' 
 
   - name: validate_questions
     model: ollama:deepseek-r1:1.5b
@@ -114,8 +113,7 @@ steps:
       required:
         - rating
 
+  # keep only well-rated pairs; the QA fields come from the parent row
   - name: filter_with_high_rating
-    type: shell
-    run: |
-      cat ./validate_questions.jsonl | jq -c '. | select(.response.rating >= 7)' > filter_with_high_rating.jsonl
-    outputFilename: filter_with_high_rating.jsonl
+    from: validate_questions
+    jq: 'select(.rating >= 7) | $parent.flatten_question_chunk + {rating: .rating}' 
