@@ -69,8 +69,9 @@ type Step struct {
 	SourceFormat   string      `yaml:"sourceFormat"` // transform steps: "jsonl" (default, line per row) or "json" (whole file is one value)
 	WorkDir        string      `yaml:"workDir,omitempty"`
 	SystemPrompt   string      `yaml:"systemPrompt"`
-	Count          int         `yaml:"count"`   // generator steps: how many rows to produce (default 3)
-	ForEach        string      `yaml:"forEach"` // iterate once per row of an earlier step
+	Count          int         `yaml:"count"`       // generator steps: how many rows to produce (default 3)
+	ForEach        string      `yaml:"forEach"`     // iterate once per row of an earlier step
+	Concurrency    int         `yaml:"concurrency"` // prompt steps: rows to generate in parallel (default 1)
 	ModelConfig    ModelConfig `yaml:"modelConfig"`
 	OutputFilename string      `yaml:"outputFilename"`
 	JSONSchemaRaw  interface{} `yaml:"jsonSchema"`

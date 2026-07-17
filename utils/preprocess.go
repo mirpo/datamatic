@@ -352,7 +352,17 @@ func validateIterationSettings(step *config.Step, stepNames map[string]bool) err
 		if step.Count != 0 || step.ForEach != "" {
 			return fmt.Errorf("'count' and 'forEach' are only valid on prompt steps")
 		}
+		if step.Concurrency != 0 {
+			return fmt.Errorf("'concurrency' is only valid on prompt steps")
+		}
 		return nil
+	}
+
+	if step.Concurrency < 0 {
+		return fmt.Errorf("concurrency must be >= 1")
+	}
+	if step.Concurrency == 0 {
+		step.Concurrency = 1
 	}
 
 	if step.Count < 0 {

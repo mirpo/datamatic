@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/mirpo/datamatic/config"
 	"github.com/mirpo/datamatic/fs"
@@ -134,6 +135,85 @@ func TestPromptStepRun_RecoversAfterTransientInvalidResponse(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 3, countLines(t, step.OutputFilename))
 	assert.Equal(t, 4, srv.CallCount()) // 1 failed + 3 good
+}
+
+func TestPromptStepRun_ConcurrencyLimitsInFlight(t *testing.T) {
+	srv := llmtest.NewServer(t, "ok")
+	srv.Delay = 40 * time.Millisecond
+	cfg, step, dir := promptStepConfig(t, srv.URL)
+	step.ResolvedCount = 8
+	step.Concurrency = 3
+
+	err := (&PromptStep{}).Run(context.Background(), cfg, step, dir)
+
+	require.NoError(t, err)
+	assert.Equal(t, 8, countLines(t, step.OutputFilename))
+	assert.Equal(t, 8, srv.CallCount())
+	assert.LessOrEqual(t, srv.MaxConcurrent(), 3, "never more than concurrency requests at once")
+	assert.Greater(t, srv.MaxConcurrent(), 1, "actually runs in parallel")
+}
+
+func TestPromptStepRun_OrderedOutputRegardlessOfCompletion(t *testing.T) {
+	// forEach source with recognizable rows; echo mode makes each response equal
+	// to its prompt, and the delay shuffles completion order.
+	srv := llmtest.NewServer(t)
+	srv.EchoPrompt = true
+	srv.Delay = 20 * time.Millisecond
+	cfg, step, dir := promptStepConfig(t, srv.URL)
+
+	srcPath := filepath.Join(dir, "src.jsonl")
+	var lines string
+	for i := range 6 {
+		lines += `{"id":"r` + string(rune('0'+i)) + `","format":"text","prompt":"p","response":"item-` + string(rune('0'+i)) + `"}` + "\n"
+	}
+	require.NoError(t, os.WriteFile(srcPath, []byte(lines), 0o644))
+
+	cfg.Steps = []config.Step{
+		{Name: "src", Type: config.PromptStepType, OutputFilename: srcPath},
+	}
+	step.ForEach = "src"
+	step.ResolvedCount = 6
+	step.Concurrency = 4
+	step.Prompt = "{{.src}}"
+
+	err := (&PromptStep{}).Run(context.Background(), cfg, step, dir)
+	require.NoError(t, err)
+
+	for i, line := range readOutput(t, step.OutputFilename) {
+		assert.Contains(t, line, "item-"+string(rune('0'+i)),
+			"output row %d must correspond to source row %d despite parallel completion", i, i)
+	}
+}
+
+func TestPromptStepRun_ConcurrentRowFailureCancelsAndPreservesPrefix(t *testing.T) {
+	// row 3's prompt reads a field that does not exist -> that row errors;
+	// the step must fail and stop, not hang.
+	srv := llmtest.NewServer(t, `{"title":"ok"}`)
+	cfg, step, dir := promptStepConfig(t, srv.URL)
+
+	srcPath := filepath.Join(dir, "src.jsonl")
+	var lines string
+	for i := range 6 {
+		// row 3 has no "title" field, others do
+		if i == 3 {
+			lines += `{"id":"r3","format":"json","prompt":"p","response":{"other":1}}` + "\n"
+		} else {
+			lines += `{"id":"r` + string(rune('0'+i)) + `","format":"json","prompt":"p","response":{"title":"t` + string(rune('0'+i)) + `"}}` + "\n"
+		}
+	}
+	require.NoError(t, os.WriteFile(srcPath, []byte(lines), 0o644))
+
+	cfg.Steps = []config.Step{
+		{Name: "src", Type: config.PromptStepType, OutputFilename: srcPath, JSONSchema: testSchema(t, titleSchema)},
+	}
+	step.ForEach = "src"
+	step.ResolvedCount = 6
+	step.Concurrency = 2
+	step.Prompt = "use {{.src.title}}"
+
+	err := (&PromptStep{}).Run(context.Background(), cfg, step, dir)
+	require.Error(t, err, "a failing row must fail the whole step")
+	assert.Contains(t, err.Error(), "title")
 }
 
 func TestPromptStepRun_NativeTemplateRendering(t *testing.T) {

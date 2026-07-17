@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mirpo/datamatic/config"
-	"github.com/mirpo/datamatic/fs"
 	"github.com/mirpo/datamatic/jsonl"
 	"github.com/mirpo/datamatic/promptbuilder"
 )
@@ -52,8 +51,6 @@ func getSourceDataFromLine(step config.Step, line string) (interface{}, string, 
 	}
 }
 
-var readLineFromFile = fs.ReadLineFromFile
-
 // extractFieldByPath extracts a field from a decoded JSON row using a dot
 // path, returning the native value. An empty path means identity (the whole
 // row), matching jq's '.'.
@@ -82,16 +79,12 @@ func extractFieldByPath(data interface{}, path string) (interface{}, error) {
 	return current, nil
 }
 
-// readStepValuesBatch reads multiple field values from a step in one operation
-func readStepValuesBatch(step config.Step, outputFolder string, lineNumber int, fieldPaths []string) (map[string]promptbuilder.StepValue, error) {
-	line, err := readLineFromFile(step.OutputFilename, lineNumber)
-	if err != nil {
-		return nil, err
-	}
-
+// extractStepValues decodes a single already-read source line and pulls the
+// requested field values from it.
+func extractStepValues(step config.Step, line string, fieldPaths []string) (map[string]promptbuilder.StepValue, error) {
 	sourceData, recordID, _, err := getSourceDataFromLine(step, line)
 	if err != nil {
-		return nil, fmt.Errorf("line %d: %w", lineNumber, err)
+		return nil, err
 	}
 
 	result := make(map[string]promptbuilder.StepValue)

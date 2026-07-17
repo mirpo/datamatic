@@ -9,6 +9,8 @@ steps:
       Generate a unique and creative title for a science fiction story.
       The title should be intriguing and capture the reader's attention.
     count: 5
+    # cloud APIs handle many parallel requests — generate rows concurrently
+    concurrency: 5
     modelConfig:
       temperature: 0.7
       maxTokens: 100
@@ -24,6 +26,7 @@ steps:
       - Occupation
       - Brief backstory (2-3 sentences)
     count: 3
+    concurrency: 3
     modelConfig:
       temperature: 0.8
     jsonSchema:
