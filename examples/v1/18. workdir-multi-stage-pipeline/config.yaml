@@ -28,6 +28,9 @@ steps:
   - name: analyze_complexity
     model: $PROVIDER:$MODEL
     forEach: convert_to_jsonl
+    # rows are independent — run several in parallel (raise for cloud providers,
+    # keep low for a single local GPU)
+    concurrency: 4
     systemPrompt: |
       You are an expert in analyzing instructional prompts and assessing their complexity.
       Rate prompts based on:

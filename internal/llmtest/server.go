@@ -12,13 +12,16 @@ import (
 )
 
 type Server struct {
-	URL   string
-	Delay time.Duration // set before first request; simulates a slow server
+	URL        string
+	Delay      time.Duration // set before first request; simulates a slow server
+	EchoPrompt bool          // when true, respond with the last user message instead of scripted content
 
 	server    *httptest.Server
 	mu        sync.Mutex
 	responses []string
 	requests  []map[string]interface{}
+	inFlight  int
+	maxInFlt  int
 }
 
 // NewServer returns a mock chat-completions server that answers with the given
@@ -28,6 +31,9 @@ func NewServer(t *testing.T, responses ...string) *Server {
 	s := &Server{responses: responses}
 
 	s.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.enter()
+		defer s.leave()
+
 		if s.Delay > 0 {
 			select {
 			case <-time.After(s.Delay):
@@ -46,7 +52,13 @@ func NewServer(t *testing.T, responses ...string) *Server {
 		if idx >= len(s.responses) {
 			idx = len(s.responses) - 1
 		}
-		content := s.responses[idx]
+		var content string
+		switch {
+		case s.EchoPrompt:
+			content = lastUserMessage(req)
+		case len(s.responses) > 0:
+			content = s.responses[idx]
+		}
 		s.mu.Unlock()
 
 		model, _ := req["model"].(string)
@@ -70,6 +82,45 @@ func NewServer(t *testing.T, responses ...string) *Server {
 
 	s.URL = s.server.URL
 	return s
+}
+
+func (s *Server) enter() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.inFlight++
+	if s.inFlight > s.maxInFlt {
+		s.maxInFlt = s.inFlight
+	}
+}
+
+func (s *Server) leave() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.inFlight--
+}
+
+// MaxConcurrent returns the peak number of requests handled simultaneously.
+func (s *Server) MaxConcurrent() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.maxInFlt
+}
+
+// lastUserMessage returns the content of the final user message in the request,
+// used by EchoPrompt mode to make responses row-identifiable.
+func lastUserMessage(req map[string]interface{}) string {
+	messages, _ := req["messages"].([]interface{})
+	for i := len(messages) - 1; i >= 0; i-- {
+		msg, ok := messages[i].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if msg["role"] == "user" {
+			content, _ := msg["content"].(string)
+			return content
+		}
+	}
+	return ""
 }
 
 func (s *Server) CallCount() int {

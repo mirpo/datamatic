@@ -20,6 +20,7 @@ Build multi-step AI workflows with schema-guided reasoning. Works with Ollama, L
 - **JSON Schema Validation** - Structured output with type safety (YAML-native or JSON string formats)
 - **Text Generation** - Flexible content creation
 - **Explicit Iteration** - `count: N` for generators, `forEach: step` to run once per row of an earlier step; reference the current row as `{{.item.field}}`
+- **Parallel Rows** - `concurrency: N` generates rows of a prompt step in parallel while keeping output in row order
 - **Native Template Values** - referenced values keep their JSON types: `{{range .item.companies}}`, `{{len .item.tags}}`, `{{if .item.isActive}}` all work; arrays still print as `a, b` and numbers verbatim
 - **Schema-Guided Reasoning (SGR)** - Guide LLMs through systematic analysis using structured schemas
 - **Image Analysis** - Visual model integration
@@ -124,6 +125,22 @@ datamatic validate -config config.yaml
 - OpenAI: `model: openai:gpt-4o-mini` + `export OPENAI_API_KEY=sk-...`
 - OpenRouter: `model: openrouter:meta-llama/llama-3.2-3b` + `export OPENROUTER_API_KEY=sk-...`
 - Gemini: `model: gemini:gemini-2.0-flash` + `export GEMINI_API_KEY=...`
+
+### Parallel Generation
+
+Rows of a prompt step are independent, so they can be generated in parallel:
+
+```yaml
+steps:
+  - name: analyze
+    model: openai:gpt-4o-mini
+    forEach: documents
+    concurrency: 5   # up to 5 rows generated at once (default: 1)
+```
+
+- Applies to **prompt steps only** (`count` or `forEach`); using it on transform or shell steps is a config error.
+- Output stays in row order regardless of which request finishes first, so datasets remain deterministic.
+- Raise it for cloud providers, which handle many parallel requests. Keep it low (or `1`) for a single local GPU — Ollama/LM Studio serve only a few requests at a time, so a high value won't help and may thrash.
 
 ### Transform Steps
 

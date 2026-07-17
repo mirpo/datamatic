@@ -389,6 +389,52 @@ func TestPreprocessConfig_CountAndForEach(t *testing.T) {
 	})
 }
 
+func TestPreprocessConfig_Concurrency(t *testing.T) {
+	base := func() *config.Config {
+		cfg := config.NewConfig()
+		cfg.OutputFolder = t.TempDir()
+		cfg.Steps = []config.Step{
+			{Name: "seed", Prompt: "p", Model: "ollama:m", Count: 2},
+		}
+		return cfg
+	}
+
+	t.Run("unset concurrency defaults to 1", func(t *testing.T) {
+		cfg := base()
+		assert.NoError(t, PreprocessConfig(cfg))
+		assert.Equal(t, 1, cfg.Steps[0].Concurrency)
+	})
+
+	t.Run("explicit concurrency is preserved", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[0].Concurrency = 4
+		assert.NoError(t, PreprocessConfig(cfg))
+		assert.Equal(t, 4, cfg.Steps[0].Concurrency)
+	})
+
+	t.Run("negative concurrency fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[0].Concurrency = -1
+		assert.ErrorContains(t, PreprocessConfig(cfg), "concurrency")
+	})
+
+	t.Run("concurrency on transform step fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps = append(cfg.Steps, config.Step{
+			Name: "t", JQ: ".", From: "seed", Concurrency: 2,
+		})
+		assert.ErrorContains(t, PreprocessConfig(cfg), "concurrency")
+	})
+
+	t.Run("concurrency on shell step fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps = append(cfg.Steps, config.Step{
+			Name: "sh", Run: "echo hi > x.jsonl", OutputFilename: "x.jsonl", Concurrency: 2,
+		})
+		assert.ErrorContains(t, PreprocessConfig(cfg), "concurrency")
+	})
+}
+
 func TestPreprocessConfig_PromptPlaceholders(t *testing.T) {
 	base := func() *config.Config {
 		cfg := config.NewConfig()

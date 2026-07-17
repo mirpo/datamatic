@@ -3,6 +3,7 @@ package step
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/mirpo/datamatic/config"
 	"github.com/mirpo/datamatic/fs"
@@ -11,6 +12,7 @@ import (
 	"github.com/mirpo/datamatic/promptbuilder"
 	"github.com/mirpo/datamatic/retry"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/sync/errgroup"
 )
 
 func newProviderConfigFromStep(step config.Step, httpTimeout int) llm.ProviderConfig {
@@ -27,6 +29,14 @@ func newProviderConfigFromStep(step config.Step, httpTimeout int) llm.ProviderCo
 
 type PromptStep struct{}
 
+// sourceRows holds every line of a referenced step's output, read once so the
+// per-row workers only do in-memory lookups instead of re-scanning the file.
+type sourceRows struct {
+	step       config.Step
+	fieldPaths []string
+	lines      []string
+}
+
 func (p *PromptStep) retryLLMGeneration(ctx context.Context, cfg *config.Config, provider llm.Provider, req llm.GenerateRequest, response **llm.GenerateResponse) error {
 	return retry.Do(ctx, cfg.RetryConfig, func() error {
 		resp, err := provider.Generate(ctx, req)
@@ -39,20 +49,13 @@ func (p *PromptStep) retryLLMGeneration(ctx context.Context, cfg *config.Config,
 }
 
 func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.Step, outputFolder string) error {
-	maxResult := step.ResolvedCount
-	i := 0
-
-	// registerInvalid tracks consecutive invalid LLM responses; it returns a
-	// terminal error once the budget (retryConfig.maxAttempts) is exhausted.
-	invalidAttempts := 0
-	registerInvalid := func(cause error, responseText string) error {
-		invalidAttempts++
-		log.Warn().Err(cause).Msgf("invalid LLM response (attempt %d/%d): %s",
-			invalidAttempts, cfg.RetryConfig.MaxAttempts, responseText)
-		if invalidAttempts >= cfg.RetryConfig.MaxAttempts {
-			return fmt.Errorf("row %d: LLM returned invalid response %d times in a row: %w", i, invalidAttempts, cause)
-		}
-		return nil
+	total := step.ResolvedCount
+	// PreprocessConfig resolves the default (0 → 1); this clamp only guards
+	// direct Run calls in unit tests that bypass preprocessing, where a
+	// zero-capacity errgroup limit would deadlock.
+	workers := step.Concurrency
+	if workers < 1 {
+		workers = 1
 	}
 
 	writer, err := jsonl.NewWriter(step.OutputFilename)
@@ -66,80 +69,105 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 		return fmt.Errorf("failed to create LLM provider: %w", err)
 	}
 
-	hasSchemaSchema := step.JSONSchema.HasSchemaDefinition()
+	hasSchema := step.JSONSchema.HasSchemaDefinition()
 
-	promptBuilder, err := promptbuilder.NewPromptBuilder(step.Prompt, step.ForEach)
+	// parse the prompt once to discover which steps it references, then read
+	// each referenced file a single time up front (rows only differ by values)
+	base, err := promptbuilder.NewPromptBuilder(step.Prompt, step.ForEach)
+	if err != nil {
+		return err
+	}
+	sources, err := loadSources(base, cfg, total)
 	if err != nil {
 		return err
 	}
 
-	// resolve referenced source steps once; only row values change per iteration
-	type sourceRef struct {
-		step       config.Step
-		fieldPaths []string
-	}
-	var sources []sourceRef
-	for stepName, fieldPaths := range promptBuilder.GroupPlaceholdersByStep() {
-		refStep := cfg.GetStepByName(stepName)
-		if refStep == nil {
-			return fmt.Errorf("prompt references unknown step '%s'", stepName)
-		}
-		sources = append(sources, sourceRef{step: *refStep, fieldPaths: fieldPaths})
+	runRow := func(ctx context.Context, i int) (jsonl.LineEntity, error) {
+		return p.runRow(ctx, cfg, step, hasSchema, provider, sources, i)
 	}
 
-	for i < maxResult {
-		log.Info().
-			Str("step_name", step.Name).
-			Str("step_type", string(step.Type)).
-			Int("iteration", i).
-			Msg("Running step")
+	return generate(ctx, total, workers, writer, runRow)
+}
 
-		for _, src := range sources {
-			stepValues, err := readStepValuesBatch(src.step, outputFolder, i, src.fieldPaths)
-			if err != nil {
-				return fmt.Errorf("failed to read values from step '%s': %w", src.step.Name, err)
-			}
+// runRow produces a single output row: build its prompt from the preloaded
+// source values, call the LLM, and retry within the per-row attempt budget
+// when the response fails validation.
+func (p *PromptStep) runRow(ctx context.Context, cfg *config.Config, step config.Step, hasSchema bool, provider llm.Provider, sources []sourceRows, i int) (jsonl.LineEntity, error) {
+	log.Info().
+		Str("step_name", step.Name).
+		Str("step_type", string(step.Type)).
+		Int("iteration", i).
+		Msg("Running step")
 
-			promptBuilder.AddStepValues(src.step.Name, stepValues)
+	pb, err := promptbuilder.NewPromptBuilder(step.Prompt, step.ForEach)
+	if err != nil {
+		return jsonl.LineEntity{}, err
+	}
+
+	for _, src := range sources {
+		if i >= len(src.lines) {
+			return jsonl.LineEntity{}, fmt.Errorf("step '%s': row %d not found (only %d rows)", src.step.Name, i, len(src.lines))
 		}
-
-		userPrompt, err := promptBuilder.BuildPrompt()
+		values, err := extractStepValues(src.step, src.lines[i], src.fieldPaths)
 		if err != nil {
-			return fmt.Errorf("failed to build prompt: %w", err)
+			return jsonl.LineEntity{}, fmt.Errorf("failed to read values from step '%s' row %d: %w", src.step.Name, i, err)
+		}
+		pb.AddStepValues(src.step.Name, values)
+	}
+
+	var base64Image string
+	if step.HasImages() {
+		imagePath, err := fs.PickImageFile(step.ImagePath, i)
+		if err != nil {
+			return jsonl.LineEntity{}, fmt.Errorf("failed to find images by pattern '%s': %w", step.ImagePath, err)
 		}
 
-		var base64Image string
-		if step.HasImages() {
-			imagePath, err := fs.PickImageFile(step.ImagePath, i)
-			if err != nil {
-				return fmt.Errorf("failed to find images by pattern '%s': %w", step.ImagePath, err)
-			}
-
-			base64Image, err = fs.ImageToBase64(imagePath)
-			if err != nil {
-				return fmt.Errorf("failed to encode image '%s': %w", imagePath, err)
-			}
-
-			promptBuilder.AddValue(base64Image[:15], step.Name, "image", imagePath)
+		base64Image, err = fs.ImageToBase64(imagePath)
+		if err != nil {
+			return jsonl.LineEntity{}, fmt.Errorf("failed to encode image '%s': %w", imagePath, err)
 		}
 
+		pb.AddValue(base64Image[:15], step.Name, "image", imagePath)
+	}
+
+	userPrompt, err := pb.BuildPrompt()
+	if err != nil {
+		return jsonl.LineEntity{}, fmt.Errorf("failed to build prompt: %w", err)
+	}
+
+	req := llm.GenerateRequest{
+		UserMessage:   userPrompt,
+		SystemMessage: step.SystemPrompt,
+		IsJSON:        hasSchema,
+		JSONSchema:    step.JSONSchema,
+		Base64Image:   base64Image,
+	}
+
+	invalidAttempts := 0
+	// registerInvalid records an unusable response (schema violation or
+	// malformed line) and returns a terminal error once the attempt budget is
+	// exhausted; nil means "retry this row".
+	registerInvalid := func(cause error, responseText string) error {
+		invalidAttempts++
+		log.Warn().Err(cause).Msgf("row %d: invalid LLM response (attempt %d/%d): %s",
+			i, invalidAttempts, cfg.RetryConfig.MaxAttempts, responseText)
+		if invalidAttempts >= cfg.RetryConfig.MaxAttempts {
+			return fmt.Errorf("row %d: LLM returned invalid response %d times in a row: %w", i, invalidAttempts, cause)
+		}
+		return nil
+	}
+
+	for {
 		var response *llm.GenerateResponse
-		err = p.retryLLMGeneration(ctx, cfg, provider, llm.GenerateRequest{
-			UserMessage:   userPrompt,
-			SystemMessage: step.SystemPrompt,
-			IsJSON:        hasSchemaSchema,
-			JSONSchema:    step.JSONSchema,
-			Base64Image:   base64Image,
-		}, &response)
-		if err != nil {
-			return fmt.Errorf("failed to get response from LLM after retries: %w", err)
+		if err := p.retryLLMGeneration(ctx, cfg, provider, req, &response); err != nil {
+			return jsonl.LineEntity{}, fmt.Errorf("row %d: failed to get response from LLM after retries: %w", i, err)
 		}
 
-		if cfg.ValidateResponse && hasSchemaSchema {
+		if cfg.ValidateResponse && hasSchema {
 			log.Debug().Msg("Validating response from LLM using JSON schema")
 			if err := step.JSONSchema.ValidateJSONText(response.Text); err != nil {
 				if failErr := registerInvalid(err, response.Text); failErr != nil {
-					return failErr
+					return jsonl.LineEntity{}, failErr
 				}
 				continue
 			}
@@ -147,22 +175,109 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 
 		log.Info().Msgf("Response from LLM: '%s'", response.Text)
 
-		lineEntity, err := jsonl.NewLineEntity(response.Text, userPrompt, hasSchemaSchema, promptBuilder.GetValues())
+		lineEntity, err := jsonl.NewLineEntity(response.Text, userPrompt, hasSchema, pb.GetValues())
 		if err != nil {
 			if failErr := registerInvalid(err, response.Text); failErr != nil {
-				return failErr
+				return jsonl.LineEntity{}, failErr
 			}
 			continue
 		}
 
-		err = writer.WriteLine(lineEntity)
-		if err != nil {
-			return fmt.Errorf("failed to write output line: %w", err)
+		return lineEntity, nil
+	}
+}
+
+// loadSources resolves the steps referenced by the prompt and reads each of
+// their output files once into memory, indexed by row.
+func loadSources(base *promptbuilder.PromptBuilder, cfg *config.Config, total int) ([]sourceRows, error) {
+	var sources []sourceRows
+	for stepName, fieldPaths := range base.GroupPlaceholdersByStep() {
+		refStep := cfg.GetStepByName(stepName)
+		if refStep == nil {
+			return nil, fmt.Errorf("prompt references unknown step '%s'", stepName)
 		}
 
-		invalidAttempts = 0
-		i++
+		lines, err := readAllLines(refStep.OutputFilename, total)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read values from step '%s': %w", stepName, err)
+		}
+
+		sources = append(sources, sourceRows{step: *refStep, fieldPaths: fieldPaths, lines: lines})
+	}
+	return sources, nil
+}
+
+// readAllLines reads up to `limit` non-empty lines from a JSONL file in a
+// single pass (limit <= 0 reads them all).
+func readAllLines(path string, limit int) ([]string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var lines []string
+	scanner := fs.NewLineScanner(file)
+	for scanner.Scan() {
+		if limit > 0 && len(lines) >= limit {
+			break
+		}
+		lines = append(lines, scanner.Text())
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return lines, nil
+}
+
+// generate runs rows through runRow with up to `workers` in flight and writes
+// their results to the writer in row order. A single collector goroutine keeps
+// output deterministic and streams each row as soon as its predecessors are
+// done, so a mid-run failure still leaves the completed prefix on disk.
+func generate(ctx context.Context, total, workers int, writer *jsonl.Writer, runRow func(context.Context, int) (jsonl.LineEntity, error)) error {
+	if total == 0 {
+		return nil
 	}
 
-	return nil
+	results := make([]jsonl.LineEntity, total)
+	done := make(chan int, total)
+	writeErr := make(chan error, 1)
+
+	go func() {
+		arrived := make([]bool, total)
+		next := 0
+		for i := range done {
+			arrived[i] = true
+			for next < total && arrived[next] {
+				if err := writer.WriteLine(results[next]); err != nil {
+					writeErr <- fmt.Errorf("failed to write output line: %w", err)
+					return
+				}
+				results[next] = jsonl.LineEntity{} // let the written row be GC'd
+				next++
+			}
+		}
+		writeErr <- nil
+	}()
+
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(workers)
+	for i := range total {
+		g.Go(func() error {
+			line, err := runRow(gctx, i)
+			if err != nil {
+				return err
+			}
+			results[i] = line
+			done <- i
+			return nil
+		})
+	}
+
+	runErr := g.Wait()
+	close(done)
+	if werr := <-writeErr; werr != nil {
+		return werr
+	}
+	return runErr
 }

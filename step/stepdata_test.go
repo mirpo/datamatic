@@ -1,7 +1,6 @@
 package step
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/mirpo/datamatic/config"
@@ -108,15 +107,13 @@ func TestGetSourceDataFromLine(t *testing.T) {
 	}
 }
 
-func TestReadStepValuesBatch(t *testing.T) {
+func TestExtractStepValues(t *testing.T) {
 	tests := []struct {
 		name       string
 		step       config.Step
 		mockLine   string
-		mockErr    error
 		fieldPaths []string
 		wantResult map[string]promptbuilder.StepValue
-		wantErr    bool
 	}{
 		{
 			name:       "Shell step - multiple fields",
@@ -149,42 +146,19 @@ func TestReadStepValuesBatch(t *testing.T) {
 				},
 			},
 		},
-		{
-			name:       "File read error",
-			step:       config.Step{Type: config.ShellStepType},
-			mockErr:    fmt.Errorf("mocked read error"),
-			fieldPaths: []string{"name"},
-			wantErr:    true,
-		},
 	}
-
-	origRead := readLineFromFile
-	defer func() { readLineFromFile = origRead }()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			readLineFromFile = func(_ string, _ int) (string, error) {
-				return tt.mockLine, tt.mockErr
-			}
-
-			result, err := readStepValuesBatch(tt.step, "", 0, tt.fieldPaths)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-				return
-			}
+			result, err := extractStepValues(tt.step, tt.mockLine, tt.fieldPaths)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantResult, result)
 		})
 	}
 }
 
-func TestReadStepValuesBatch_NativeValues(t *testing.T) {
-	origRead := readLineFromFile
-	defer func() { readLineFromFile = origRead }()
-	readLineFromFile = func(_ string, _ int) (string, error) {
-		return `{"id":"r1","format":"json","prompt":"p","response":{"pop":6184000,"member":false,"langs":["a","b"],"jobs":[{"name":"Acme","months":26}]}}`, nil
-	}
+func TestExtractStepValues_NativeValues(t *testing.T) {
+	line := `{"id":"r1","format":"json","prompt":"p","response":{"pop":6184000,"member":false,"langs":["a","b"],"jobs":[{"name":"Acme","months":26}]}}`
 
 	step := config.Step{Type: config.PromptStepType, JSONSchema: testSchema(t, `{
 		"type":"object",
@@ -193,7 +167,7 @@ func TestReadStepValuesBatch_NativeValues(t *testing.T) {
 		"additionalProperties":false
 	}`)}
 
-	result, err := readStepValuesBatch(step, "", 0, []string{"pop", "member", "langs", "jobs"})
+	result, err := extractStepValues(step, line, []string{"pop", "member", "langs", "jobs"})
 	require.NoError(t, err)
 
 	assert.Equal(t, promptbuilder.Number(6184000), result["pop"].Content, "numbers stay numeric")
