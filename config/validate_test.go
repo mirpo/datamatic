@@ -202,9 +202,8 @@ func TestCLIFilenameValidation_PostPreprocessing(t *testing.T) {
 
 	t.Run("Shell step without filename in command warns but passes", func(t *testing.T) {
 		cfg := &Config{
-			Version:        "1.0",
-			RetryConfig:    retry.NewDefaultConfig(),
-			SkipCliWarning: true,
+			Version:     "1.0",
+			RetryConfig: retry.NewDefaultConfig(),
 			Steps: []Step{
 				{
 					Name:           "download_only",

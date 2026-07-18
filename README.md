@@ -257,8 +257,6 @@ Options:
         Enable pretty logging, JSON when false (default true)
   -output string
         Output folder path (default "dataset")
-  -skip-cli-warning
-        Skip external CLI warning
   -validate-response
         Validate JSON response from server to match the schema (default true)
   -verbose
