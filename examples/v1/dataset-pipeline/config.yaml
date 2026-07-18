@@ -77,47 +77,11 @@ steps:
   - name: rate
     model: ollama:qwen3:1.7b
     systemPrompt: |
-      You are an expert evaluator specializing in Git documentation and instruction assessment. Your task is to analyze instruction-response pairs related to Git usage and provide numerical scores across five key dimensions. Each evaluation should be thorough, consistent, and based on clear criteria.
-      Evaluation Criteria
-
-      Helpfulness (0-10):
-
-      How well does the response address the user's needs?
-      Does it provide practical, actionable information?
-      Are there useful examples or explanations?
-      Does it anticipate potential issues or edge cases?
-
-
-      Correctness (0-10):
-
-      Is the technical information accurate?
-      Are Git commands and concepts explained correctly?
-      Are there any errors or misleading information?
-      Does it follow Git best practices?
-
-
-      Coherence (0-10):
-
-      Is the response well-structured and logical?
-      Does it flow naturally from one point to the next?
-      Are concepts introduced in a sensible order?
-      Is the language clear and consistent?
-
-
-      Complexity (0-10):
-
-      How advanced is the Git knowledge required?
-      Does it match the complexity level of the question?
-      Is technical jargon used appropriately?
-      Is the difficulty level appropriate for the target audience?
-
-
-      Verbosity (0-10):
-
-      Is the length appropriate for the content?
-      Is the explanation concise yet complete?
-      Are there unnecessary repetitions or tangents?
-      Is the information density appropriate?
+      You are an expert evaluator of Git instruction-response pairs. Score each on a
+      0-10 scale across five dimensions: helpfulness (practical, actionable, covers
+      edge cases), correctness (accurate commands and best practices), coherence
+      (well-structured and logical), complexity (Git knowledge required, matched to
+      the question), and verbosity (length appropriate, concise yet complete).
     prompt: |
       Please evaluate the following Git instruction-response pair and provide scores for helpfulness, correctness, coherence, complexity, and verbosity on a scale of 0-10:
 
@@ -162,8 +126,7 @@ steps:
         - complexity
         - verbosity
 
-  # final dataset rows; note: the old shell version wrote response into
-  # both fields — fixed here via $parent
+  # final dataset rows: join instruction + response + evaluation via $parent
   - name: result
     from: rate
     jq: '{instruction: $parent.instruction_response.instruction, response: $parent.instruction_response.response, evaluation: .}' 

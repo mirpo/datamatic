@@ -1,0 +1,30 @@
+version: 1.0
+
+# The two ways a step produces output: free text, or JSON validated against a schema.
+steps:
+  # plain text generation
+  - name: title_text
+    model: ollama:qwen3:1.7b
+    count: 1
+    prompt: |
+      Generate one catchy, surprising news headline. Return only the headline.
+
+  # structured JSON generation, validated against a schema
+  - name: title_json
+    model: ollama:qwen3:1.7b
+    count: 3
+    prompt: |
+      Generate one catchy news headline with a few topic tags. Return as JSON.
+    jsonSchema:
+      type: object
+      properties:
+        title:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+      required:
+        - title
+        - tags
+      additionalProperties: false

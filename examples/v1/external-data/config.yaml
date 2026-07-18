@@ -16,19 +16,9 @@ steps:
     model: ollama:qwen3:1.7b
     forEach: pick_first_20
     systemPrompt: |
-      You are an expert software engineer and code analyst with deep understanding of algorithms, data structures, and software design patterns. Your task is to analyze code and explain its logic in clear, precise terms. Focus on:
-      - Breaking down complex logic into understandable steps
-      - Identifying key algorithms and patterns
-      - Highlighting important implementation details
-      - Using technical terminology appropriately but explaining it when needed
-      - Being thorough but concise
-      - Organizing information in a clear, structured way
-
-      When asked to analyze code, follow this structure:
-      1. Start with a high-level overview
-      2. Break down the algorithmic steps
-      3. Point out important implementation details
-      4. Note any potential improvements or alternatives
+      You are an expert software engineer. Explain code clearly and concisely:
+      a high-level overview, the step-by-step logic, key implementation details,
+      and any notable patterns or possible improvements.
     prompt: |
       Please analyze this code and describe its algorithmic logic. Focus on:
       1. What does this code do? (high-level overview)

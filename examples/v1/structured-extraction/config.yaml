@@ -1,0 +1,84 @@
+version: 1.0
+
+# One pipeline that shows the three schema/template features together:
+#   1. a deeply nested JSON schema (objects and arrays inside arrays)
+#   2. the two schema formats — YAML-native (step 1) and JSON-string (step 2)
+#   3. native template values — range / len / if over real JSON types (step 3)
+steps:
+  # 1. generate a candidate profile against a deeply NESTED, YAML-native schema
+  - name: profile
+    model: ollama:qwen3:1.7b
+    count: 2
+    modelConfig:
+      temperature: 0.8
+    prompt: |
+      Invent one realistic software-engineer candidate profile. Return as JSON.
+    jsonSchema:
+      type: object
+      properties:
+        name: { type: string }
+        headline: { type: string }
+        jobs:
+          type: array
+          minItems: 2
+          maxItems: 4
+          items:
+            type: object
+            properties:
+              company: { type: string }
+              title: { type: string }
+              years: { type: number }
+              achievements:
+                type: array
+                items: { type: string }
+            required: [company, title, years, achievements]
+            additionalProperties: false
+        skills:
+          type: object
+          properties:
+            technical:
+              type: array
+              items: { type: string }
+            soft:
+              type: array
+              items: { type: string }
+          required: [technical, soft]
+          additionalProperties: false
+      required: [name, headline, jobs, skills]
+      additionalProperties: false
+
+  # 2. classify seniority — same idea, but the schema is written as a JSON STRING
+  #    (jsonSchema: |) instead of YAML-native. Both formats are supported.
+  - name: seniority
+    model: ollama:qwen3:1.7b
+    forEach: profile
+    modelConfig:
+      temperature: 0.2
+    prompt: |
+      Given this candidate headline, classify their seniority and suggest roles.
+      Headline: {{.profile.headline}}
+    jsonSchema: |
+      {
+        "type": "object",
+        "properties": {
+          "level": {"type": "string", "enum": ["junior", "mid", "senior", "staff", "principal"]},
+          "suggested_roles": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 3}
+        },
+        "required": ["level", "suggested_roles"],
+        "additionalProperties": false
+      }
+
+  # 3. write a brief using NATIVE template values: len over an array, if over a
+  #    non-empty array, and range over an array of objects — no transform needed
+  - name: brief
+    model: ollama:qwen3:1.7b
+    forEach: profile
+    modelConfig:
+      temperature: 0.4
+      maxTokens: 400
+    prompt: |
+      Candidate {{.item.name}} lists {{len .item.skills.technical}} technical skills.
+      {{if .item.jobs}}Roles held:
+      {{range .item.jobs}}- {{.title}} at {{.company}} ({{.years}}y): {{.achievements}}
+      {{end}}{{end}}
+      Write a two-sentence recruiter summary focused on growth of responsibility.
