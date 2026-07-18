@@ -24,9 +24,9 @@ const jqParentVar = "$parent"
 // setStepType determines and sets the step type based on step configuration
 func setStepType(step *config.Step) error {
 	switch step.Type {
-	case "", config.PromptStepType, config.ShellStepType, config.TransformStepType:
+	case "", config.PromptStepType, config.ShellStepType, config.TransformStepType, config.ReadStepType:
 	default:
-		return fmt.Errorf("unknown step type '%s' (expected 'prompt', 'shell' or 'transform')", step.Type)
+		return fmt.Errorf("unknown step type '%s' (expected 'prompt', 'shell', 'transform' or 'read')", step.Type)
 	}
 
 	var inferred config.StepType
@@ -41,8 +41,11 @@ func setStepType(step *config.Step) error {
 	if step.JQ != "" {
 		inferred, sourceField, count = config.TransformStepType, "jq", count+1
 	}
+	if step.Read != "" {
+		inferred, sourceField, count = config.ReadStepType, "read", count+1
+	}
 	if count != 1 {
-		return errors.New("exactly one of 'prompt', 'run' or 'jq' must be defined")
+		return errors.New("exactly one of 'prompt', 'run', 'jq' or 'read' must be defined")
 	}
 
 	if step.Type != "" && step.Type != inferred {
@@ -188,6 +191,22 @@ func PreprocessConfig(cfg *config.Config) error {
 			}
 		}
 
+		// Read steps: local-file source (path resolves relative to CWD; rows
+		// materialize to outputFolder like a transform)
+		if step.Type == config.ReadStepType {
+			if step.ImagePath != "" {
+				return fmt.Errorf("step '%s': 'imagePath' is not valid on read steps", step.Name)
+			}
+			format, err := resolveReadFormat(step)
+			if err != nil {
+				return fmt.Errorf("step '%s': %w", step.Name, err)
+			}
+			step.Format = format
+			if err := setOutputFilename(step, cfg.OutputFolder); err != nil {
+				return fmt.Errorf("step '%s': %w", step.Name, err)
+			}
+		}
+
 		// Normalize image path if needed
 		if step.HasImages() {
 			if err := setImagePath(step, cfg.OutputFolder); err != nil {
@@ -313,6 +332,28 @@ func getFullOutputPath(step config.Step, outputFolder string) (string, error) {
 	fullPath := filepath.Join(outputFolder, filename)
 
 	return filepath.Clean(fullPath), nil
+}
+
+// resolveReadFormat validates an explicit read `format` or infers it from the
+// path's extension (.csv/.tsv → csv, .jsonl → jsonl, otherwise files).
+func resolveReadFormat(step *config.Step) (string, error) {
+	if step.Format != "" {
+		switch step.Format {
+		case config.ReadFormatFiles, config.ReadFormatCSV, config.ReadFormatJSONL:
+			return step.Format, nil
+		default:
+			return "", fmt.Errorf("unknown format '%s' (expected 'files', 'csv' or 'jsonl')", step.Format)
+		}
+	}
+
+	switch strings.ToLower(filepath.Ext(step.Read)) {
+	case ".csv", ".tsv":
+		return config.ReadFormatCSV, nil
+	case ".jsonl":
+		return config.ReadFormatJSONL, nil
+	default:
+		return config.ReadFormatFiles, nil
+	}
 }
 
 // setOutputFilename sets the full output path for a step

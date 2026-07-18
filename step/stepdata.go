@@ -22,7 +22,7 @@ func uuidFromString(input string) string {
 // Shell steps: full line is an unknown JSON, no lineage.
 // Prompt steps: line is a datamatic LineEntity — data is the response;
 // lineage values come back as-is (unfold them lazily via jsonl.UnfoldLineage).
-// Transform steps: full line is a raw JSON value, no lineage.
+// Transform and read steps: full line is a raw JSON value, no lineage.
 func getSourceDataFromLine(step config.Step, line string) (interface{}, string, map[string]promptbuilder.ValueShort, error) {
 	switch step.Type {
 	case config.ShellStepType:
@@ -39,10 +39,11 @@ func getSourceDataFromLine(step config.Step, line string) (interface{}, string, 
 		}
 		return decoded.Response, decoded.ID, decoded.Values, nil
 
-	case config.TransformStepType:
+	case config.TransformStepType, config.ReadStepType:
+		// both materialize plain JSON values per line (no LineEntity envelope)
 		var decoded interface{}
 		if err := json.Unmarshal([]byte(line), &decoded); err != nil {
-			return nil, "", nil, fmt.Errorf("transform step: failed to parse JSON: %w", err)
+			return nil, "", nil, fmt.Errorf("%s step: failed to parse JSON: %w", step.Type, err)
 		}
 		return decoded, "", nil, nil
 

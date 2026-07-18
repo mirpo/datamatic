@@ -287,6 +287,7 @@ See [`examples/v1/`](./examples/v1/) for the full feature matrix. Start with `ba
 ### Data integration & infrastructure
 | Example | Features shown | Backend |
 | --- | --- | --- |
+| [process-my-files](./examples/v1/process-my-files/README.md) | `read` local files (glob/dir/CSV/JSONL) into rows | Ollama |
 | [external-data](./examples/v1/external-data/README.md) | HuggingFace download + transform + shell tools | Ollama |
 | [env-and-workdir](./examples/v1/env-and-workdir/README.md) | env vars, `workDir`, `$PROVIDER`, DuckDB | Ollama |
 | [vision](./examples/v1/vision/README.md) | image → structured output (`imagePath`) | Ollama, LM Studio |

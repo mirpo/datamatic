@@ -163,7 +163,7 @@ func TestPreprocessConfig_Failures(t *testing.T) {
 			&config.Config{OutputFolder: "/tmp", Steps: []config.Step{
 				{Name: "bad", Prompt: "p", Run: "c"},
 			}},
-			"exactly one of 'prompt', 'run' or 'jq' must be defined",
+			"exactly one of 'prompt', 'run', 'jq' or 'read' must be defined",
 		},
 		{
 			"Missing provider colon",
@@ -591,5 +591,49 @@ steps:
 		cfg.OutputFolder = t.TempDir()
 
 		assert.Error(t, LoadConfigFile(cfg))
+	})
+}
+
+func TestPreprocessConfig_ReadStep(t *testing.T) {
+	base := func(read, format string) *config.Config {
+		cfg := config.NewConfig()
+		cfg.OutputFolder = t.TempDir()
+		cfg.Steps = []config.Step{{Name: "src", Read: read, Format: format}}
+		return cfg
+	}
+
+	t.Run("infers read type and files format", func(t *testing.T) {
+		cfg := base("./docs/*.md", "")
+		assert.NoError(t, PreprocessConfig(cfg))
+		assert.Equal(t, config.ReadStepType, cfg.Steps[0].Type)
+		assert.Equal(t, config.ReadFormatFiles, cfg.Steps[0].Format)
+	})
+	t.Run("infers csv from extension", func(t *testing.T) {
+		cfg := base("./leads.csv", "")
+		assert.NoError(t, PreprocessConfig(cfg))
+		assert.Equal(t, config.ReadFormatCSV, cfg.Steps[0].Format)
+	})
+	t.Run("infers jsonl from extension", func(t *testing.T) {
+		cfg := base("./seed.jsonl", "")
+		assert.NoError(t, PreprocessConfig(cfg))
+		assert.Equal(t, config.ReadFormatJSONL, cfg.Steps[0].Format)
+	})
+	t.Run("explicit format overrides extension", func(t *testing.T) {
+		cfg := base("./data.txt", config.ReadFormatCSV)
+		assert.NoError(t, PreprocessConfig(cfg))
+		assert.Equal(t, config.ReadFormatCSV, cfg.Steps[0].Format)
+	})
+	t.Run("unknown format fails", func(t *testing.T) {
+		assert.ErrorContains(t, PreprocessConfig(base("./x", "parquet")), "unknown format")
+	})
+	t.Run("read plus count fails", func(t *testing.T) {
+		cfg := base("./x/*.md", "")
+		cfg.Steps[0].Count = 3
+		assert.ErrorContains(t, PreprocessConfig(cfg), "only valid on prompt")
+	})
+	t.Run("read plus imagePath fails", func(t *testing.T) {
+		cfg := base("./x/*.md", "")
+		cfg.Steps[0].ImagePath = "*.jpg"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "imagePath")
 	})
 }
