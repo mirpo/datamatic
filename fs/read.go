@@ -30,7 +30,7 @@ func GlobFiles(pattern string) ([]string, error) {
 		candidates = matches
 	}
 
-	files := candidates[:0]
+	var files []string
 	for _, path := range candidates {
 		info, err := os.Stat(path)
 		if err != nil {

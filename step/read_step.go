@@ -30,43 +30,45 @@ func (p *ReadStep) Run(ctx context.Context, cfg *config.Config, step config.Step
 	defer writer.Close()
 
 	written := 0
+	emit := limitedEmit(writer, 0, &written) // read has no limit; reuses the transform writer
+
+	// resolve the per-file loader once — the format is constant for the step
+	var loadFile func(path string) error
+	switch step.Format {
+	case config.ReadFormatFiles:
+		loadFile = func(path string) error {
+			name, content, err := fs.ReadTextFile(path)
+			if err != nil {
+				return err
+			}
+			_, err = emit(map[string]interface{}{"path": path, "name": name, "content": content})
+			return err
+		}
+	case config.ReadFormatCSV:
+		loadFile = func(path string) error {
+			rows, err := fs.ReadCSV(path)
+			if err != nil {
+				return err
+			}
+			for _, row := range rows {
+				if _, err := emit(row); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	case config.ReadFormatJSONL:
+		loadFile = func(path string) error { return emitJSONLines(path, emit) }
+	default:
+		return fmt.Errorf("step '%s': unknown read format '%s'", step.Name, step.Format)
+	}
+
 	for _, path := range files {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-
-		switch step.Format {
-		case config.ReadFormatFiles:
-			name, content, err := fs.ReadTextFile(path)
-			if err != nil {
-				return fmt.Errorf("step '%s': %w", step.Name, err)
-			}
-			if err := writer.WriteJSON(map[string]interface{}{"path": path, "name": name, "content": content}); err != nil {
-				return err
-			}
-			written++
-
-		case config.ReadFormatCSV:
-			rows, err := fs.ReadCSV(path)
-			if err != nil {
-				return fmt.Errorf("step '%s': %w", step.Name, err)
-			}
-			for _, row := range rows {
-				if err := writer.WriteJSON(row); err != nil {
-					return err
-				}
-				written++
-			}
-
-		case config.ReadFormatJSONL:
-			n, err := emitJSONLines(path, writer)
-			if err != nil {
-				return fmt.Errorf("step '%s': %w", step.Name, err)
-			}
-			written += n
-
-		default:
-			return fmt.Errorf("step '%s': unknown read format '%s'", step.Name, step.Format)
+		if err := loadFile(path); err != nil {
+			return fmt.Errorf("step '%s': %w", step.Name, err)
 		}
 	}
 
@@ -74,29 +76,27 @@ func (p *ReadStep) Run(ctx context.Context, cfg *config.Config, step config.Step
 	return nil
 }
 
-// emitJSONLines re-emits each JSON line of a file as an output row (validating
+// emitJSONLines emits each JSON line of a file as an output row (validating
 // that each line is well-formed JSON).
-func emitJSONLines(path string, writer *jsonl.Writer) (int, error) {
+func emitJSONLines(path string, emit func(interface{}) (bool, error)) error {
 	f, err := os.Open(path)
 	if err != nil {
-		return 0, fmt.Errorf("failed to open '%s': %w", path, err)
+		return fmt.Errorf("failed to open '%s': %w", path, err)
 	}
 	defer f.Close()
 
-	written := 0
 	scanner := fs.NewLineScanner(f)
 	for lineNo := 0; scanner.Scan(); lineNo++ {
 		var value interface{}
 		if err := json.Unmarshal([]byte(scanner.Text()), &value); err != nil {
-			return written, fmt.Errorf("%s line %d: invalid JSON: %w", path, lineNo, err)
+			return fmt.Errorf("%s line %d: invalid JSON: %w", path, lineNo, err)
 		}
-		if err := writer.WriteJSON(value); err != nil {
-			return written, err
+		if _, err := emit(value); err != nil {
+			return err
 		}
-		written++
 	}
 	if err := scanner.Err(); err != nil {
-		return written, fmt.Errorf("failed to read '%s': %w", path, err)
+		return fmt.Errorf("failed to read '%s': %w", path, err)
 	}
-	return written, nil
+	return nil
 }

@@ -22,7 +22,7 @@ func uuidFromString(input string) string {
 // Shell steps: full line is an unknown JSON, no lineage.
 // Prompt steps: line is a datamatic LineEntity — data is the response;
 // lineage values come back as-is (unfold them lazily via jsonl.UnfoldLineage).
-// Transform steps: full line is a raw JSON value, no lineage.
+// Transform and read steps: full line is a raw JSON value, no lineage.
 func getSourceDataFromLine(step config.Step, line string) (interface{}, string, map[string]promptbuilder.ValueShort, error) {
 	switch step.Type {
 	case config.ShellStepType:
