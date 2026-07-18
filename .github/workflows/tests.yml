@@ -43,6 +43,20 @@ jobs:
         run: |
           ./datamatic --version
 
+      - name: Validate all example configs (dogfood `datamatic validate`)
+        shell: bash
+        env:
+          # only env-and-workdir templates these; other examples ignore them
+          REQUIRED_FILE: prompts.csv
+          DOWNLOAD_DIR: downloads
+          PROVIDER: ollama
+          MODEL: qwen3:1.7b
+        run: |
+          for f in examples/v1/*/config.yaml; do
+            echo "validate: $f"
+            ./datamatic validate --config "$f"
+          done
+
       - name: Setup Ollama
         if: runner.os == 'Linux'
         uses: ai-action/setup-ollama@v1
