@@ -46,12 +46,19 @@ const (
 	PromptStepType    StepType = "prompt"
 	ShellStepType     StepType = "shell"
 	TransformStepType StepType = "transform"
+	ReadStepType      StepType = "read"
 	UnknownStepType   StepType = "unknown"
 )
 
 const (
 	SourceFormatJSONL = "jsonl" // one JSON value per line (default)
 	SourceFormatJSON  = "json"  // the whole file is a single JSON value
+)
+
+const (
+	ReadFormatFiles = "files" // one row per file: {path, name, content}
+	ReadFormatCSV   = "csv"   // one row per record; columns become fields
+	ReadFormatJSONL = "jsonl" // one row per line (parsed JSON)
 )
 
 type Step struct {
@@ -61,6 +68,8 @@ type Step struct {
 	Prompt         string      `yaml:"prompt"`
 	Run            string      `yaml:"run"`
 	JQ             string      `yaml:"jq"`           // transform steps: jq program
+	Read           string      `yaml:"read"`         // read steps: file/glob/dir to load as rows
+	Format         string      `yaml:"format"`       // read steps: "files" | "csv" | "jsonl" (default: by extension)
 	From           string      `yaml:"from"`         // transform steps: source step name
 	Limit          int         `yaml:"limit"`        // transform steps: cap output rows (0 = no cap)
 	Collect        bool        `yaml:"collect"`      // transform steps: jq sees an array of ALL source rows (fan-in)

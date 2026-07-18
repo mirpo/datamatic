@@ -5,6 +5,7 @@ Each folder is a self-contained `config.yaml` + `README.md`. New to datamatic? R
 | Example | Features shown | Backend |
 | --- | --- | --- |
 | [basics](./basics) | text generation, JSON schema | Ollama |
+| [process-my-files](./process-my-files) | `read` your own local files (glob/dir/CSV/JSONL) → rows | Ollama |
 | [linked-steps](./linked-steps) | step chaining, native template values (`if`/`range`/`len`) | Ollama |
 | [structured-extraction](./structured-extraction) | nested schema, both schema formats (YAML / JSON-string), native templates | Ollama |
 | [dataset-pipeline](./dataset-pipeline) | transform fan-out, fan-in (`collect`, `$parent`), rating pipeline | Ollama |

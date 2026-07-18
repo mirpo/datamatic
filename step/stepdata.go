@@ -39,10 +39,11 @@ func getSourceDataFromLine(step config.Step, line string) (interface{}, string, 
 		}
 		return decoded.Response, decoded.ID, decoded.Values, nil
 
-	case config.TransformStepType:
+	case config.TransformStepType, config.ReadStepType:
+		// both materialize plain JSON values per line (no LineEntity envelope)
 		var decoded interface{}
 		if err := json.Unmarshal([]byte(line), &decoded); err != nil {
-			return nil, "", nil, fmt.Errorf("transform step: failed to parse JSON: %w", err)
+			return nil, "", nil, fmt.Errorf("%s step: failed to parse JSON: %w", step.Type, err)
 		}
 		return decoded, "", nil, nil
 

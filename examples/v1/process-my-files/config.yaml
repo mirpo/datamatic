@@ -1,0 +1,32 @@
+version: 1.0
+
+# Process your OWN local files — no download, no shell. Point `read` at a glob,
+# a directory, a .csv, or a .jsonl and it becomes rows; here: one row per file.
+steps:
+  - name: tickets
+    read: ./docs/*.md
+
+  - name: triage
+    model: ollama:qwen3:1.7b
+    forEach: tickets
+    modelConfig:
+      temperature: 0.2
+    prompt: |
+      Triage this support ticket. Return as JSON.
+
+      {{.item.content}}
+    jsonSchema:
+      type: object
+      properties:
+        category:
+          type: string
+          enum: [billing, bug, feature_request, account, other]
+        priority:
+          type: string
+          enum: [low, medium, high]
+        summary:
+          type: string
+          minLength: 10
+          maxLength: 200
+      required: [category, priority, summary]
+      additionalProperties: false
