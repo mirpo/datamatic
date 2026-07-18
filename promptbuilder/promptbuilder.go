@@ -191,7 +191,9 @@ func setNestedValue(target Object, path string, value interface{}) {
 	current[parts[len(parts)-1]] = value
 }
 
-func (pb *PromptBuilder) BuildPrompt() (string, error) {
+// buildValues assembles the template context from the loaded step data,
+// exposing the forEach source under the {{.item}} alias.
+func (pb *PromptBuilder) buildValues() map[string]interface{} {
 	values := make(map[string]interface{})
 	for stepName, stepFields := range pb.stepData {
 		stepObj := make(Object)
@@ -213,10 +215,31 @@ func (pb *PromptBuilder) BuildPrompt() (string, error) {
 		}
 	}
 
+	return values
+}
+
+func (pb *PromptBuilder) BuildPrompt() (string, error) {
+	values := pb.buildValues()
 	log.Debug().Msgf("using values: %+v", values)
 
 	var output bytes.Buffer
 	if err := pb.tmpl.Execute(&output, values); err != nil {
+		return "", fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	return output.String(), nil
+}
+
+// RenderString renders an arbitrary template string against the same values as
+// the prompt — used for the per-row `image:` path (e.g. "{{.item.path}}").
+func (pb *PromptBuilder) RenderString(s string) (string, error) {
+	tmpl, err := template.New("render").Option("missingkey=zero").Parse(s)
+	if err != nil {
+		return "", fmt.Errorf("invalid template: %w", err)
+	}
+
+	var output bytes.Buffer
+	if err := tmpl.Execute(&output, pb.buildValues()); err != nil {
 		return "", fmt.Errorf("failed to execute template: %w", err)
 	}
 

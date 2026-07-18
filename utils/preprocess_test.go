@@ -56,8 +56,7 @@ func TestPreprocessConfig_Success(t *testing.T) {
 				Model:          "ollama:llama3.2",
 				Prompt:         "Generate something",
 				OutputFilename: "custom",
-				ImagePath:      "images/photo.jpg",
-				// no count/forEach: image step, iterations resolved at runtime
+				// no count/forEach: iterations resolved at runtime
 			},
 			{
 				Name:           "cli1",
@@ -99,12 +98,8 @@ func TestPreprocessConfig_Success(t *testing.T) {
 	assert.Equal(t, expectedCustom, cfg.Steps[0].OutputFilename)
 	assert.Equal(t, expectedCli, cfg.Steps[1].OutputFilename) // CLI steps get absolute path but no extension change
 
-	// Image path - use absolute paths that work cross-platform
-	expectedImage, _ := filepath.Abs(filepath.Join(outputFolder, "images", "photo.jpg"))
-	assert.Equal(t, expectedImage, cfg.Steps[0].ImagePath)
-
 	// Iteration settings
-	assert.Equal(t, 0, cfg.Steps[0].Count, "image step: iterations resolved at runtime, no default count")
+	assert.Equal(t, 0, cfg.Steps[0].Count, "no count/forEach: iterations resolved at runtime")
 	assert.Equal(t, 0, cfg.Steps[1].Count, "shell steps have no count")
 	assert.Equal(t, 5, cfg.Steps[2].Count)
 	assert.Equal(t, "prompt1", cfg.Steps[3].ForEach)
@@ -631,9 +626,9 @@ func TestPreprocessConfig_ReadStep(t *testing.T) {
 		cfg.Steps[0].Count = 3
 		assert.ErrorContains(t, PreprocessConfig(cfg), "only valid on prompt")
 	})
-	t.Run("read plus imagePath fails", func(t *testing.T) {
+	t.Run("read plus image fails", func(t *testing.T) {
 		cfg := base("./x/*.md", "")
-		cfg.Steps[0].ImagePath = "*.jpg"
-		assert.ErrorContains(t, PreprocessConfig(cfg), "imagePath")
+		cfg.Steps[0].Image = "*.jpg"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "image")
 	})
 }

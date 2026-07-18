@@ -1,33 +1,36 @@
 version: 1.0
 
+# Vision over your OWN local images: read a folder of images and describe each.
+# `read` enumerates the files; the prompt step attaches the current row's file
+# as a vision image via `image: {{.item.path}}`.
 steps:
-  - name: download_dataset
-    type: shell
-    run: |
-      # download image dataset from huggingface
-      hf download --repo-type dataset Azu/Handwritten-Mathematical-Expression-Convert-LaTeX --local-dir ./ --include data.zip
+  - name: images
+    read: ./images/*.jpg
 
-      # unzip
-      unzip -q -o data.zip -d data
-
-      # convert all BMP images to JPG
-      magick mogrify -format jpg -quality 90 -path ./data/2019 ./data/2019/*.bmp
-    outputFilename: data
-
-  - name: analyze_math_image
-    type: prompt
+  - name: describe
     model: ollama:qwen2.5vl:3b
     # model: lmstudio:gemma-3-4b-it
+    forEach: images
+    image: "{{.item.path}}"
     prompt: |
-      Image contains mathematical formula. Convert to Latex. Don't add any extra information
-    imagePath: |
-      ./data/2019/*.jpg
-
-  - name: explain_math
-    type: prompt
-    model: ollama:qwen2.5vl:3b
-    # model: lmstudio:gemma-3-4b-it
-    forEach: analyze_math_image
-    prompt: |
-      Given the following formula, break down the steps needed to understand or solve it. Start by identifying the type of mathematical expression it is (e.g., complex numbers, exponential form, etc.), then explain each term and operation, and proceed to derive or simplify as appropriate. Show your reasoning at each step. Format your response in clear Markdown, using headings, bullet points, and LaTeX for math where helpful.
-      Formula: {{.analyze_math_image}}
+      Describe this image for an alt-text catalog: what it shows, its main colors,
+      and a few searchable tags. Return as JSON.
+    jsonSchema:
+      type: object
+      properties:
+        description:
+          type: string
+          minLength: 10
+          maxLength: 300
+        main_colors:
+          type: array
+          items: { type: string }
+          minItems: 1
+          maxItems: 5
+        tags:
+          type: array
+          items: { type: string }
+          minItems: 1
+          maxItems: 5
+      required: [description, main_colors, tags]
+      additionalProperties: false

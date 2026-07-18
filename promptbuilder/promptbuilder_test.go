@@ -391,3 +391,15 @@ func TestParseTemplatePlaceholders_ScopedDotIsNotAStepRef(t *testing.T) {
 		})
 	}
 }
+
+func TestPromptBuilder_RenderString(t *testing.T) {
+	pb, err := NewPromptBuilder("describe {{.item.name}}", "docs")
+	require.NoError(t, err)
+	pb.AddValue("1", "docs", "path", "images/a.jpg")
+	pb.AddValue("2", "docs", "name", "a.jpg")
+
+	got, err := pb.RenderString("{{.item.path}}")
+
+	require.NoError(t, err)
+	assert.Equal(t, "images/a.jpg", got)
+}

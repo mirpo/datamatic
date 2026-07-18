@@ -50,15 +50,6 @@ func (r *Runner) resolveIterations(step *config.Step) error {
 		step.ResolvedCount = lines
 		log.Debug().Msgf("Resolved iterations for step '%s' to %d from forEach: %s", step.Name, lines, step.ForEach)
 
-	case step.HasImages() && step.Count == 0:
-		images, err := fs.CountFiles(step.ImagePath)
-		if err != nil {
-			return fmt.Errorf("failed to count images matching '%s': %w", step.ImagePath, err)
-		}
-
-		step.ResolvedCount = images
-		log.Debug().Msgf("Resolved iterations for step '%s' to %d from imagePath: %s", step.Name, images, step.ImagePath)
-
 	case step.Count == 0:
 		step.ResolvedCount = config.DefaultStepCount
 

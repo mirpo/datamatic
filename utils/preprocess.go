@@ -194,8 +194,8 @@ func PreprocessConfig(cfg *config.Config) error {
 		// Read steps: local-file source (path resolves relative to CWD; rows
 		// materialize to outputFolder like a transform)
 		if step.Type == config.ReadStepType {
-			if step.ImagePath != "" {
-				return fmt.Errorf("step '%s': 'imagePath' is not valid on read steps", step.Name)
+			if step.Image != "" {
+				return fmt.Errorf("step '%s': 'image' is only valid on prompt steps", step.Name)
 			}
 			format, err := resolveReadFormat(step)
 			if err != nil {
@@ -203,13 +203,6 @@ func PreprocessConfig(cfg *config.Config) error {
 			}
 			step.Format = format
 			if err := setOutputFilename(step, cfg.OutputFolder); err != nil {
-				return fmt.Errorf("step '%s': %w", step.Name, err)
-			}
-		}
-
-		// Normalize image path if needed
-		if step.HasImages() {
-			if err := setImagePath(step, cfg.OutputFolder); err != nil {
 				return fmt.Errorf("step '%s': %w", step.Name, err)
 			}
 		}
@@ -363,17 +356,6 @@ func setOutputFilename(step *config.Step, outputFolder string) error {
 		return fmt.Errorf("failed to get full output path: %w", err)
 	}
 	step.OutputFilename = fullOutputPath
-	return nil
-}
-
-// setImagePath processes and sets the image path for a step
-func setImagePath(step *config.Step, outputFolder string) error {
-	step.ImagePath = strings.TrimSpace(step.ImagePath)
-
-	if !filepath.IsAbs(step.ImagePath) {
-		step.ImagePath = filepath.Join(outputFolder, step.ImagePath)
-	}
-
 	return nil
 }
 

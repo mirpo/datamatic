@@ -99,15 +99,42 @@ func TestPromptStepRun_RefValuesReadFailureFailsStep(t *testing.T) {
 	assert.Equal(t, 0, srv.CallCount(), "no LLM call with a broken prompt")
 }
 
-func TestPromptStepRun_MissingImagesFailsStep(t *testing.T) {
+func TestPromptStepRun_MissingImageFailsStep(t *testing.T) {
 	srv := llmtest.NewServer(t, "never reached")
 	cfg, step, dir := promptStepConfig(t, srv.URL)
-	step.ImagePath = filepath.Join(dir, "no-such-dir", "*.jpg")
+	step.Image = filepath.Join(dir, "no-such.jpg") // file does not exist
 
 	err := (&PromptStep{}).Run(context.Background(), cfg, step, dir)
 
 	require.Error(t, err)
-	assert.Equal(t, 0, srv.CallCount())
+	assert.Equal(t, 0, srv.CallCount(), "no LLM call when the image can't be read")
+}
+
+func TestPromptStepRun_AttachesImageFromRowPath(t *testing.T) {
+	// image: renders a per-row path template and attaches the file as base64
+	srv := llmtest.NewServer(t, "described")
+	cfg, step, dir := promptStepConfig(t, srv.URL)
+
+	imgPath := filepath.Join(dir, "pic.jpg")
+	require.NoError(t, os.WriteFile(imgPath, []byte("fake-image-bytes"), 0o644))
+
+	srcPath := filepath.Join(dir, "src.jsonl")
+	require.NoError(t, os.WriteFile(srcPath, []byte(`{"path":"`+imgPath+`"}`+"\n"), 0o644))
+	cfg.Steps = []config.Step{{Name: "imgs", Type: config.ReadStepType, OutputFilename: srcPath}}
+
+	step.ForEach = "imgs"
+	step.ResolvedCount = 1
+	step.Prompt = "Describe the image."
+	step.Image = "{{.item.path}}"
+
+	err := (&PromptStep{}).Run(context.Background(), cfg, step, dir)
+	require.NoError(t, err)
+
+	// the request carried the base64 of the file
+	messages := srv.Requests()[0]["messages"].([]interface{})
+	last := messages[len(messages)-1].(map[string]interface{})
+	assert.NotNil(t, last["content"], "vision content attached")
+	assert.Equal(t, 1, srv.CallCount())
 }
 
 func TestPromptStepRun_FailsAfterRepeatedInvalidResponses(t *testing.T) {
