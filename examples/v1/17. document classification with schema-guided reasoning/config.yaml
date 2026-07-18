@@ -3,7 +3,7 @@ version: 1.0
 steps:
   - name: generate_documents
     type: prompt
-    model: ollama:llama3.2
+    model: ollama:qwen3:1.7b
     count: 10
     modelConfig:
       temperature: 0.9
@@ -34,7 +34,7 @@ steps:
 
   - name: classify_documents
     type: prompt
-    model: ollama:llama3.2
+    model: ollama:qwen3:1.7b
     forEach: generate_documents
     modelConfig:
       temperature: 0.3

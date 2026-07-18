@@ -1,7 +1,7 @@
 version: 1.0
 steps:
   - name: about_country
-    model: ollama:llama3.2
+    model: ollama:qwen3:1.7b
     count: 10
     modelConfig:
       temperature: 0.9
@@ -51,7 +51,7 @@ steps:
         - independenceYear
 
   - name: text_about_country
-    model: ollama:llama3.2
+    model: ollama:qwen3:1.7b
     forEach: about_country
     modelConfig:
       temperature: 0.9

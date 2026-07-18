@@ -8,7 +8,7 @@ Install:
 
 - `datamatic`
 - [Ollama](https://ollama.com/download)
-- Install model: `ollama pull llama3.2`
+- Install model: `ollama pull qwen3:1.7b`
 - [hf](https://huggingface.co/docs/huggingface_hub/main/en/guides/cli)
 
 ## Run dataset generation

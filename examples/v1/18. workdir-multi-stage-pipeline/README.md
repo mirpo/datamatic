@@ -10,7 +10,7 @@ Install:
 
 - `datamatic`
 - [Ollama](https://ollama.com/download)
-- Install model: `ollama pull llama3.2`
+- Install model: `ollama pull qwen3:1.7b`
 - [hf](https://huggingface.co/docs/huggingface_hub/main/en/guides/cli)
 - [DuckDB](https://duckdb.org/docs/installation/)
 
@@ -127,6 +127,6 @@ Process existing directories:
 REQUIRED_FILE=prompts.csv \
 DOWNLOAD_DIR=downloads \
 PROVIDER=ollama \
-MODEL=llama3.2 \
+MODEL=qwen3:1.7b \
   datamatic --config ./config.yaml --verbose
 ```

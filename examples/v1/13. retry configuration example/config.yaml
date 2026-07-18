@@ -8,7 +8,7 @@ retryConfig:
 
 steps:
   - name: generate_with_retry
-    model: ollama:llama3.2
+    model: ollama:qwen3:1.7b
     prompt: |
       Generate a creative short story title about time travel.
       Make it intriguing and unique. Return only the title.
