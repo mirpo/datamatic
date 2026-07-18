@@ -1,10 +1,15 @@
 # Cloud providers
 
-Dataset generation against hosted APIs, showing three things that matter for cloud runs:
+Dataset generation against hosted APIs — an e-commerce catalog batch — showing what matters for cloud runs: provider selection, parallel requests, and retries.
 
-- **Provider selection** — one `model: <provider>:<name>` string picks the backend (see table).
-- **Concurrency** — `concurrency: N` generates rows in parallel; cloud APIs handle many requests at once.
-- **Retries** — `retryConfig` retries transient failures (429 / 5xx / timeouts) with exponential backoff and fails fast on permanent errors (auth / bad request).
+**Features:** `providers` · `concurrency` · `retry` · `jsonSchema`
+
+## Steps
+
+1. `product_descriptions` — free-text marketing copy, `concurrency: 5`
+2. `product_specs` — structured catalog records (JSON schema), `concurrency: 3`
+
+`retryConfig` retries transient failures (429 / 5xx / timeouts) with exponential backoff and fails fast on permanent errors (auth / bad request).
 
 ## Providers
 

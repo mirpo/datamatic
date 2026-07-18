@@ -1,8 +1,14 @@
-# Multi-Stage Pipeline with workDir and Environment Variables
+# Env vars and workDir
 
-This example demonstrates two powerful features:
-1. **`workDir`** - Organize shell step outputs across multiple processing stages
-2. **Environment Variables** - Configure pipelines dynamically using `$VAR` syntax
+A multi-stage pipeline that organizes shell outputs across working directories and is configured entirely through environment variables (including which model provider to use).
+
+**Features:** `envVars` · `workDir` · `$PROVIDER` · `duckdb` · `concurrency`
+
+## Steps
+
+1. `download_prompts` — `hf download` into `$DOWNLOAD_DIR` (a `workDir`)
+2. `convert_to_jsonl` — DuckDB converts CSV → JSONL in a `processed` workDir
+3. `analyze_complexity` — `forEach` prompt → complexity rating (model is `$PROVIDER:$MODEL`, `concurrency: 4`)
 
 ## Requirements
 

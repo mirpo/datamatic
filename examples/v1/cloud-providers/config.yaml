@@ -11,51 +11,48 @@ retryConfig:
   backoffMultiplier: 1.5
 
 steps:
-  - name: openai_story_titles
+  # marketing copy generation (free text) — a common batch job against a cloud API
+  - name: product_descriptions
     model: openai:gpt-4o-mini
     systemPrompt: |
-      You are a helpful assistant that generates creative story titles.
+      You write concise, upbeat e-commerce product descriptions (2-3 sentences).
     prompt: |
-      Generate a unique and creative title for a science fiction story.
-      The title should be intriguing and capture the reader's attention.
+      Write a product description for a plausible consumer electronics product.
     count: 5
     # cloud APIs handle many parallel requests — generate rows concurrently
     concurrency: 5
     modelConfig:
-      temperature: 0.7
-      maxTokens: 100
+      temperature: 0.8
+      maxTokens: 200
 
-  - name: generate_with_openai_json
+  # structured product records (JSON schema) — enrich a catalog with typed fields
+  - name: product_specs
     model: openai:o4-mini
     systemPrompt: |
-      You are an AI assistant that generates structured data about fictional characters.
+      You generate structured catalog data for consumer products.
     prompt: |
-      Create a fictional character profile with the following information:
-      - Name (first and last)
-      - Age (between 25-65)
-      - Occupation
-      - Brief backstory (2-3 sentences)
+      Create a structured catalog entry for a plausible consumer electronics product.
     count: 3
     concurrency: 3
     modelConfig:
-      temperature: 0.8
+      temperature: 0.7
     jsonSchema:
       type: object
       properties:
         name:
           type: string
-          description: "Full name of the character"
-        age:
-          type: integer
-          description: "Age of the character"
-        occupation:
+          description: "Product name"
+        category:
           type: string
-          description: "Character's job or profession"
-        backstory:
-          type: string
-          description: "Brief background story of the character"
-      required:
-        - name
-        - age
-        - occupation
-        - backstory
+          enum: ["audio", "wearable", "computing", "home", "accessory"]
+        price_usd:
+          type: number
+          minimum: 1
+          maximum: 5000
+        key_features:
+          type: array
+          items: { type: string }
+          minItems: 2
+          maxItems: 5
+      required: [name, category, price_usd, key_features]
+      additionalProperties: false

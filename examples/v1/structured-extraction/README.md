@@ -1,16 +1,19 @@
 # Structured extraction
 
-One candidate-profile pipeline that shows three schema/template features together:
+One candidate-profile pipeline that combines the three schema/template features: a deeply nested schema, both schema formats, and native template values over real JSON types.
 
-1. **Nested JSON schema** — `profile` generates objects and arrays nested inside arrays (`jobs[].achievements[]`, `skills.technical[]`).
-2. **Both schema formats** — `profile` writes its schema as YAML-native; `seniority` writes the exact same kind of schema as a JSON string (`jsonSchema: |`). Both are supported.
-3. **Native template values** — `brief` uses `{{len .item.skills.technical}}`, `{{if .item.jobs}}`, and `{{range .item.jobs}}` directly over the real JSON types (no transform step needed).
+**Features:** `jsonSchema (nested)` · `YAML + JSON-string schema` · `native-templates` · `forEach`
+
+## Steps
+
+1. `profile` — generate a candidate profile against a **deeply nested, YAML-native** schema (`jobs[].achievements[]`, `skills.technical[]`)
+2. `seniority` — classify seniority using the same kind of schema written as a **JSON string** (`jsonSchema: |`)
+3. `brief` — `forEach` profile, write a summary using `{{len .item.skills.technical}}`, `{{if .item.jobs}}`, `{{range .item.jobs}}`
 
 ## Requirements
 
 - `datamatic`
-- [Ollama](https://ollama.com/download)
-- Install model: `ollama pull qwen3:1.7b`
+- [Ollama](https://ollama.com/download) + `ollama pull qwen3:1.7b`
 
 ## Run
 

@@ -1,50 +1,34 @@
-# Document Classification with Schema-Guided Reasoning
+# Document classification (schema-guided reasoning)
 
-Example demonstrates Schema-Guided Reasoning (SGR) for document classification using structured JSON schemas to force systematic analysis.
-Inspired by https://abdullin.com/schema-guided-reasoning/examples
+Generate documents, classify each one, then QA the whole dataset's label distribution in a single fan-in step. The schema forces systematic analysis: identify type and summarize *before* extracting entities and keywords.
 
-## Overview
+**Features:** `SGR` · `collect` · `forEach` · `jsonSchema`
 
-This example shows how to use structured schemas to improve document classification accuracy by forcing the LLM to think through the task in predefined steps:
+## Steps
 
-1. **Identify document type** - Forces selection from predefined categories
-2. **Summarize content** - Creates mental model of document
-3. **Extract key entities** - Identifies business-relevant entities from controlled vocabulary
-4. **Generate keywords** - Produces searchable terms for retrieval
+1. `generate_documents` — generate diverse documents across categories
+2. `classify_documents` — `forEach` document → `{document_type (enum), brief_summary, key_entities_mentioned[], keywords[]}`
+3. `label_distribution` — fan-in (`collect: true`): one jq expression counts labels across the whole dataset
 
-The schema acts as a reasoning framework that guides the LLM through systematic analysis rather than jumping directly to classification.
-
-## The SGR Pattern
+## The SGR pattern
 
 ```python
 class DocumentClassification(BaseModel):
   document_type: Literal["receipt", "blog_post", "article", "news", "invoice", ...]
   brief_summary: str
   key_entities_mentioned: List[str]
-  keywords: List[str] = Field(..., description="Up to 10 keywords")
+  keywords: List[str]
 ```
 
-The first two fields (`document_type` and `brief_summary`) force the LLM to analyze the document before identifying entities and keywords. This structured thinking improves classification accuracy.
+`document_type` and `brief_summary` come first, forcing the model to analyze the document before it extracts entities and keywords — which improves accuracy.
 
 ## Requirements
 
-Install:
-
 - `datamatic`
-- [Ollama](https://ollama.com/download)
-- Install model: `ollama pull qwen3:1.7b`
+- [Ollama](https://ollama.com/download) + `ollama pull qwen3:1.7b`
 
-## Example Output
+## Run
 
-```json
-{
-  "document_type": "invoice",
-  "brief_summary": "Invoice from a cloud provider billing a customer for monthly infrastructure usage",
-  "key_entities_mentioned": ["vendor", "customer", "invoice number", "amount due", "billing period"],
-  "keywords": ["invoice", "cloud", "billing", "infrastructure", "payment", "due date", "services"]
-}
+```bash
+datamatic --config ./config.yaml --verbose
 ```
-
-## Run dataset generation
-
-`datamatic --config ./config.yaml --verbose`
