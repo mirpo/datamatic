@@ -2,7 +2,7 @@ version: 1.0
 
 steps:
   - name: team_roster
-    model: ollama:llama3.2
+    model: ollama:qwen3:1.7b
     count: 3
     modelConfig:
       temperature: 0.9
@@ -34,7 +34,7 @@ steps:
     jq: '.members[]'
 
   - name: bio
-    model: ollama:llama3.2
+    model: ollama:qwen3:1.7b
     forEach: members
     prompt: |
       Write a two-sentence bio for {{.item.name}}, who works as {{.item.role}}.

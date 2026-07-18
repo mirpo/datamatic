@@ -1,7 +1,7 @@
 version: 1.0
 steps:
   - name: recipe_data
-    model: ollama:llama3.2
+    model: ollama:qwen3:1.7b
     count: 5
     modelConfig:
       temperature: 0.8
@@ -109,7 +109,7 @@ steps:
         - details
 
   - name: cooking_guide
-    model: ollama:llama3.2
+    model: ollama:qwen3:1.7b
     forEach: recipe_data
     modelConfig:
       temperature: 0.7

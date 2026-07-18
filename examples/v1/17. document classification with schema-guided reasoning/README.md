@@ -32,7 +32,7 @@ Install:
 
 - `datamatic`
 - [Ollama](https://ollama.com/download)
-- Install model: `ollama pull llama3.2`
+- Install model: `ollama pull qwen3:1.7b`
 
 ## Example Output
 
