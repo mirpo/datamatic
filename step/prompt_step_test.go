@@ -2,6 +2,7 @@ package step
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -119,7 +120,9 @@ func TestPromptStepRun_AttachesImageFromRowPath(t *testing.T) {
 	require.NoError(t, os.WriteFile(imgPath, []byte("fake-image-bytes"), 0o644))
 
 	srcPath := filepath.Join(dir, "src.jsonl")
-	require.NoError(t, os.WriteFile(srcPath, []byte(`{"path":"`+imgPath+`"}`+"\n"), 0o644))
+	row, err := json.Marshal(map[string]string{"path": imgPath}) // encode: Windows paths have backslashes
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(srcPath, append(row, '\n'), 0o644))
 	cfg.Steps = []config.Step{{Name: "imgs", Type: config.ReadStepType, OutputFilename: srcPath}}
 
 	step.ForEach = "imgs"
@@ -127,7 +130,7 @@ func TestPromptStepRun_AttachesImageFromRowPath(t *testing.T) {
 	step.Prompt = "Describe the image."
 	step.Image = "{{.item.path}}"
 
-	err := (&PromptStep{}).Run(context.Background(), cfg, step, dir)
+	err = (&PromptStep{}).Run(context.Background(), cfg, step, dir)
 	require.NoError(t, err)
 
 	// the request carried the base64 of the file

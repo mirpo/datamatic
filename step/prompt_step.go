@@ -74,7 +74,7 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 	// parse the prompt (plus the image path, which may reference row fields
 	// like {{.item.path}}) once to discover which steps it references, then read
 	// each referenced file a single time up front (rows only differ by values)
-	base, err := promptbuilder.NewPromptBuilder(step.Prompt+"\n"+step.Image, step.ForEach)
+	base, err := promptbuilder.NewPromptBuilder(step.Prompt, step.ForEach, step.Image)
 	if err != nil {
 		return err
 	}

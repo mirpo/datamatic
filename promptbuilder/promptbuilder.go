@@ -128,13 +128,30 @@ const ItemAliasName = "item"
 // source, and at render time .item shares the source step's values. The alias
 // is semantic — it works anywhere in the template, including {{len .item.x}}
 // and {{range .item.xs}}. Pass forEachSource="" for steps without forEach.
-func NewPromptBuilder(prompt string, forEachSource string) (*PromptBuilder, error) {
+// NewPromptBuilder parses the prompt into the render template. Any extra
+// template sources (e.g. a step's `image:` path) are parsed independently and
+// their placeholders merged into discovery, so referenced steps are loaded and
+// validated without gluing the templates together.
+func NewPromptBuilder(prompt string, forEachSource string, discoverAlso ...string) (*PromptBuilder, error) {
 	tmpl, err := template.New("prompt").Option("missingkey=zero").Parse(prompt)
 	if err != nil {
 		return nil, fmt.Errorf("invalid prompt template: %w", err)
 	}
 
 	placeholders := collectPlaceholders(tmpl)
+
+	for _, src := range discoverAlso {
+		if src == "" {
+			continue
+		}
+		extra, err := template.New("extra").Option("missingkey=zero").Parse(src)
+		if err != nil {
+			return nil, fmt.Errorf("invalid template: %w", err)
+		}
+		for key, info := range collectPlaceholders(extra) {
+			placeholders[key] = info
+		}
+	}
 
 	for key, info := range placeholders {
 		if info.Step != ItemAliasName {
