@@ -18,9 +18,9 @@ The schema acts as a reasoning framework that guides the LLM through systematic 
 
 ```python
 class DocumentClassification(BaseModel):
-  document_type: Literal["invoice", "contract", "receipt", ...]
+  document_type: Literal["receipt", "blog_post", "article", "news", "invoice", ...]
   brief_summary: str
-  key_entities_mentioned: List[Literal["payment", "risk", "regulator", ...]]
+  key_entities_mentioned: List[str]
   keywords: List[str] = Field(..., description="Up to 10 keywords")
 ```
 
@@ -33,16 +33,15 @@ Install:
 - `datamatic`
 - [Ollama](https://ollama.com/download)
 - Install model: `ollama pull llama3.2`
-- [hf](https://huggingface.co/docs/huggingface_hub/main/en/guides/cli)
 
 ## Example Output
 
 ```json
 {
-  "document_type": "contract",
-  "brief_summary": "Service agreement between vendor and customer for cloud infrastructure services",
-  "key_entities_mentioned": ["vendor", "customer", "service", "legal", "financial"],
-  "keywords": ["cloud", "infrastructure", "SLA", "agreement", "services", "pricing", "terms", "liability"]
+  "document_type": "invoice",
+  "brief_summary": "Invoice from a cloud provider billing a customer for monthly infrastructure usage",
+  "key_entities_mentioned": ["vendor", "customer", "invoice number", "amount due", "billing period"],
+  "keywords": ["invoice", "cloud", "billing", "infrastructure", "payment", "due date", "services"]
 }
 ```
 

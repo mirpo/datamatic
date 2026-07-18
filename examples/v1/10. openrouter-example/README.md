@@ -13,4 +13,7 @@ Install:
 
 ## Run dataset generation
 
-`export OPENROUTER_API_KEY=sk-or-v1-XXXX datamatic --config ./config.yaml --verbose`
+```bash
+export OPENROUTER_API_KEY=sk-or-v1-XXXX
+datamatic --config ./config.yaml --verbose
+```

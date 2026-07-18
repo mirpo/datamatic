@@ -1,6 +1,6 @@
 # Using vision model
 
-Example shows complex dataset generation using dataset from Huggingface and Gemma3 visual model using Ollama
+Example shows complex dataset generation using a dataset from Huggingface and a vision model (Qwen2.5-VL or Gemma 3) via Ollama or LM Studio
 
 ## Requirements
 
@@ -14,7 +14,6 @@ Install:
     - `gemma3:4b`
 - [magick](https://imagemagick.org/script/download.php) (to convert dataset images from BMP => JPEG)
 - [hf](https://huggingface.co/docs/huggingface_hub/main/en/guides/cli)
-- [jq](https://github.com/jqlang/jq)
 
 ## Run dataset generation
 

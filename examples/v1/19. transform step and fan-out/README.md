@@ -18,4 +18,4 @@ Install:
 
 ## Run dataset generation
 
-`datamatic -config ./config.yaml -verbose`
+`datamatic --config ./config.yaml --verbose`
