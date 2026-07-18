@@ -1,0 +1,58 @@
+version: 1.0
+
+# Retry policy applies to every LLM call: transient failures (429 rate limits,
+# 5xx, network timeouts) are retried with exponential backoff; permanent errors
+# (401/403 auth, 400/404/422) fail fast. This matters most against cloud APIs.
+retryConfig:
+  enabled: true
+  maxAttempts: 5
+  initialDelay: 2s
+  maxDelay: 30s
+  backoffMultiplier: 1.5
+
+steps:
+  # marketing copy generation (free text) — a common batch job against a cloud API
+  - name: product_descriptions
+    model: openai:gpt-4o-mini
+    systemPrompt: |
+      You write concise, upbeat e-commerce product descriptions (2-3 sentences).
+    prompt: |
+      Write a product description for a plausible consumer electronics product.
+    count: 5
+    # cloud APIs handle many parallel requests — generate rows concurrently
+    concurrency: 5
+    modelConfig:
+      temperature: 0.8
+      maxTokens: 200
+
+  # structured product records (JSON schema) — enrich a catalog with typed fields
+  - name: product_specs
+    model: openai:o4-mini
+    systemPrompt: |
+      You generate structured catalog data for consumer products.
+    prompt: |
+      Create a structured catalog entry for a plausible consumer electronics product.
+    count: 3
+    concurrency: 3
+    modelConfig:
+      temperature: 0.7
+    jsonSchema:
+      type: object
+      properties:
+        name:
+          type: string
+          description: "Product name"
+        category:
+          type: string
+          enum: ["audio", "wearable", "computing", "home", "accessory"]
+        price_usd:
+          type: number
+          minimum: 1
+          maximum: 5000
+        key_features:
+          type: array
+          items: { type: string }
+          minItems: 2
+          maxItems: 5
+      required: [name, category, price_usd, key_features]
+      additionalProperties: false

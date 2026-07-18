@@ -1,0 +1,108 @@
+version: 1.0
+
+# Build a question-answer dataset from your own document — the kind of set used
+# to fine-tune or evaluate a RAG system: chunk a source doc, generate grounded
+# questions, answer them from the chunk, judge each pair, and keep only the good
+# ones.
+steps:
+  # 1. get the source document (any shell tool works here)
+  - name: download_document
+    type: shell
+    run: curl https://raw.githubusercontent.com/mirpo/chopdoc/refs/heads/main/tests/pg_essay.txt -O
+    outputFilename: pg_essay.txt
+
+  # 2. split into overlapping chunks (chopdoc: a small sentence/paragraph chunker)
+  - name: chunk_document
+    type: shell
+    run: chopdoc --input pg_essay.txt --output pg_essay.jsonl --method sentence --size 10 --overlap 2
+    outputFilename: pg_essay.jsonl
+
+  # 3. cap the number of chunks so the example runs quickly.
+  #    Raise the limit (or remove this step) to process the whole document.
+  - name: sample_chunks
+    from: chunk_document
+    jq: '.'
+    limit: 5
+
+  # 4. schema-guided question generation: the schema makes the model summarize the
+  #    chunk first (main_idea), then tag each question with its cognitive level —
+  #    structured reasoning, not a free-form dump
+  - name: questions
+    model: ollama:qwen3:1.7b
+    forEach: sample_chunks
+    prompt: |
+      Read the chunk, then write exactly 3 questions at different cognitive levels
+      with the supporting evidence quoted from the chunk. Return as JSON.
+
+      Chunk:
+      {{.sample_chunks.chunk}}
+    jsonSchema:
+      type: object
+      properties:
+        main_idea:
+          type: string
+          description: "One-sentence summary of the chunk (forces comprehension first)"
+        questions:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: object
+            properties:
+              cognitive_level:
+                type: string
+                enum: [understanding, analysis, synthesis]
+              question: { type: string }
+              textEvidence: { type: string }
+            required: [cognitive_level, question, textEvidence]
+            additionalProperties: false
+      required: [main_idea, questions]
+      additionalProperties: false
+
+  # 5. fan-out: one row per question, carrying its source chunk via $parent
+  - name: flatten
+    from: questions
+    jq: '.questions[] | {question, cognitive_level, textEvidence, chunk: $parent.sample_chunks.chunk}'
+
+  # 6. answer each question strictly from its chunk (grounded answer)
+  - name: answer
+    model: ollama:qwen3:1.7b
+    forEach: flatten
+    prompt: |
+      Answer the question using only the information in the chunk. Be concise.
+      If the chunk does not contain the answer, say so.
+
+      Chunk:
+      {{.flatten.chunk}}
+
+      Question: {{.flatten.question}}
+
+  # 7. assemble the Q&A pair (question + answer + level + evidence) via $parent
+  - name: qa_pair
+    from: answer
+    jq: '{question: $parent.flatten.question, answer: ., cognitive_level: $parent.flatten.cognitive_level, textEvidence: $parent.flatten.textEvidence, chunk: $parent.flatten.chunk}'
+
+  # 8. LLM-as-judge: rate how well the answer is grounded in the chunk (1-10)
+  - name: judge
+    model: ollama:qwen3:1.7b
+    forEach: qa_pair
+    prompt: |
+      Rate 1-10 how well the answer is supported by the chunk (accuracy,
+      relevance, and grounding). Return as JSON with a single integer `rating`.
+
+      Chunk:
+      {{.qa_pair.chunk}}
+
+      Question: {{.qa_pair.question}}
+      Answer: {{.qa_pair.answer}}
+    jsonSchema:
+      type: object
+      properties:
+        rating: { type: integer, minimum: 1, maximum: 10 }
+      required: [rating]
+      additionalProperties: false
+
+  # 9. keep only high-quality pairs — the final dataset row
+  - name: high_quality
+    from: judge
+    jq: 'select(.rating >= 7) | $parent.qa_pair + {rating: .rating}'

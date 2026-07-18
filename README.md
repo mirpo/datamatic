@@ -163,7 +163,7 @@ steps:
 
 Always wrap jq programs in single quotes: unquoted YAML silently truncates at `#`, misparses `{...}` object construction, and jq's own strings use double quotes anyway.
 
-jq programs are validated when the config loads. Transform steps run instantly, produce regular JSONL, and don't trigger the external-CLI warning. See the [Fan-Out example](./examples/v1/19.%20transform%20step%20and%20fan-out/README.md).
+jq programs are validated when the config loads. Transform steps run instantly, produce regular JSONL, and don't trigger the external-CLI warning. See the [dataset-pipeline example](./examples/v1/dataset-pipeline/README.md), which uses fan-out and fan-in.
 
 ### Environment Variables
 
@@ -186,7 +186,7 @@ steps:
 PROVIDER=ollama MODEL=llama3.2 datamatic --config config.yaml
 ```
 
-Variables listed in `envVars` are validated before execution (fail-fast). See [Multi-Stage Pipeline example](./examples/v1/18.%20workdir-multi-stage-pipeline/README.md) for more details.
+Variables listed in `envVars` are validated before execution (fail-fast). See [env-and-workdir example](./examples/v1/env-and-workdir/README.md) for more details.
 
 ## Output Format
 
@@ -269,37 +269,31 @@ Options:
 
 ## Examples
 
-### Getting Started
-| Example | Description | Provider |
-| --- | --- | --- |
-| [Simple Text](./examples/v1/1.%20simple%20text%20generation,%20not%20linked%20steps/README.md) | Basic text generation | Ollama, LM Studio |
-| [Simple JSON](./examples/v1/2.%20simple%20json%20generation,%20not%20linked%20steps/README.md) | Basic JSON generation | Ollama, LM Studio |
-| [Linked Steps](./examples/v1/3.%20complex%20json,%20linked%20steps/README.md) | Multi-step chaining with templates | Ollama |
+See [`examples/v1/`](./examples/v1/) for the full feature matrix. Start with `basics`, then `linked-steps`.
 
-### Data Integration & Tool Orchestration
-| Example | Description | Provider |
+### Getting started
+| Example | Features shown | Backend |
 | --- | --- | --- |
-| [Huggingface + jq](./examples/v1/4.%20using%20huggingface%20and%20jq%20cli/README.md) | HuggingFace datasets with jq filtering | Ollama |
-| [DuckDB Integration](./examples/v1/5.%20using%20duckdb%20to%20convert%20parquet%20huggingface%20dataset%20and%20lmstudio/README.md) | Parquet to JSONL with DuckDB | LM Studio |
-| [Git Dataset](./examples/v1/6.%20git%20dataset/README.md) | Git command dataset generation | Ollama |
-| [Fine-tuning Data](./examples/v1/7.%20fine-tuning%20dataset/README.md) | Training dataset creation | Ollama |
-| [Vision Models](./examples/v1/8.%20hugginface%20images%20and%20qwen2.5vl%20or%20gemma3/README.md) | Image analysis with vision models | Ollama, LM Studio |
+| [basics](./examples/v1/basics/README.md) | text generation, JSON schema | Ollama |
+| [linked-steps](./examples/v1/linked-steps/README.md) | step chaining, native template values (`if`/`range`/`len`) | Ollama |
+| [structured-extraction](./examples/v1/structured-extraction/README.md) | nested schema, both schema formats (YAML/JSON-string), native templates | Ollama |
 
-### Cloud Provider Examples
-| Example | Description | Provider |
+### Datasets & reasoning
+| Example | Features shown | Backend |
 | --- | --- | --- |
-| [OpenAI](./examples/v1/9.%20openai-example/README.md) | Using OpenAI models | OpenAI |
-| [OpenRouter](./examples/v1/10.%20openrouter-example/README.md) | Multi-provider via OpenRouter | OpenRouter |
-| [Gemini](./examples/v1/11.%20gemini-example/README.md) | Google Gemini integration | Gemini |
+| [dataset-pipeline](./examples/v1/dataset-pipeline/README.md) | transform fan-out, fan-in (`collect`, `$parent`), rating pipeline | Ollama |
+| [sgr-reasoning](./examples/v1/sgr-reasoning/README.md) | schema-guided reasoning, `sourceFormat: json` | Ollama |
+| [document-classification](./examples/v1/document-classification/README.md) | SGR classification, `collect` fan-in QA | Ollama |
+| [document-qa](./examples/v1/document-qa/README.md) | RAG-style Q&A from a document, rating filter | Ollama |
 
-### Advanced Workflows & Reasoning
-| Example | Description | Provider |
+### Data integration & infrastructure
+| Example | Features shown | Backend |
 | --- | --- | --- |
-| [CV Processing Pipeline](./examples/v1/12.%20cv-processing-pipeline/README.md) | 3-step CV extraction workflow | Ollama |
-| [Retry Configuration](./examples/v1/13.%20retry%20configuration%20example/README.md) | Error handling and retry logic | Ollama |
-| [Recipe with Nested Fields](./examples/v1/14.%20recipe%20generation%20with%20nested%20fields/README.md) | Nested JSON field access | Ollama |
-| [Math Reasoning](./examples/v1/15.%20simple%20math%20reasoning/README.md) | Step-by-step math problem solving | Ollama |
-| [SQL Reasoning](./examples/v1/16.%20sql%20reasoning%20with%20checklist/README.md) | SQL generation with reasoning checklist | Ollama |
-| [Document Classification](./examples/v1/17.%20document%20classification%20with%20schema-guided%20reasoning/README.md) | Schema-guided classification workflow | Ollama |
-| [Multi-Stage Pipeline](./examples/v1/18.%20workdir-multi-stage-pipeline/README.md) | workDir control and environment variables | Ollama |
-| [Transform & Fan-Out](./examples/v1/19.%20transform%20step%20and%20fan-out/README.md) | Built-in jq: one structured answer → N rows | Ollama |
+| [external-data](./examples/v1/external-data/README.md) | HuggingFace download + transform + shell tools | Ollama |
+| [env-and-workdir](./examples/v1/env-and-workdir/README.md) | env vars, `workDir`, `$PROVIDER`, DuckDB | Ollama |
+| [vision](./examples/v1/vision/README.md) | image → structured output (`imagePath`) | Ollama, LM Studio |
+
+### Cloud
+| Example | Features shown | Backend |
+| --- | --- | --- |
+| [cloud-providers](./examples/v1/cloud-providers/README.md) | provider selection, `concurrency`, `retryConfig` | OpenAI / OpenRouter / Gemini |

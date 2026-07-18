@@ -1,0 +1,132 @@
+version: 1.0
+
+steps:
+  - name: generate_subtopics
+    model: ollama:qwen3:1.7b
+    prompt: |
+      I am building a dataset of Git-related questions and commands. List exactly 30 distinct subtopics that comprehensively cover core and advanced Git usage. Do not number the subtopics. Separate them only with commas, with no additional text or formatting.
+      Each subtopic should be a short phrase, and they should be relevant to Git commands, concepts, or workflows. The subtopics should be diverse and cover various aspects of Git, including but not limited to version control, branching, merging, rebasing, conflict resolution, and collaboration.
+    count: 1
+    jsonSchema:
+      type: object
+      properties:
+        subtopics:
+          type: array
+          minItems: 30
+          maxItems: 30
+          items:
+            type: string
+      required:
+        - subtopics
+
+  # built-in transform: dedupe within the single roster row and fan out to
+  # one row per subtopic (jq sees the response value, not the file format)
+  - name: split_into_unique_subtopics
+    from: generate_subtopics
+    jq: '.subtopics | unique | .[] | {id: (. | @base64), topic: .}'
+
+  - name: generate_instructions
+    model: ollama:qwen3:1.7b
+    prompt: |
+      Generate list of 100 concise user instructions about the following Git topic: {{.split_into_unique_subtopics.topic}}.
+      These instructions list will be used to train an AI assistant.
+
+      - 70% of the instructions should reflect beginner-level understanding, using casual or non-technical phrasing.
+      - 30% should reflect intermediate to advanced users, including Git jargon where appropriate.
+      - Keep each instruction brief and focused.
+      - Do not number the items. Separate each instruction with a newline. Return only the list.
+    modelConfig:
+      temperature: 0.9
+      maxTokens: 5000
+    forEach: split_into_unique_subtopics
+    jsonSchema:
+      type: object
+      properties:
+        instructions:
+          type: array
+          items:
+            type: string
+      required:
+        - instructions
+
+  # fan-in: collect gives jq an array of ALL rows, so cross-row dedupe
+  # is one expression — no external jq, no envelope digging
+  - name: split_into_unique_instructions
+    from: generate_instructions
+    collect: true
+    jq: 'map(.instructions[]) | unique[] | {id: @base64, instruction: .}'
+
+  - name: generate_answer
+    model: ollama:qwen3:1.7b
+    prompt: |
+      Given the user instruction related to Git below, generate a clear, accurate, and concise response.
+
+      - Include actual Git commands where appropriate.
+      - Provide examples for complex tasks.
+      - Keep the tone friendly, but not overly verbose.
+      - Avoid unnecessary tangents or deep Git internals unless the instruction explicitly requires it.
+
+      Instruction: "{{.split_into_unique_instructions.instruction}}"
+    forEach: split_into_unique_instructions
+
+  # join the generated answer with its source instruction via $parent
+  - name: instruction_response
+    from: generate_answer
+    jq: '{instruction: $parent.split_into_unique_instructions.instruction, response: .}' 
+
+  - name: rate
+    model: ollama:qwen3:1.7b
+    systemPrompt: |
+      You are an expert evaluator of Git instruction-response pairs. Score each on a
+      0-10 scale across five dimensions: helpfulness (practical, actionable, covers
+      edge cases), correctness (accurate commands and best practices), coherence
+      (well-structured and logical), complexity (Git knowledge required, matched to
+      the question), and verbosity (length appropriate, concise yet complete).
+    prompt: |
+      Please evaluate the following Git instruction-response pair and provide scores for helpfulness, correctness, coherence, complexity, and verbosity on a scale of 0-10:
+
+      INSTRUCTION:
+      {{.instruction_response.instruction}}
+
+      RESPONSE:
+      {{.instruction_response.response}}
+
+      Please provide your evaluation in the JSON format specified below, with a brief justification for each score.
+    modelConfig:
+      temperature: 0.9
+      maxTokens: 5000
+    forEach: instruction_response
+    jsonSchema:
+      type: object
+      properties:
+        helpfulness:
+          type: integer
+          minimum: 0
+          maximum: 10
+        correctness:
+          type: integer
+          minimum: 0
+          maximum: 10
+        coherence:
+          type: integer
+          minimum: 0
+          maximum: 10
+        complexity:
+          type: integer
+          minimum: 0
+          maximum: 10
+        verbosity:
+          type: integer
+          minimum: 0
+          maximum: 10
+      required:
+        - helpfulness
+        - correctness
+        - coherence
+        - complexity
+        - verbosity
+
+  # final dataset rows: join instruction + response + evaluation via $parent
+  - name: result
+    from: rate
+    jq: '{instruction: $parent.instruction_response.instruction, response: $parent.instruction_response.response, evaluation: .}' 
