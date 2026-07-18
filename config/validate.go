@@ -118,15 +118,3 @@ func (c *Config) Validate() error {
 
 	return nil
 }
-
-// ShellCommands returns the run commands of all shell steps, used by the CLI
-// to warn the user before executing external applications.
-func (c *Config) ShellCommands() []string {
-	var commands []string
-	for _, step := range c.Steps {
-		if step.Type == ShellStepType {
-			commands = append(commands, step.Run)
-		}
-	}
-	return commands
-}

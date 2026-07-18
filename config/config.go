@@ -23,7 +23,6 @@ func NewConfig() *Config {
 		OutputFolder:     "dataset",
 		HTTPTimeout:      300,
 		ValidateResponse: true,
-		SkipCliWarning:   false,
 		RetryConfig:      retry.NewDefaultConfig(),
 	}
 }
@@ -35,7 +34,6 @@ type Config struct {
 	OutputFolder     string
 	HTTPTimeout      int
 	ValidateResponse bool
-	SkipCliWarning   bool
 	Version          string       `yaml:"version"`
 	EnvVars          []string     `yaml:"envVars"`
 	Steps            []Step       `yaml:"steps"`

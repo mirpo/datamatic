@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"github.com/goforj/godump"
@@ -41,7 +40,6 @@ func main() {
 	flag.StringVar(&cfg.OutputFolder, "output", cfg.OutputFolder, "Output folder path")
 	flag.IntVar(&cfg.HTTPTimeout, "http-timeout", cfg.HTTPTimeout, "HTTP timeout: 0 - no timeout, if number - recommended to put high on poor hardware")
 	flag.BoolVar(&cfg.ValidateResponse, "validate-response", cfg.ValidateResponse, "Validate JSON response from server to match the schema")
-	flag.BoolVar(&cfg.SkipCliWarning, "skip-cli-warning", cfg.SkipCliWarning, "Skip external CLI warning")
 
 	flag.CommandLine.Parse(args) //nolint:errcheck // flag.ExitOnError exits on failure
 
@@ -68,11 +66,6 @@ func main() {
 		// command result, not a log event: stable stdout regardless of log settings
 		fmt.Printf("Config is valid: %d steps\n", len(cfg.Steps))
 		return
-	}
-
-	if commands := cfg.ShellCommands(); !cfg.SkipCliWarning && len(commands) > 0 {
-		fmt.Fprintf(os.Stderr, "⚠️ WARNING: External application call detected! The author assumes no responsibility for execution results. Please verify all external calls before proceeding. Use at your own risk.\n\nCalls: \n- %s\n\nPress Enter to continue", strings.Join(commands, "\n- "))
-		fmt.Scanln() //nolint:golint,errcheck
 	}
 
 	if cfg.Verbose {
