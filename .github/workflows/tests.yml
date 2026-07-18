@@ -51,7 +51,5 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           ollama pull qwen3:1.7b
-          # for simplicity, we set count == 1
-          sed -i -e 's/count: 10/count: 1/g' ./examples/v1/3.\ complex\ json,\ linked\ steps/config.yaml
-          ./datamatic --config ./examples/v1/3.\ complex\ json,\ linked\ steps/config.yaml --verbose
-          cat ./dataset/text_about_country.jsonl | jq
+          ./datamatic --config ci/smoke.yaml --verbose
+          cat ./dataset/describe.jsonl | jq

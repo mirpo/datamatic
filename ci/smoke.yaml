@@ -1,0 +1,37 @@
+version: 1.0
+
+# Minimal CI smoke test (not a showcase example).
+# Exercises the core data flow end-to-end against a real Ollama model in
+# ~3 LLM calls: structured output -> transform fan-out -> forEach linking.
+# Small counts are baked in, so CI needs no sed/count hacks.
+steps:
+  # 1. structured output: one topic with exactly three tags
+  - name: seed
+    model: ollama:qwen3:1.7b
+    count: 1
+    prompt: |
+      Pick one programming topic and list exactly three short tags for it. Return as JSON.
+    jsonSchema:
+      type: object
+      properties:
+        topic: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+          minItems: 3
+          maxItems: 3
+      required: [topic, tags]
+      additionalProperties: false
+
+  # 2. transform fan-out: 1 seed row -> N tag rows (zero LLM cost, instant)
+  - name: tags
+    from: seed
+    jq: '.tags[] | {tag: .}'
+    limit: 2
+
+  # 3. forEach over the transform output, referencing the current row
+  - name: describe
+    model: ollama:qwen3:1.7b
+    forEach: tags
+    prompt: |
+      In one short sentence, describe the programming tag "{{.item.tag}}".
