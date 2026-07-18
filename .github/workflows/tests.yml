@@ -50,7 +50,7 @@ jobs:
       - name: Run datamatic with ollama
         if: runner.os == 'Linux'
         run: |
-          ollama pull llama3.2
+          ollama pull qwen3:1.7b
           # for simplicity, we set count == 1
           sed -i -e 's/count: 10/count: 1/g' ./examples/v1/3.\ complex\ json,\ linked\ steps/config.yaml
           ./datamatic --config ./examples/v1/3.\ complex\ json,\ linked\ steps/config.yaml --verbose
