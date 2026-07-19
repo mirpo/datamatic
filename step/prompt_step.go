@@ -71,9 +71,10 @@ func (p *PromptStep) Run(ctx context.Context, cfg *config.Config, step config.St
 
 	hasSchema := step.JSONSchema.HasSchemaDefinition()
 
-	// parse the prompt once to discover which steps it references, then read
+	// parse the prompt (plus the image path, which may reference row fields
+	// like {{.item.path}}) once to discover which steps it references, then read
 	// each referenced file a single time up front (rows only differ by values)
-	base, err := promptbuilder.NewPromptBuilder(step.Prompt, step.ForEach)
+	base, err := promptbuilder.NewPromptBuilder(step.Prompt, step.ForEach, step.Image)
 	if err != nil {
 		return err
 	}
@@ -116,18 +117,16 @@ func (p *PromptStep) runRow(ctx context.Context, cfg *config.Config, step config
 	}
 
 	var base64Image string
-	if step.HasImages() {
-		imagePath, err := fs.PickImageFile(step.ImagePath, i)
+	if step.Image != "" {
+		imagePath, err := pb.RenderString(step.Image)
 		if err != nil {
-			return jsonl.LineEntity{}, fmt.Errorf("failed to find images by pattern '%s': %w", step.ImagePath, err)
+			return jsonl.LineEntity{}, fmt.Errorf("failed to resolve image path '%s': %w", step.Image, err)
 		}
 
 		base64Image, err = fs.ImageToBase64(imagePath)
 		if err != nil {
 			return jsonl.LineEntity{}, fmt.Errorf("failed to encode image '%s': %w", imagePath, err)
 		}
-
-		pb.AddValue(base64Image[:15], step.Name, "image", imagePath)
 	}
 
 	userPrompt, err := pb.BuildPrompt()

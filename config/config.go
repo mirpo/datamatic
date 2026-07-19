@@ -82,7 +82,7 @@ type Step struct {
 	ModelConfig    ModelConfig `yaml:"modelConfig"`
 	OutputFilename string      `yaml:"outputFilename"`
 	JSONSchemaRaw  interface{} `yaml:"jsonSchema"`
-	ImagePath      string      `yaml:"imagePath"`
+	Image          string      `yaml:"image"` // prompt steps: file path (templatable) to attach as a vision image
 	ResolvedCount  int
 	JSONSchema     jsonschema.Schema
 	// JQProgram holds the compiled jq program (set during preprocessing);
@@ -117,8 +117,4 @@ func (c *Config) GetStepByName(name string) *Step {
 		}
 	}
 	return nil
-}
-
-func (s *Step) HasImages() bool {
-	return len(s.ImagePath) > 0
 }

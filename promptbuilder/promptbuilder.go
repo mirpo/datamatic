@@ -128,13 +128,30 @@ const ItemAliasName = "item"
 // source, and at render time .item shares the source step's values. The alias
 // is semantic — it works anywhere in the template, including {{len .item.x}}
 // and {{range .item.xs}}. Pass forEachSource="" for steps without forEach.
-func NewPromptBuilder(prompt string, forEachSource string) (*PromptBuilder, error) {
+// NewPromptBuilder parses the prompt into the render template. Any extra
+// template sources (e.g. a step's `image:` path) are parsed independently and
+// their placeholders merged into discovery, so referenced steps are loaded and
+// validated without gluing the templates together.
+func NewPromptBuilder(prompt string, forEachSource string, discoverAlso ...string) (*PromptBuilder, error) {
 	tmpl, err := template.New("prompt").Option("missingkey=zero").Parse(prompt)
 	if err != nil {
 		return nil, fmt.Errorf("invalid prompt template: %w", err)
 	}
 
 	placeholders := collectPlaceholders(tmpl)
+
+	for _, src := range discoverAlso {
+		if src == "" {
+			continue
+		}
+		extra, err := template.New("extra").Option("missingkey=zero").Parse(src)
+		if err != nil {
+			return nil, fmt.Errorf("invalid template: %w", err)
+		}
+		for key, info := range collectPlaceholders(extra) {
+			placeholders[key] = info
+		}
+	}
 
 	for key, info := range placeholders {
 		if info.Step != ItemAliasName {
@@ -191,7 +208,9 @@ func setNestedValue(target Object, path string, value interface{}) {
 	current[parts[len(parts)-1]] = value
 }
 
-func (pb *PromptBuilder) BuildPrompt() (string, error) {
+// buildValues assembles the template context from the loaded step data,
+// exposing the forEach source under the {{.item}} alias.
+func (pb *PromptBuilder) buildValues() map[string]interface{} {
 	values := make(map[string]interface{})
 	for stepName, stepFields := range pb.stepData {
 		stepObj := make(Object)
@@ -213,10 +232,31 @@ func (pb *PromptBuilder) BuildPrompt() (string, error) {
 		}
 	}
 
+	return values
+}
+
+func (pb *PromptBuilder) BuildPrompt() (string, error) {
+	values := pb.buildValues()
 	log.Debug().Msgf("using values: %+v", values)
 
 	var output bytes.Buffer
 	if err := pb.tmpl.Execute(&output, values); err != nil {
+		return "", fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	return output.String(), nil
+}
+
+// RenderString renders an arbitrary template string against the same values as
+// the prompt — used for the per-row `image:` path (e.g. "{{.item.path}}").
+func (pb *PromptBuilder) RenderString(s string) (string, error) {
+	tmpl, err := template.New("render").Option("missingkey=zero").Parse(s)
+	if err != nil {
+		return "", fmt.Errorf("invalid template: %w", err)
+	}
+
+	var output bytes.Buffer
+	if err := tmpl.Execute(&output, pb.buildValues()); err != nil {
 		return "", fmt.Errorf("failed to execute template: %w", err)
 	}
 

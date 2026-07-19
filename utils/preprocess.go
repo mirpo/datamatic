@@ -153,6 +153,9 @@ func PreprocessConfig(cfg *config.Config) error {
 		if step.SourceFormat != "" && step.Type != config.TransformStepType {
 			return fmt.Errorf("step '%s': 'sourceFormat' is only valid on transform steps", step.Name)
 		}
+		if step.Image != "" && step.Type != config.PromptStepType {
+			return fmt.Errorf("step '%s': 'image' is only valid on prompt steps", step.Name)
+		}
 		if step.Type == config.TransformStepType {
 			if step.From == "" {
 				return fmt.Errorf("step '%s': 'from' is required for transform steps", step.Name)
@@ -194,22 +197,12 @@ func PreprocessConfig(cfg *config.Config) error {
 		// Read steps: local-file source (path resolves relative to CWD; rows
 		// materialize to outputFolder like a transform)
 		if step.Type == config.ReadStepType {
-			if step.ImagePath != "" {
-				return fmt.Errorf("step '%s': 'imagePath' is not valid on read steps", step.Name)
-			}
 			format, err := resolveReadFormat(step)
 			if err != nil {
 				return fmt.Errorf("step '%s': %w", step.Name, err)
 			}
 			step.Format = format
 			if err := setOutputFilename(step, cfg.OutputFolder); err != nil {
-				return fmt.Errorf("step '%s': %w", step.Name, err)
-			}
-		}
-
-		// Normalize image path if needed
-		if step.HasImages() {
-			if err := setImagePath(step, cfg.OutputFolder); err != nil {
 				return fmt.Errorf("step '%s': %w", step.Name, err)
 			}
 		}
@@ -232,12 +225,12 @@ func PreprocessConfig(cfg *config.Config) error {
 }
 
 // validatePromptPlaceholders checks every {{.step.field}} reference in the
-// prompt against earlier steps: the step must exist ({{.item}} aliases the
-// forEach source), field references into prompt steps must match their JSON
-// schema, and a step may not be referenced both as a whole and by field in
-// one prompt.
+// prompt (and the image path) against earlier steps: the step must exist
+// ({{.item}} aliases the forEach source), field references into prompt steps
+// must match their JSON schema, and a step may not be referenced both as a
+// whole and by field in one prompt.
 func validatePromptPlaceholders(step *config.Step, stepByName map[string]*config.Step) error {
-	builder, err := promptbuilder.NewPromptBuilder(step.Prompt, step.ForEach)
+	builder, err := promptbuilder.NewPromptBuilder(step.Prompt, step.ForEach, step.Image)
 	if err != nil {
 		return err
 	}
@@ -363,17 +356,6 @@ func setOutputFilename(step *config.Step, outputFolder string) error {
 		return fmt.Errorf("failed to get full output path: %w", err)
 	}
 	step.OutputFilename = fullOutputPath
-	return nil
-}
-
-// setImagePath processes and sets the image path for a step
-func setImagePath(step *config.Step, outputFolder string) error {
-	step.ImagePath = strings.TrimSpace(step.ImagePath)
-
-	if !filepath.IsAbs(step.ImagePath) {
-		step.ImagePath = filepath.Join(outputFolder, step.ImagePath)
-	}
-
 	return nil
 }
 
