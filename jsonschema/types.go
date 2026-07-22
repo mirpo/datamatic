@@ -183,4 +183,16 @@ func walkStrict(node *jsonschema.Schema, path string, issues *[]string) {
 	if node.Items != nil {
 		walkStrict(node.Items, path+".items", issues)
 	}
+
+	// routing unions: every branch must itself be a strict object, otherwise
+	// it passes here but fails on OpenAI strict structured output
+	walkBranches(node.AnyOf, path+".anyOf", issues)
+	walkBranches(node.OneOf, path+".oneOf", issues)
+	walkBranches(node.AllOf, path+".allOf", issues)
+}
+
+func walkBranches(branches []*jsonschema.Schema, path string, issues *[]string) {
+	for i, branch := range branches {
+		walkStrict(branch, fmt.Sprintf("%s[%d]", path, i), issues)
+	}
 }

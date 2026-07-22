@@ -252,6 +252,48 @@ func TestValidateJSONText(t *testing.T) {
 	assert.Contains(t, errorMsg, "Properties 'age', 'email', 'name' do not match their schemas")
 }
 
+// TestValidateJSONText_DiscriminatedUnion proves the engine correctly enforces
+// an SGR-routing union: exactly one branch's shape must match, and a payload
+// that mixes branches or adds fields is rejected. This is the deterministic
+// verification of Routing support (LLM branch-choice accuracy is model-bound
+// and out of scope here).
+func TestValidateJSONText_DiscriminatedUnion(t *testing.T) {
+	schema, err := LoadSchema(`{
+		"type": "object",
+		"properties": {
+			"details": {
+				"anyOf": [
+					{
+						"type": "object",
+						"properties": {"kind": {"const": "billing"}, "amount_note": {"type": "string"}},
+						"required": ["kind", "amount_note"],
+						"additionalProperties": false
+					},
+					{
+						"type": "object",
+						"properties": {"kind": {"const": "bug"}, "affected_area": {"type": "string"}},
+						"required": ["kind", "affected_area"],
+						"additionalProperties": false
+					}
+				]
+			}
+		},
+		"required": ["details"],
+		"additionalProperties": false
+	}`)
+	require.NoError(t, err)
+
+	assert.NoError(t, schema.ValidateJSONText(`{"details": {"kind": "billing", "amount_note": "EUR 240 x2"}}`),
+		"a well-formed billing branch must pass")
+	assert.NoError(t, schema.ValidateJSONText(`{"details": {"kind": "bug", "affected_area": "login"}}`),
+		"a well-formed bug branch must pass")
+
+	assert.Error(t, schema.ValidateJSONText(`{"details": {"kind": "billing", "affected_area": "login"}}`),
+		"mixing a branch's discriminator with another branch's fields must fail")
+	assert.Error(t, schema.ValidateJSONText(`{"details": {"kind": "bug", "affected_area": "login", "severity": "high"}}`),
+		"an extra field not in the chosen branch must fail (additionalProperties: false)")
+}
+
 func TestHasFieldPath(t *testing.T) {
 	schema, err := LoadSchema(map[string]interface{}{
 		"type": "object",
@@ -353,6 +395,58 @@ func TestStrictCompatibilityIssues_CleanSchema(t *testing.T) {
 		"type": "object",
 		"properties": {"title": {"type": "string"}},
 		"required": ["title"],
+		"additionalProperties": false
+	}`)
+	require.NoError(t, err)
+
+	assert.Empty(t, schema.StrictCompatibilityIssues())
+}
+
+func TestStrictCompatibilityIssues_UnionBranch(t *testing.T) {
+	// a routing union whose branch is not strict: 'note' is optional and
+	// additionalProperties is not false
+	schema, err := LoadSchema(`{
+		"type": "object",
+		"properties": {
+			"issue": {
+				"anyOf": [
+					{
+						"type": "object",
+						"properties": {"kind": {"type": "string"}, "note": {"type": "string"}},
+						"required": ["kind"]
+					}
+				]
+			}
+		},
+		"required": ["issue"],
+		"additionalProperties": false
+	}`)
+	require.NoError(t, err)
+
+	issues := schema.StrictCompatibilityIssues()
+
+	assert.NotEmpty(t, issues)
+	joined := strings.Join(issues, "; ")
+	assert.Contains(t, joined, "anyOf", "must point at the offending union branch")
+	assert.Contains(t, joined, "note", "optional branch property must be flagged")
+}
+
+func TestStrictCompatibilityIssues_CleanUnionBranch(t *testing.T) {
+	schema, err := LoadSchema(`{
+		"type": "object",
+		"properties": {
+			"issue": {
+				"anyOf": [
+					{
+						"type": "object",
+						"properties": {"kind": {"type": "string"}},
+						"required": ["kind"],
+						"additionalProperties": false
+					}
+				]
+			}
+		},
+		"required": ["issue"],
 		"additionalProperties": false
 	}`)
 	require.NoError(t, err)

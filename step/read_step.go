@@ -15,8 +15,9 @@ import (
 type ReadStep struct{}
 
 // Run loads local files into JSONL rows: one row per file (files), per record
-// (csv), or per line (jsonl). The read path resolves relative to the current
-// working directory; rows materialize to OutputFilename like a transform step.
+// (csv), or per line (jsonl). The read path is resolved during preprocessing
+// (relative to the config file's dir); rows materialize to OutputFilename like
+// a transform step.
 func (p *ReadStep) Run(ctx context.Context, cfg *config.Config, step config.Step, outputFolder string) error {
 	files, err := fs.GlobFiles(step.Read)
 	if err != nil {

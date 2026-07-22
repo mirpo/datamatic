@@ -21,6 +21,8 @@ func NewStepRunner(step config.Step) (StepRunner, error) {
 		return &TransformStep{}, nil
 	case config.ReadStepType:
 		return &ReadStep{}, nil
+	case config.WriteStepType:
+		return &WriteStep{}, nil
 	default:
 		return nil, errors.New("unsupported step type")
 	}

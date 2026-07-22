@@ -165,6 +165,41 @@ Always wrap jq programs in single quotes: unquoted YAML silently truncates at `#
 
 jq programs are validated when the config loads. Transform steps run instantly, produce regular JSONL, and don't trigger the external-CLI warning. See the [dataset-pipeline example](./examples/v1/dataset-pipeline/README.md), which uses fan-out and fan-in.
 
+### Local Files: `read` and `write`
+
+Process your own data end to end — no shell glue:
+
+```yaml
+steps:
+  - name: leads
+    read: ./leads.csv          # local files → rows
+  - name: classified
+    forEach: leads
+    prompt: Classify {{.item.company}}
+    jsonSchema: { ... }
+  - name: report
+    from: classified
+    write: ./enriched.csv       # rows → a deliverable file
+```
+
+- **`read:`** turns local files into rows. Format is inferred from the path (overridable with `format:`):
+  - a glob / directory / `.txt` / `.md` → one row per file: `{path, name, content}`
+  - `.csv` / `.tsv` → one row per record (columns become fields)
+  - `.jsonl` → one row per line
+- **`write:`** exports a step's rows to a file, format inferred from the extension: `.csv`, `.json` (array), `.md` (table), or `.jsonl`. It's terminal and doesn't change the intermediate JSONL that other steps read.
+- **`image:`** on a prompt step attaches a file as a vision image, e.g. `image: "{{.item.path}}"` after `read`-ing a folder of images.
+- Relative `read`/`write` paths resolve **relative to the config file's directory** (so a workflow's data travels with it and runs from any working directory); absolute paths are used as-is. See the [csv-enrichment](./examples/v1/csv-enrichment/README.md) and [process-my-files](./examples/v1/process-my-files/README.md) examples.
+
+### Schema-Guided Reasoning (SGR)
+
+Shape the JSON schema to steer *how* the model reasons, not just what it returns. Three patterns ([background](https://abdullin.com/schema-guided-reasoning/)):
+
+- **Cascade** — put reasoning before the conclusion (a `reasoning` field, or a `steps[]` array, ahead of the answer). The workhorse; works well even on small local models. See [sgr-reasoning](./examples/v1/sgr-reasoning/README.md), [document-classification](./examples/v1/document-classification/README.md), [inbox-triage](./examples/v1/inbox-triage/README.md).
+- **Routing** — a discriminated union (`anyOf` of object branches, each with a `const` discriminator) makes the model pick one branch and fill only its fields; datamatic validates the union and every branch for strict output. Branch-choice accuracy needs a capable model — small local models (≤3B) reliably mis-route, so use a cloud model for real routing.
+- **Cycle** — an `array` of a repeated sub-schema (optionally bounded with `minItems`/`maxItems`) emits N reasoning items. Bounds are honored by Ollama's grammar but rejected by OpenAI strict mode.
+
+Prompt steps send the schema as strict structured output (all properties required, `additionalProperties: false`); `datamatic validate` flags schemas that break those rules before you hit the API.
+
 ### Environment Variables
 
 Configure your pipelines dynamically using `$VAR` syntax:
@@ -288,6 +323,7 @@ See [`examples/v1/`](./examples/v1/) for the full feature matrix. Start with `ba
 | Example | Features shown | Backend |
 | --- | --- | --- |
 | [process-my-files](./examples/v1/process-my-files/README.md) | `read` local files (glob/dir/CSV/JSONL) into rows | Ollama |
+| [csv-enrichment](./examples/v1/csv-enrichment/README.md) | `read` CSV → LLM enrich → `write` CSV (full office loop) | Ollama |
 | [external-data](./examples/v1/external-data/README.md) | HuggingFace download + transform + shell tools | Ollama |
 | [env-and-workdir](./examples/v1/env-and-workdir/README.md) | env vars, `workDir`, `$PROVIDER`, DuckDB | Ollama |
 | [vision](./examples/v1/vision/README.md) | image → structured output (`imagePath`) | Ollama, LM Studio |

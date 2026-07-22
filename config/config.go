@@ -47,6 +47,7 @@ const (
 	ShellStepType     StepType = "shell"
 	TransformStepType StepType = "transform"
 	ReadStepType      StepType = "read"
+	WriteStepType     StepType = "write"
 	UnknownStepType   StepType = "unknown"
 )
 
@@ -61,6 +62,13 @@ const (
 	ReadFormatJSONL = "jsonl" // one row per line (parsed JSON)
 )
 
+const (
+	WriteFormatCSV      = "csv"   // one record per row; keys become columns
+	WriteFormatJSON     = "json"  // a single pretty-printed JSON array of all rows
+	WriteFormatMarkdown = "md"    // a Markdown table
+	WriteFormatJSONL    = "jsonl" // one JSON value per line (passthrough)
+)
+
 type Step struct {
 	Type           StepType    `yaml:"type,omitempty"`
 	Name           string      `yaml:"name"`
@@ -69,8 +77,9 @@ type Step struct {
 	Run            string      `yaml:"run"`
 	JQ             string      `yaml:"jq"`           // transform steps: jq program
 	Read           string      `yaml:"read"`         // read steps: file/glob/dir to load as rows
-	Format         string      `yaml:"format"`       // read steps: "files" | "csv" | "jsonl" (default: by extension)
-	From           string      `yaml:"from"`         // transform steps: source step name
+	Write          string      `yaml:"write"`        // write steps: file path to export the source rows to
+	Format         string      `yaml:"format"`       // read: "files"|"csv"|"jsonl"; write: "csv"|"json"|"md"|"jsonl" (default: by extension)
+	From           string      `yaml:"from"`         // transform/write steps: source step name
 	Limit          int         `yaml:"limit"`        // transform steps: cap output rows (0 = no cap)
 	Collect        bool        `yaml:"collect"`      // transform steps: jq sees an array of ALL source rows (fan-in)
 	SourceFormat   string      `yaml:"sourceFormat"` // transform steps: "jsonl" (default, line per row) or "json" (whole file is one value)
