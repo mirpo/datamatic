@@ -1,0 +1,11 @@
+From: priya.n@quantaleap.dev
+Subject: Any plans for dark mode or outbound webhooks?
+
+Hey team,
+
+Really enjoying the product so far. Two things on our wishlist: a dark theme for
+the console (we stare at it all day) and outbound webhooks so we can push events
+into our own Slack. Neither is urgent, just wanted to put them on your radar.
+
+Cheers,
+Priya

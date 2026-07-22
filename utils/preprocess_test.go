@@ -9,6 +9,7 @@ import (
 	"github.com/mirpo/datamatic/config"
 	"github.com/mirpo/datamatic/llm"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIsValidName(t *testing.T) {
@@ -158,7 +159,7 @@ func TestPreprocessConfig_Failures(t *testing.T) {
 			&config.Config{OutputFolder: "/tmp", Steps: []config.Step{
 				{Name: "bad", Prompt: "p", Run: "c"},
 			}},
-			"exactly one of 'prompt', 'run', 'jq' or 'read' must be defined",
+			"exactly one of 'prompt', 'run', 'jq', 'read' or 'write' must be defined",
 		},
 		{
 			"Missing provider colon",
@@ -631,4 +632,75 @@ func TestPreprocessConfig_ReadStep(t *testing.T) {
 		cfg.Steps[0].Image = "*.jpg"
 		assert.ErrorContains(t, PreprocessConfig(cfg), "image")
 	})
+}
+
+func TestPreprocessConfig_WriteStep(t *testing.T) {
+	base := func() *config.Config {
+		cfg := config.NewConfig()
+		cfg.OutputFolder = t.TempDir()
+		cfg.Steps = []config.Step{
+			{Name: "gen", Prompt: "p", Model: "ollama:m", Count: 2},
+			{Name: "out", From: "gen", Write: "./out.csv"},
+		}
+		return cfg
+	}
+
+	t.Run("valid write infers csv", func(t *testing.T) {
+		cfg := base()
+		assert.NoError(t, PreprocessConfig(cfg))
+		assert.Equal(t, config.WriteStepType, cfg.Steps[1].Type)
+		assert.Equal(t, config.WriteFormatCSV, cfg.Steps[1].Format)
+	})
+	t.Run("missing from fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].From = ""
+		assert.ErrorContains(t, PreprocessConfig(cfg), "'from' is required")
+	})
+	t.Run("unknown extension without format fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].Write = "./out.parquet"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "cannot infer output format")
+	})
+	t.Run("explicit format overrides extension", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].Write = "./out.dat"
+		cfg.Steps[1].Format = config.WriteFormatJSON
+		assert.NoError(t, PreprocessConfig(cfg))
+	})
+	t.Run("write step cannot be a from source", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps = append(cfg.Steps, config.Step{Name: "again", From: "out", JQ: "."})
+		assert.ErrorContains(t, PreprocessConfig(cfg), "cannot use write step 'out'")
+	})
+	t.Run("write step cannot be a forEach source", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps = append(cfg.Steps, config.Step{Name: "again", ForEach: "out", Prompt: "p", Model: "ollama:m"})
+		assert.ErrorContains(t, PreprocessConfig(cfg), "cannot use write step 'out'")
+	})
+	t.Run("format on a prompt step fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[0].Format = "csv"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "'format' is only valid on read and write")
+	})
+}
+
+func TestPreprocessConfig_DataPathsResolveToConfigDir(t *testing.T) {
+	// a genuinely absolute path for the current platform (a bare "/abs/x" is
+	// NOT absolute on Windows, which needs a drive letter)
+	absIn := filepath.Join(t.TempDir(), "x.csv")
+
+	cfg := config.NewConfig()
+	cfg.OutputFolder = t.TempDir()
+	cfg.ConfigFile = filepath.Join("some", "dir", "config.yaml")
+	cfg.Steps = []config.Step{
+		{Name: "in", Read: "./data/*.md"},
+		{Name: "rel_out", From: "in", Write: "results.csv"},
+		{Name: "abs_in", Read: absIn},
+	}
+
+	require.NoError(t, PreprocessConfig(cfg))
+
+	assert.Equal(t, filepath.Join("some", "dir", "data", "*.md"), cfg.Steps[0].Read, "relative read → config dir")
+	assert.Equal(t, filepath.Join("some", "dir", "results.csv"), cfg.Steps[1].Write, "relative write → config dir")
+	assert.Equal(t, absIn, cfg.Steps[2].Read, "absolute read unchanged")
 }

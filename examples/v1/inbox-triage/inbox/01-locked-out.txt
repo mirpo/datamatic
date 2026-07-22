@@ -1,0 +1,11 @@
+From: dana.reyes@brightsail.io
+Subject: Locked out after the weekend maintenance
+
+Hi support,
+
+Since your Sunday maintenance window I can't log in to the dashboard at all.
+I reset my password twice, but after entering the code from the email the page
+just spins and eventually says "session expired". Three people on my team hit
+the same wall this morning and we have a client demo at 2pm. Please help ASAP.
+
+Dana

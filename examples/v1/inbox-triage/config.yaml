@@ -1,0 +1,82 @@
+version: 1.0
+
+# Support inbox triage — the full office loop, no shell:
+# read a folder of incoming emails → classify each with SGR reasoning →
+# shape a scannable board → draft a suggested reply → write CSV + Markdown.
+steps:
+  - name: emails
+    read: ./inbox/*.txt
+
+  - name: triage
+    model: ollama:qwen3:1.7b
+    forEach: emails
+    modelConfig:
+      temperature: 0.2
+    prompt: |
+      You are a support-desk triage assistant. Read the incoming email, reason
+      through it first, then classify it.
+
+      Email ({{.item.name}}):
+      {{.item.content}}
+
+      Return as JSON.
+    jsonSchema:
+      type: object
+      properties:
+        reasoning:
+          type: string
+          description: "Brief reasoning behind the classification (SGR)."
+        subject:
+          type: string
+          description: "Copy the email's `Subject:` line verbatim."
+        category:
+          type: string
+          enum: [bug, billing, feature_request, account, other]
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        sentiment:
+          type: string
+          enum: [positive, neutral, negative]
+        summary:
+          type: string
+          description: "One sentence: what the customer wants."
+      required: [reasoning, subject, category, priority, sentiment, summary]
+      additionalProperties: false
+
+  # shape the board: drop the SGR reasoning, keep the scannable columns
+  - name: board_rows
+    from: triage
+    jq: '{subject, category, priority, sentiment, summary}'
+
+  - name: board
+    from: board_rows
+    write: ./board.csv
+
+  - name: drafts
+    model: ollama:qwen3:1.7b
+    forEach: triage
+    modelConfig:
+      temperature: 0.4
+    prompt: |
+      Draft a short, friendly support reply. Acknowledge the issue and give one
+      clear next step. Keep it under 120 words.
+
+      Subject: {{.item.subject}}
+      Category: {{.item.category}}
+      Customer wants: {{.item.summary}}
+
+      Return as JSON.
+    jsonSchema:
+      type: object
+      properties:
+        subject:
+          type: string
+        reply:
+          type: string
+      required: [subject, reply]
+      additionalProperties: false
+
+  - name: reply_digest
+    from: drafts
+    write: ./replies.md

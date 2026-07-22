@@ -139,3 +139,38 @@ func readOutputLines(t *testing.T, path string) []string {
 	}
 	return lines
 }
+
+func TestRun_ReadEnrichWritePipeline(t *testing.T) {
+	// read a CSV -> classify each row -> write the result back as CSV
+	srv := llmtest.NewServer(t, `{"industry":"tech"}`, `{"industry":"finance"}`)
+
+	srcDir := t.TempDir() // user's input files, separate from the output folder
+	leads := filepath.Join(srcDir, "leads.csv")
+	require.NoError(t, os.WriteFile(leads, []byte("company\nAcme\nGlobex\n"), 0o644))
+	out := filepath.Join(srcDir, "enriched.csv")
+
+	cfg := config.NewConfig()
+	cfg.OutputFolder = t.TempDir()
+	cfg.Version = "1.0"
+	cfg.Steps = []config.Step{
+		{Name: "leads", Read: leads},
+		{
+			Name: "classify", Model: "ollama:test-model", ForEach: "leads",
+			Prompt:        "Industry of {{.item.company}}?",
+			JSONSchemaRaw: `{"type":"object","properties":{"industry":{"type":"string"}},"required":["industry"],"additionalProperties":false}`,
+			ModelConfig:   config.ModelConfig{BaseURL: srv.URL},
+		},
+		{Name: "report", From: "classify", Write: out},
+	}
+
+	require.NoError(t, utils.PreprocessConfig(cfg))
+	require.NoError(t, cfg.Validate())
+	require.NoError(t, runner.NewRunner(cfg).Run(context.Background()))
+
+	data, err := os.ReadFile(out)
+	require.NoError(t, err)
+	got := string(data)
+	assert.Contains(t, got, "industry")
+	assert.Contains(t, got, "tech")
+	assert.Contains(t, got, "finance")
+}

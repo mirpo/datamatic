@@ -24,9 +24,9 @@ const jqParentVar = "$parent"
 // setStepType determines and sets the step type based on step configuration
 func setStepType(step *config.Step) error {
 	switch step.Type {
-	case "", config.PromptStepType, config.ShellStepType, config.TransformStepType, config.ReadStepType:
+	case "", config.PromptStepType, config.ShellStepType, config.TransformStepType, config.ReadStepType, config.WriteStepType:
 	default:
-		return fmt.Errorf("unknown step type '%s' (expected 'prompt', 'shell', 'transform' or 'read')", step.Type)
+		return fmt.Errorf("unknown step type '%s' (expected 'prompt', 'shell', 'transform', 'read' or 'write')", step.Type)
 	}
 
 	var inferred config.StepType
@@ -44,8 +44,11 @@ func setStepType(step *config.Step) error {
 	if step.Read != "" {
 		inferred, sourceField, count = config.ReadStepType, "read", count+1
 	}
+	if step.Write != "" {
+		inferred, sourceField, count = config.WriteStepType, "write", count+1
+	}
 	if count != 1 {
-		return errors.New("exactly one of 'prompt', 'run', 'jq' or 'read' must be defined")
+		return errors.New("exactly one of 'prompt', 'run', 'jq', 'read' or 'write' must be defined")
 	}
 
 	if step.Type != "" && step.Type != inferred {
@@ -156,6 +159,16 @@ func PreprocessConfig(cfg *config.Config) error {
 		if step.Image != "" && step.Type != config.PromptStepType {
 			return fmt.Errorf("step '%s': 'image' is only valid on prompt steps", step.Name)
 		}
+		if step.Format != "" && step.Type != config.ReadStepType && step.Type != config.WriteStepType {
+			return fmt.Errorf("step '%s': 'format' is only valid on read and write steps", step.Name)
+		}
+		// a write step is terminal — it produces a deliverable file, not pipeline
+		// rows — so it may not be used as a source
+		for _, ref := range []struct{ field, name string }{{"from", step.From}, {"forEach", step.ForEach}} {
+			if src := stepByName[ref.name]; ref.name != "" && src != nil && src.Type == config.WriteStepType {
+				return fmt.Errorf("step '%s': cannot use write step '%s' as a '%s' source", step.Name, ref.name, ref.field)
+			}
+		}
 		if step.Type == config.TransformStepType {
 			if step.From == "" {
 				return fmt.Errorf("step '%s': 'from' is required for transform steps", step.Name)
@@ -194,9 +207,10 @@ func PreprocessConfig(cfg *config.Config) error {
 			}
 		}
 
-		// Read steps: local-file source (path resolves relative to CWD; rows
-		// materialize to outputFolder like a transform)
+		// Read steps: local-file source (path resolves relative to the config
+		// file's dir; rows materialize to outputFolder like a transform)
 		if step.Type == config.ReadStepType {
+			step.Read = resolveDataPath(cfg.ConfigFile, step.Read)
 			format, err := resolveReadFormat(step)
 			if err != nil {
 				return fmt.Errorf("step '%s': %w", step.Name, err)
@@ -205,6 +219,24 @@ func PreprocessConfig(cfg *config.Config) error {
 			if err := setOutputFilename(step, cfg.OutputFolder); err != nil {
 				return fmt.Errorf("step '%s': %w", step.Name, err)
 			}
+		}
+
+		// Write steps: terminal export of a source step's rows to a file
+		// (path resolves relative to the config file's dir — the deliverable)
+		if step.Type == config.WriteStepType {
+			if step.From == "" {
+				return fmt.Errorf("step '%s': 'from' is required for write steps", step.Name)
+			}
+			if err := requireEarlierStep(stepNames, "from", step.From); err != nil {
+				return fmt.Errorf("step '%s': %w", step.Name, err)
+			}
+			step.Write = resolveDataPath(cfg.ConfigFile, step.Write)
+			format, err := resolveWriteFormat(step)
+			if err != nil {
+				return fmt.Errorf("step '%s': %w", step.Name, err)
+			}
+			step.Format = format
+			step.OutputFilename = step.Write
 		}
 
 		if err := validateIterationSettings(step, stepNames); err != nil {
@@ -244,6 +276,9 @@ func validatePromptPlaceholders(step *config.Step, stepByName map[string]*config
 		refStep, ok := stepByName[ref.Step]
 		if !ok {
 			return fmt.Errorf("prompt references unknown step '%s' (must be an earlier step)", ref.Step)
+		}
+		if refStep.Type == config.WriteStepType {
+			return fmt.Errorf("prompt references write step '%s', which is terminal and produces no rows", ref.Step)
 		}
 
 		if keysByStep[ref.Step] == nil {
@@ -327,6 +362,16 @@ func getFullOutputPath(step config.Step, outputFolder string) (string, error) {
 	return filepath.Clean(fullPath), nil
 }
 
+// resolveDataPath makes a relative read/write path relative to the config
+// file's directory, so a workflow's data files travel with it and it runs from
+// any working directory. Absolute paths are left unchanged.
+func resolveDataPath(configFile, path string) string {
+	if path == "" || filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(filepath.Dir(configFile), path)
+}
+
 // resolveReadFormat validates an explicit read `format` or infers it from the
 // path's extension (.csv/.tsv → csv, .jsonl → jsonl, otherwise files).
 func resolveReadFormat(step *config.Step) (string, error) {
@@ -346,6 +391,32 @@ func resolveReadFormat(step *config.Step) (string, error) {
 		return config.ReadFormatJSONL, nil
 	default:
 		return config.ReadFormatFiles, nil
+	}
+}
+
+// resolveWriteFormat validates an explicit write `format` or infers it from the
+// output path's extension (.csv/.tsv → csv, .json → json, .md → md, .jsonl → jsonl).
+func resolveWriteFormat(step *config.Step) (string, error) {
+	if step.Format != "" {
+		switch step.Format {
+		case config.WriteFormatCSV, config.WriteFormatJSON, config.WriteFormatMarkdown, config.WriteFormatJSONL:
+			return step.Format, nil
+		default:
+			return "", fmt.Errorf("unknown format '%s' (expected 'csv', 'json', 'md' or 'jsonl')", step.Format)
+		}
+	}
+
+	switch strings.ToLower(filepath.Ext(step.Write)) {
+	case ".csv", ".tsv":
+		return config.WriteFormatCSV, nil
+	case ".json":
+		return config.WriteFormatJSON, nil
+	case ".md", ".markdown":
+		return config.WriteFormatMarkdown, nil
+	case ".jsonl":
+		return config.WriteFormatJSONL, nil
+	default:
+		return "", fmt.Errorf("cannot infer output format from '%s' — set 'format' explicitly (csv/json/md/jsonl)", step.Write)
 	}
 }
 

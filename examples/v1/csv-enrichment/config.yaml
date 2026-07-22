@@ -1,0 +1,33 @@
+version: 1.0
+
+# The full office loop, no shell: read a CSV, enrich each row with an LLM,
+# write a CSV back out.
+steps:
+  - name: leads
+    read: ./leads.csv
+
+  - name: classified
+    model: ollama:qwen3:1.7b
+    forEach: leads
+    modelConfig:
+      temperature: 0.2
+    prompt: |
+      Company: {{.item.company}} (website: {{.item.website}}).
+      Classify its industry and likely size. Echo the company name back.
+      Return as JSON.
+    jsonSchema:
+      type: object
+      properties:
+        company:
+          type: string
+        industry:
+          type: string
+        size:
+          type: string
+          enum: [startup, smb, enterprise]
+      required: [company, industry, size]
+      additionalProperties: false
+
+  - name: report
+    from: classified
+    write: ./enriched.csv
