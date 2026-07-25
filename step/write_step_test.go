@@ -95,3 +95,66 @@ func TestWriteStepRun_NonObjectRowFailsCSV(t *testing.T) {
 	err := (&WriteStep{}).Run(context.Background(), cfg, step, dir)
 	require.Error(t, err, "csv needs object rows")
 }
+
+// perRowSetup runs a per-row write step over the given JSONL source rows and
+// returns the directory the files landed in.
+func perRowSetup(t *testing.T, srcLines, writeTmpl, content, format string) string {
+	t.Helper()
+	dir := t.TempDir()
+	srcPath := filepath.Join(dir, "src.jsonl")
+	require.NoError(t, os.WriteFile(srcPath, []byte(srcLines), 0o644))
+
+	cfg := config.NewConfig()
+	cfg.OutputFolder = dir
+	cfg.Steps = []config.Step{{Name: "data", Type: config.TransformStepType, OutputFilename: srcPath}}
+	step := config.Step{
+		Name: "files", Type: config.WriteStepType, ForEach: "data",
+		Write: writeTmpl, Content: content, Format: format, OutputFilename: dir,
+	}
+
+	require.NoError(t, (&WriteStep{}).Run(context.Background(), cfg, step, dir))
+	return dir
+}
+
+func TestWriteStepRun_PerRowContent(t *testing.T) {
+	dir := perRowSetup(t,
+		`{"id":"alpha","body":"first draft"}`+"\n"+`{"id":"beta","body":"second draft"}`+"\n",
+		"drafts/{{.item.id}}.md", "{{.item.body}}", "")
+
+	for name, want := range map[string]string{"alpha.md": "first draft", "beta.md": "second draft"} {
+		data, err := os.ReadFile(filepath.Join(dir, "drafts", name))
+		require.NoError(t, err, "expected one file per row")
+		assert.Equal(t, want, string(data), "body is the rendered content, not JSON")
+	}
+}
+
+func TestWriteStepRun_PerRowSanitizesAndDedupes(t *testing.T) {
+	dir := perRowSetup(t,
+		`{"id":"a/b","body":"one"}`+"\n"+`{"id":"a/b","body":"two"}`+"\n"+`{"id":"","body":"three"}`+"\n",
+		"{{.item.id}}.txt", "{{.item.body}}", "")
+
+	assert.FileExists(t, filepath.Join(dir, "a_b.txt"), "separators in the name are replaced")
+	assert.FileExists(t, filepath.Join(dir, "a_b-2.txt"), "a colliding name gets a suffix instead of clobbering")
+	assert.FileExists(t, filepath.Join(dir, "3.txt"), "an empty name falls back to the row number")
+}
+
+func TestWriteStepRun_PerRowSerializesWithoutContent(t *testing.T) {
+	dir := perRowSetup(t,
+		`{"id":"alpha","score":7}`+"\n",
+		"{{.item.id}}.json", "", config.WriteFormatJSON)
+
+	data, err := os.ReadFile(filepath.Join(dir, "alpha.json"))
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"score": 7`, "without content the row itself is serialized")
+}
+
+func TestWriteStepRun_PerRowUnknownSourceFails(t *testing.T) {
+	cfg := config.NewConfig()
+	step := config.Step{
+		Name: "files", Type: config.WriteStepType, ForEach: "ghost",
+		Write: "{{.item.id}}.txt", Content: "x", OutputFilename: t.TempDir(),
+	}
+	err := (&WriteStep{}).Run(context.Background(), cfg, step, t.TempDir())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ghost")
+}
