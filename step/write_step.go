@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/mirpo/datamatic/config"
 	"github.com/mirpo/datamatic/fs"
@@ -30,6 +31,12 @@ func (p *WriteStep) Run(ctx context.Context, cfg *config.Config, step config.Ste
 
 	rows, err := collectRows(ctx, *src, file)
 	if err != nil {
+		return fmt.Errorf("step '%s': %w", step.Name, err)
+	}
+
+	// the deliverable may nest (e.g. write: reports/board.csv), and the output
+	// folder starts out fresh, so its parent won't exist yet
+	if err := fs.EnsureFolder(filepath.Dir(step.Write)); err != nil {
 		return fmt.Errorf("step '%s': %w", step.Name, err)
 	}
 

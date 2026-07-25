@@ -55,6 +55,26 @@ func TestWriteStepRun_JSONLPassthrough(t *testing.T) {
 	assert.Equal(t, `{"a":1}`+"\n"+`{"a":2}`+"\n", string(data))
 }
 
+// TestWriteStepRun_CreatesParentDir covers a nested deliverable path: the
+// output folder is created fresh, so a subdirectory in the write path won't
+// exist yet and the step has to make it.
+func TestWriteStepRun_CreatesParentDir(t *testing.T) {
+	dir := t.TempDir()
+	srcPath := filepath.Join(dir, "src.jsonl")
+	require.NoError(t, os.WriteFile(srcPath, []byte(`{"a":1}`+"\n"), 0o644))
+
+	cfg := config.NewConfig()
+	cfg.Steps = []config.Step{{Name: "data", Type: config.TransformStepType, OutputFilename: srcPath}}
+	out := filepath.Join(dir, "reports", "2026", "out.csv")
+	step := config.Step{
+		Name: "report", Type: config.WriteStepType, From: "data",
+		Write: out, Format: config.WriteFormatCSV, OutputFilename: out,
+	}
+
+	require.NoError(t, (&WriteStep{}).Run(context.Background(), cfg, step, dir))
+	assert.FileExists(t, out)
+}
+
 func TestWriteStepRun_UnknownSourceFails(t *testing.T) {
 	cfg := config.NewConfig()
 	step := config.Step{Name: "report", Type: config.WriteStepType, From: "ghost", Write: "/tmp/x.csv", Format: config.WriteFormatCSV, OutputFilename: "/tmp/x.csv"}

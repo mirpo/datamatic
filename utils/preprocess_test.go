@@ -701,6 +701,35 @@ func TestPreprocessConfig_DataPathsResolveToConfigDir(t *testing.T) {
 	require.NoError(t, PreprocessConfig(cfg))
 
 	assert.Equal(t, filepath.Join("some", "dir", "data", "*.md"), cfg.Steps[0].Read, "relative read → config dir")
-	assert.Equal(t, filepath.Join("some", "dir", "results.csv"), cfg.Steps[1].Write, "relative write → config dir")
+	assert.Equal(t, filepath.Join(cfg.OutputFolder, "results.csv"), cfg.Steps[1].Write, "relative write → output folder")
 	assert.Equal(t, absIn, cfg.Steps[2].Read, "absolute read unchanged")
+}
+
+// TestPreprocessConfig_WriteDeliverablesLandInOutputFolder pins the split: an
+// input path travels with the config, everything generated goes to the one
+// output folder, and an absolute path is an escape hatch from both.
+func TestPreprocessConfig_WriteDeliverablesLandInOutputFolder(t *testing.T) {
+	absOut := filepath.Join(t.TempDir(), "published.csv")
+
+	cfg := config.NewConfig()
+	cfg.OutputFolder = t.TempDir()
+	cfg.ConfigFile = filepath.Join("some", "dir", "config.yaml")
+	cfg.Steps = []config.Step{
+		{Name: "in", Read: "./data/*.md"},
+		{Name: "plain", From: "in", Write: "report.csv"},
+		{Name: "nested", From: "in", Write: "./sub/report.md"},
+		{Name: "absolute", From: "in", Write: absOut},
+	}
+
+	require.NoError(t, PreprocessConfig(cfg))
+
+	assert.Equal(t, filepath.Join(cfg.OutputFolder, "report.csv"), cfg.Steps[1].Write)
+	assert.Equal(t, filepath.Join(cfg.OutputFolder, "sub", "report.md"), cfg.Steps[2].Write,
+		"a nested relative path stays nested, under the output folder")
+	assert.Equal(t, absOut, cfg.Steps[3].Write, "absolute write is used as-is")
+
+	for i := 1; i <= 3; i++ {
+		assert.Equal(t, cfg.Steps[i].Write, cfg.Steps[i].OutputFilename,
+			"a write step's OutputFilename is its deliverable")
+	}
 }

@@ -8,7 +8,7 @@ The full office loop with no shell: **read a CSV → enrich each row with an LLM
 
 1. `leads` — `read: ./leads.csv` → one row per record (columns become fields)
 2. `classified` — `forEach` lead → `{company, industry, size}`
-3. `report` — `write: ./enriched.csv` → the enriched rows as CSV
+3. `report` — `write: enriched.csv` → the enriched rows as CSV
 
 Output format is inferred from the extension (`.csv`); use `.json` for a JSON array, `.md` for a Markdown table, or set `format:` explicitly.
 
@@ -21,5 +21,5 @@ Output format is inferred from the extension (`.csv`); use `.json` for a JSON ar
 
 ```bash
 datamatic --config ./config.yaml --verbose
-cat ./enriched.csv
+cat ./dataset/enriched.csv
 ```

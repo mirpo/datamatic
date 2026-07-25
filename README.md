@@ -179,7 +179,7 @@ steps:
     jsonSchema: { ... }
   - name: report
     from: classified
-    write: ./enriched.csv       # rows → a deliverable file
+    write: enriched.csv         # rows → a deliverable file
 ```
 
 - **`read:`** turns local files into rows. Format is inferred from the path (overridable with `format:`):
@@ -188,7 +188,19 @@ steps:
   - `.jsonl` → one row per line
 - **`write:`** exports a step's rows to a file, format inferred from the extension: `.csv`, `.json` (array), `.md` (table), or `.jsonl`. It's terminal and doesn't change the intermediate JSONL that other steps read.
 - **`image:`** on a prompt step attaches a file as a vision image, e.g. `image: "{{.item.path}}"` after `read`-ing a folder of images.
-- Relative `read`/`write` paths resolve **relative to the config file's directory** (so a workflow's data travels with it and runs from any working directory); absolute paths are used as-is. See the [csv-enrichment](./examples/v1/csv-enrichment/README.md) and [process-my-files](./examples/v1/process-my-files/README.md) examples.
+
+**Where paths point.** Inputs travel with the workflow; everything generated lands in the output folder:
+
+| Path | Relative to | Absolute |
+| --- | --- | --- |
+| `read:` (input) | the **config file's directory** — so a workflow runs from any working directory | used as-is |
+| `write:` (deliverable) | the **output folder** | used as-is — this is how you publish outside it |
+| intermediate JSONL | the **output folder** (always) | — |
+| `--output` (flag) | the **working directory** | used as-is |
+
+The output folder is **reused and overwritten** on each run — no `dataset_v1`, `dataset_v2` copies, so deliverable paths stay stable. For run history, point `--output` somewhere per-run (e.g. `--output runs/$(date +%F-%H%M)`). `dataset*` is gitignored.
+
+See the [csv-enrichment](./examples/v1/csv-enrichment/README.md) and [process-my-files](./examples/v1/process-my-files/README.md) examples.
 
 ### Schema-Guided Reasoning (SGR)
 

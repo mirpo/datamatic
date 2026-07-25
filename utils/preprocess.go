@@ -221,8 +221,9 @@ func PreprocessConfig(cfg *config.Config) error {
 			}
 		}
 
-		// Write steps: terminal export of a source step's rows to a file
-		// (path resolves relative to the config file's dir — the deliverable)
+		// Write steps: terminal export of a source step's rows to a file. The
+		// deliverable is generated output, so a relative path joins the output
+		// folder (an absolute path publishes outside it).
 		if step.Type == config.WriteStepType {
 			if step.From == "" {
 				return fmt.Errorf("step '%s': 'from' is required for write steps", step.Name)
@@ -230,7 +231,7 @@ func PreprocessConfig(cfg *config.Config) error {
 			if err := requireEarlierStep(stepNames, "from", step.From); err != nil {
 				return fmt.Errorf("step '%s': %w", step.Name, err)
 			}
-			step.Write = resolveDataPath(cfg.ConfigFile, step.Write)
+			step.Write = resolveOutputPath(cfg.OutputFolder, step.Write)
 			format, err := resolveWriteFormat(step)
 			if err != nil {
 				return fmt.Errorf("step '%s': %w", step.Name, err)
@@ -362,14 +363,24 @@ func getFullOutputPath(step config.Step, outputFolder string) (string, error) {
 	return filepath.Clean(fullPath), nil
 }
 
-// resolveDataPath makes a relative read/write path relative to the config
-// file's directory, so a workflow's data files travel with it and it runs from
-// any working directory. Absolute paths are left unchanged.
+// resolveDataPath makes a relative input path relative to the config file's
+// directory, so a workflow's data files travel with it and it runs from any
+// working directory. Absolute paths are left unchanged.
 func resolveDataPath(configFile, path string) string {
 	if path == "" || filepath.IsAbs(path) {
 		return path
 	}
 	return filepath.Join(filepath.Dir(configFile), path)
+}
+
+// resolveOutputPath puts a relative generated path inside the output folder, so
+// everything a run produces lands in one place. Absolute paths are left
+// unchanged, which is how a deliverable is published outside that folder.
+func resolveOutputPath(outputFolder, path string) string {
+	if path == "" || filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(outputFolder, path)
 }
 
 // resolveReadFormat validates an explicit read `format` or infers it from the
