@@ -651,10 +651,10 @@ func TestPreprocessConfig_WriteStep(t *testing.T) {
 		assert.Equal(t, config.WriteStepType, cfg.Steps[1].Type)
 		assert.Equal(t, config.WriteFormatCSV, cfg.Steps[1].Format)
 	})
-	t.Run("missing from fails", func(t *testing.T) {
+	t.Run("missing source fails", func(t *testing.T) {
 		cfg := base()
 		cfg.Steps[1].From = ""
-		assert.ErrorContains(t, PreprocessConfig(cfg), "'from' is required")
+		assert.ErrorContains(t, PreprocessConfig(cfg), "exactly one of 'from' or 'forEach'")
 	})
 	t.Run("unknown extension without format fails", func(t *testing.T) {
 		cfg := base()
@@ -681,6 +681,85 @@ func TestPreprocessConfig_WriteStep(t *testing.T) {
 		cfg := base()
 		cfg.Steps[0].Format = "csv"
 		assert.ErrorContains(t, PreprocessConfig(cfg), "'format' is only valid on read and write")
+	})
+}
+
+// TestPreprocessConfig_PerRowWrite covers the second write mode: forEach makes a
+// write step emit one file per source row, with the path as a per-row template
+// and an optional content: template supplying the raw body.
+func TestPreprocessConfig_PerRowWrite(t *testing.T) {
+	base := func() *config.Config {
+		cfg := config.NewConfig()
+		cfg.OutputFolder = t.TempDir()
+		cfg.Steps = []config.Step{
+			{Name: "gen", Prompt: "p", Model: "ollama:m", Count: 2},
+			{Name: "files", ForEach: "gen", Write: "out/{{.item.id}}.txt", Content: "{{.item.body}}"},
+		}
+		return cfg
+	}
+
+	t.Run("valid per-row write", func(t *testing.T) {
+		cfg := base()
+		require.NoError(t, PreprocessConfig(cfg))
+		assert.Equal(t, config.WriteStepType, cfg.Steps[1].Type)
+		assert.Equal(t, "out/{{.item.id}}.txt", cfg.Steps[1].Write,
+			"the path stays a template — it is rendered per row at runtime")
+	})
+
+	t.Run("both from and forEach fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].From = "gen"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "exactly one of 'from' or 'forEach'")
+	})
+
+	t.Run("neither from nor forEach fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].ForEach = ""
+		assert.ErrorContains(t, PreprocessConfig(cfg), "exactly one of 'from' or 'forEach'")
+	})
+
+	t.Run("per-row path without a template fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].Write = "out/same.txt"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "must contain a template")
+	})
+
+	t.Run("malformed template fails at config time", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].Write = "out/{{.item.id.txt"
+		assert.Error(t, PreprocessConfig(cfg))
+	})
+
+	t.Run("content on an aggregate write fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1] = config.Step{Name: "files", From: "gen", Write: "out.csv", Content: "{{.gen.body}}"}
+		assert.ErrorContains(t, PreprocessConfig(cfg), "'content' is only valid")
+	})
+
+	t.Run("content on a prompt step fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[0].Content = "x"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "'content' is only valid")
+	})
+
+	t.Run("raw-text extension without content fails", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].Content = ""
+		assert.ErrorContains(t, PreprocessConfig(cfg), "content")
+	})
+
+	t.Run("content-less per-row serializes by extension", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].Content = ""
+		cfg.Steps[1].Write = "out/{{.item.id}}.json"
+		require.NoError(t, PreprocessConfig(cfg))
+		assert.Equal(t, config.WriteFormatJSON, cfg.Steps[1].Format)
+	})
+
+	t.Run("forEach source must be an earlier step", func(t *testing.T) {
+		cfg := base()
+		cfg.Steps[1].ForEach = "ghost"
+		assert.ErrorContains(t, PreprocessConfig(cfg), "ghost")
 	})
 }
 

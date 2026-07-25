@@ -89,7 +89,8 @@ type Step struct {
 	Run            string      `yaml:"run"`
 	JQ             string      `yaml:"jq"`           // transform steps: jq program
 	Read           string      `yaml:"read"`         // read steps: file/glob/dir to load as rows
-	Write          string      `yaml:"write"`        // write steps: file path to export the source rows to
+	Write          string      `yaml:"write"`        // write steps: file path to export the source rows to (a per-row template when used with forEach)
+	Content        string      `yaml:"content"`      // per-row write steps: template for the file body, written as raw text
 	Format         string      `yaml:"format"`       // read: "files"|"csv"|"jsonl"; write: "csv"|"json"|"md"|"jsonl" (default: by extension)
 	From           string      `yaml:"from"`         // transform/write steps: source step name
 	Limit          int         `yaml:"limit"`        // transform steps: cap output rows (0 = no cap)

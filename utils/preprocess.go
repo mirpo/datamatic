@@ -162,6 +162,9 @@ func PreprocessConfig(cfg *config.Config) error {
 		if step.Format != "" && step.Type != config.ReadStepType && step.Type != config.WriteStepType {
 			return fmt.Errorf("step '%s': 'format' is only valid on read and write steps", step.Name)
 		}
+		if step.Content != "" && step.Type != config.WriteStepType {
+			return fmt.Errorf("step '%s': 'content' is only valid on write steps", step.Name)
+		}
 		// a write step is terminal — it produces a deliverable file, not pipeline
 		// rows — so it may not be used as a source
 		for _, ref := range []struct{ field, name string }{{"from", step.From}, {"forEach", step.ForEach}} {
@@ -221,23 +224,14 @@ func PreprocessConfig(cfg *config.Config) error {
 			}
 		}
 
-		// Write steps: terminal export of a source step's rows to a file. The
-		// deliverable is generated output, so a relative path joins the output
-		// folder (an absolute path publishes outside it).
+		// Write steps: terminal export of a source step's rows. `from:` writes
+		// one aggregate file, `forEach:` writes one file per row. The deliverable
+		// is generated output, so a relative path joins the output folder (an
+		// absolute path publishes outside it).
 		if step.Type == config.WriteStepType {
-			if step.From == "" {
-				return fmt.Errorf("step '%s': 'from' is required for write steps", step.Name)
-			}
-			if err := requireEarlierStep(stepNames, "from", step.From); err != nil {
+			if err := setWriteStepMode(step, cfg.OutputFolder, stepNames); err != nil {
 				return fmt.Errorf("step '%s': %w", step.Name, err)
 			}
-			step.Write = resolveOutputPath(cfg.OutputFolder, step.Write)
-			format, err := resolveWriteFormat(step)
-			if err != nil {
-				return fmt.Errorf("step '%s': %w", step.Name, err)
-			}
-			step.Format = format
-			step.OutputFilename = step.Write
 		}
 
 		if err := validateIterationSettings(step, stepNames); err != nil {
@@ -363,6 +357,64 @@ func getFullOutputPath(step config.Step, outputFolder string) (string, error) {
 	return filepath.Clean(fullPath), nil
 }
 
+// setWriteStepMode validates a write step and resolves its output. Exactly one
+// source is required and it picks the mode: `from:` exports every row into one
+// aggregate file, `forEach:` renders the path per row and writes one file each.
+func setWriteStepMode(step *config.Step, outputFolder string, stepNames map[string]bool) error {
+	perRow := step.ForEach != ""
+	if perRow == (step.From != "") {
+		return errors.New("exactly one of 'from' or 'forEach' is required for write steps")
+	}
+
+	source, field := step.From, "from"
+	if perRow {
+		source, field = step.ForEach, "forEach"
+	}
+	if err := requireEarlierStep(stepNames, field, source); err != nil {
+		return err
+	}
+
+	if !perRow && step.Content != "" {
+		return errors.New("'content' is only valid on a per-row write step (one using 'forEach')")
+	}
+
+	format, err := resolveWriteFormat(step)
+	if perRow {
+		// no format needed when content: supplies the body verbatim — the
+		// extension is then just part of the file name (.txt, .md, .eml)
+		if step.Content == "" && err != nil {
+			return fmt.Errorf("%w; add 'content' to write the file body as raw text instead", err)
+		}
+		return setPerRowWriteTemplate(step, outputFolder, format)
+	}
+	if err != nil {
+		return err
+	}
+
+	step.Format = format
+	step.Write = resolveOutputPath(outputFolder, step.Write)
+	step.OutputFilename = step.Write
+	return nil
+}
+
+// setPerRowWriteTemplate keeps the write path as a template — it is rendered per
+// row at runtime — while resolving everything that can be settled up front.
+func setPerRowWriteTemplate(step *config.Step, outputFolder, format string) error {
+	if !strings.Contains(step.Write, "{{") {
+		return fmt.Errorf("a per-row 'write' path must contain a template (e.g. '{{.item.id}}.md'), otherwise every row overwrites '%s'", step.Write)
+	}
+
+	// parse both templates now so a typo fails at config time, not mid-run
+	if _, err := promptbuilder.NewPromptBuilder(step.Write, step.ForEach, step.Content); err != nil {
+		return err
+	}
+
+	step.Format = format
+	// the path is resolved per row, once rendered; remember the base to join to
+	step.OutputFilename = outputFolder
+	return nil
+}
+
 // resolveDataPath makes a relative input path relative to the config file's
 // directory, so a workflow's data files travel with it and it runs from any
 // working directory. Absolute paths are left unchanged.
@@ -458,6 +510,14 @@ func requireEarlierStep(stepNames map[string]bool, field, name string) error {
 // counts themselves are resolved at runtime by the runner.
 func validateIterationSettings(step *config.Step, stepNames map[string]bool) error {
 	if step.Type != config.PromptStepType {
+		// write steps use forEach too, to emit one file per source row; that
+		// mode is validated in setWriteStepMode
+		if step.Type == config.WriteStepType {
+			if step.Count != 0 {
+				return fmt.Errorf("'count' is only valid on prompt steps")
+			}
+			return nil
+		}
 		if step.Count != 0 || step.ForEach != "" {
 			return fmt.Errorf("'count' and 'forEach' are only valid on prompt steps")
 		}
