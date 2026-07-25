@@ -3,11 +3,11 @@ package fs
 import (
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCreateFolder(t *testing.T) {
@@ -21,55 +21,29 @@ func TestCreateFolder(t *testing.T) {
 	assert.False(t, os.IsNotExist(err), "Expected folder %s to be created, but it does not exist", path)
 }
 
-func TestGetNextFolderVersion(t *testing.T) {
-	tmpDir := t.TempDir()
-	base := "test_folder"
-
-	_ = os.Mkdir(filepath.Join(tmpDir, "test_folder_v1"), folderPerm)
-	_ = os.Mkdir(filepath.Join(tmpDir, "test_folder_v2"), folderPerm)
-	_ = os.Mkdir(filepath.Join(tmpDir, "test_folder_v5"), folderPerm)
-	_ = os.Mkdir(filepath.Join(tmpDir, "test_folder_v19"), folderPerm)
-
-	nextVersion, err := getNextFolderVersion(tmpDir, base)
-	assert.NoError(t, err, "Expected no error when retrieving next folder version")
-
-	expectedVersion := 20
-	assert.Equal(t, expectedVersion, nextVersion, "Expected next version to be %d, got %d", expectedVersion, nextVersion)
-}
-
-func TestParseVersion(t *testing.T) {
-	re := regexp.MustCompile(`^test_folder_v(\d+)$`)
-
-	version, err := parseVersion(re, "test_folder_v3")
-	assert.NoError(t, err, "Expected no error for valid folder name")
-	assert.Equal(t, 3, version, "Expected version 3, got %d", version)
-
-	_, err = parseVersion(re, "test_folder")
-	assert.Error(t, err, "Expected error for folder without version")
-
-	_, err = parseVersion(re, "test_folder_vx")
-	assert.Error(t, err, "Expected error for folder with invalid version format")
-}
-
-func TestCreateVersionedFolder(t *testing.T) {
+// TestEnsureFolder pins the rerun contract: the output folder is reused in
+// place, never rotated to a "_vN" copy. Steps overwrite their own files, so a
+// rerun keeps stable paths (deliverables included) and leaves room for resume.
+func TestEnsureFolder(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test_folder")
 
-	err := CreateVersionedFolder(path)
-	assert.NoError(t, err, "Expected no error on first call to CreateVersionedFolder")
+	require.NoError(t, EnsureFolder(path), "first call creates the folder")
+	assert.DirExists(t, path)
 
-	_, err = os.Stat(path)
-	assert.False(t, os.IsNotExist(err), "Expected folder %s to be created, but it does not exist", path)
+	// a previous run left a file behind
+	leftover := filepath.Join(path, "step.jsonl")
+	require.NoError(t, os.WriteFile(leftover, []byte("{}\n"), 0o644))
 
-	err = CreateVersionedFolder(path)
-	assert.NoError(t, err, "Expected no error on second call to CreateVersionedFolder")
+	require.NoError(t, EnsureFolder(path), "second call reuses the folder")
 
-	versionedPath := filepath.Join(tmpDir, "test_folder_v1")
-	_, err = os.Stat(versionedPath)
-	assert.False(t, os.IsNotExist(err), "Expected versioned folder %s to be created, but it does not exist", versionedPath)
+	assert.DirExists(t, path)
+	assert.NoDirExists(t, filepath.Join(tmpDir, "test_folder_v1"), "must not rotate the folder to a versioned copy")
+	assert.FileExists(t, leftover, "reusing the folder must not wipe it; steps overwrite their own files")
+}
 
-	_, err = os.Stat(path)
-	assert.False(t, os.IsNotExist(err), "Expected new folder %s to be created, but it does not exist", path)
+func TestEnsureFolder_RejectsRelativePath(t *testing.T) {
+	assert.Error(t, EnsureFolder("relative/path"), "the output folder is resolved to an absolute path before use")
 }
 
 func TestCreateFolderNegative(t *testing.T) {
@@ -92,35 +66,4 @@ func TestCreateFolderNegative(t *testing.T) {
 	err := createFolder(pathToCreate)
 
 	assert.Error(t, err, "Expected error during folder creation")
-}
-
-func TestGetNextFolderVersionNoFolders(t *testing.T) {
-	tmpDir := t.TempDir()
-	base := "test_folder"
-
-	nextVersion, err := getNextFolderVersion(tmpDir, base)
-	assert.NoError(t, err, "Expected no error when retrieving version for an empty directory")
-	assert.Equal(t, 1, nextVersion, "Expected version to start at 1 for empty directory")
-}
-
-func TestSanitizeFolderName(t *testing.T) {
-	tests := []struct {
-		name     string
-		expected string
-	}{
-		{"valid_name", "valid_name"},
-		{"name with spaces", "name_with_spaces"},
-		{"name/with/slash", "name_with_slash"},
-		{">invalid<chars", "invalid_chars"}, // Leading invalid character should add "_"
-		{"   trailing spaces  ", "trailing_spaces"},
-		{"..trailing.dots..", "trailing_dots"}, // Dots replaced
-		{"special|<>:*?chars", "special_chars"},
-		{"multiple___underscores", "multiple_underscores"},
-		{"", "_"}, // Empty name should return "_"
-	}
-
-	for _, test := range tests {
-		result := sanitizeFolderName(test.name)
-		assert.Equal(t, test.expected, result, "Expected sanitized name to be %s, got %s", test.expected, result)
-	}
 }

@@ -23,7 +23,7 @@ func NewRunner(cfg *config.Config) *Runner {
 func (r *Runner) PrepareOutputDirectory() error {
 	log.Debug().Msgf("Preparing root output folder: %s", r.cfg.OutputFolder)
 
-	if err := fs.CreateVersionedFolder(r.cfg.OutputFolder); err != nil {
+	if err := fs.EnsureFolder(r.cfg.OutputFolder); err != nil {
 		return fmt.Errorf("failed to prepare output directory: %w", err)
 	}
 
