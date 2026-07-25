@@ -204,3 +204,39 @@ func TestRun_RerunReusesOutputFolder(t *testing.T) {
 	assert.Len(t, readOutputLines(t, filepath.Join(outputFolder, "gen.jsonl")), 2,
 		"the file must hold one run's rows, not both runs appended")
 }
+
+// TestRun_PerRowWritePipeline is the end-to-end folder-of-documents case: read
+// rows, generate a body per row, and emit one file per row rather than a table.
+func TestRun_PerRowWritePipeline(t *testing.T) {
+	srv := llmtest.NewServer(t,
+		`{"slug":"alpha","body":"Alpha body."}`,
+		`{"slug":"beta","body":"Beta body."}`)
+
+	srcDir := t.TempDir() // input files live apart from the output folder
+	seeds := filepath.Join(srcDir, "seeds.csv")
+	require.NoError(t, os.WriteFile(seeds, []byte("topic\nAlpha\nBeta\n"), 0o644))
+
+	cfg := config.NewConfig()
+	cfg.OutputFolder = t.TempDir()
+	cfg.Version = "1.0"
+	cfg.Steps = []config.Step{
+		{Name: "seeds", Read: seeds},
+		{
+			Name: "articles", Model: "ollama:test-model", ForEach: "seeds",
+			Prompt:        "Write about {{.item.topic}}",
+			JSONSchemaRaw: `{"type":"object","properties":{"slug":{"type":"string"},"body":{"type":"string"}},"required":["slug","body"],"additionalProperties":false}`,
+			ModelConfig:   config.ModelConfig{BaseURL: srv.URL},
+		},
+		{Name: "files", ForEach: "articles", Write: "docs/{{.item.slug}}.md", Content: "{{.item.body}}"},
+	}
+
+	require.NoError(t, utils.PreprocessConfig(cfg))
+	require.NoError(t, cfg.Validate())
+	require.NoError(t, runner.NewRunner(cfg).Run(context.Background()))
+
+	for slug, want := range map[string]string{"alpha": "Alpha body.", "beta": "Beta body."} {
+		data, err := os.ReadFile(filepath.Join(cfg.OutputFolder, "docs", slug+".md"))
+		require.NoError(t, err, "expected one file per row")
+		assert.Equal(t, want, string(data))
+	}
+}
