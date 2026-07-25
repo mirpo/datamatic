@@ -67,3 +67,24 @@ func TestWriteMarkdownTable(t *testing.T) {
 	assert.Equal(t, "| --- | --- |", lines[1])
 	assert.Contains(t, got, "| Acme | 9 |")
 }
+
+// TestSanitizeFilename covers names built from row data, which may contain
+// anything a model emitted — path separators would silently redirect the file.
+func TestSanitizeFilename(t *testing.T) {
+	tests := []struct{ in, want string }{
+		{"locked-out.md", "locked-out.md"},
+		{"a/b:c", "a_b_c"},
+		{`a\b`, "a_b"},
+		{"tab\there", "tab_here"},
+		{"  padded  ", "padded"},
+		{"", ""},
+		{"   ", ""},
+		{"...", ""},
+		{"___", ""},
+		{"Any plans for dark mode?", "Any plans for dark mode?"},
+	}
+
+	for _, tc := range tests {
+		assert.Equal(t, tc.want, SanitizeFilename(tc.in), "input %q", tc.in)
+	}
+}

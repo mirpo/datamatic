@@ -105,6 +105,24 @@ func WriteMarkdownTable(path string, rows []map[string]interface{}) error {
 	return nil
 }
 
+// SanitizeFilename makes a string safe to use as one path segment, for file
+// names built from row data. Both slash kinds are replaced regardless of
+// platform, so a name written on one OS cannot redirect the file on another.
+// Returns "" when nothing usable remains, leaving the fallback to the caller.
+func SanitizeFilename(s string) string {
+	s = strings.Map(func(r rune) rune {
+		if r == '/' || r == '\\' || r == ':' || r < 0x20 {
+			return '_'
+		}
+		return r
+	}, strings.TrimSpace(s))
+
+	if strings.Trim(s, "_. ") == "" {
+		return ""
+	}
+	return s
+}
+
 func mdEscape(s string) string {
 	s = strings.ReplaceAll(s, "\n", " ")
 	return strings.ReplaceAll(s, "|", "\\|")
