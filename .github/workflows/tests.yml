@@ -65,5 +65,6 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           ollama pull qwen3:1.7b
+          # no --output: exercises the default, which is 'dataset' next to the config
           ./datamatic --config ci/smoke.yaml --verbose
-          cat ./dataset/describe.jsonl | jq
+          cat ./ci/dataset/describe.jsonl | jq
