@@ -23,6 +23,25 @@ func TestNewWriter(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+// TestNewWriter_TruncatesExistingFile pins the contract a rerun depends on: a
+// step's output file holds only the rows of the run that produced it. Appending
+// would silently stack a new run's rows on top of the previous one's.
+func TestNewWriter_TruncatesExistingFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "step.jsonl")
+	require.NoError(t, os.WriteFile(path, []byte(`{"stale":"previous run"}`+"\n"), 0o644))
+
+	writer, err := NewWriter(path)
+	require.NoError(t, err)
+	require.NoError(t, writer.WriteJSON(map[string]string{"fresh": "current run"}))
+	require.NoError(t, writer.Close())
+
+	content, err := os.ReadFile(path)
+	require.NoError(t, err)
+
+	assert.Equal(t, `{"fresh":"current run"}`+"\n", string(content),
+		"reopening a step's output must replace the previous run's rows, not append to them")
+}
+
 func TestWriteLine(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test*.jsonl")
 	assert.NoError(t, err)

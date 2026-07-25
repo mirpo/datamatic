@@ -2,12 +2,12 @@ package step
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/mirpo/datamatic/config"
 	"github.com/mirpo/datamatic/fs"
+	"github.com/mirpo/datamatic/jsonl"
 	"github.com/rs/zerolog/log"
 )
 
@@ -76,16 +76,17 @@ func asObjects(rows []interface{}) ([]map[string]interface{}, error) {
 	return objs, nil
 }
 
+// writeJSONL reuses the shared JSONL writer, so the deliverable's line format
+// stays defined in one place (the writer truncates: a fresh file each run).
 func writeJSONL(path string, rows []interface{}) error {
-	file, err := os.Create(path) // truncate: a fresh deliverable each run
+	writer, err := jsonl.NewWriter(path)
 	if err != nil {
 		return fmt.Errorf("failed to create '%s': %w", path, err)
 	}
-	defer file.Close()
+	defer writer.Close()
 
-	enc := json.NewEncoder(file) // Encode writes one compact JSON value + newline
 	for _, row := range rows {
-		if err := enc.Encode(row); err != nil {
+		if err := writer.WriteJSON(row); err != nil {
 			return fmt.Errorf("failed to write row: %w", err)
 		}
 	}
