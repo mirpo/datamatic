@@ -303,13 +303,26 @@ Options:
   -log-pretty
         Enable pretty logging, JSON when false (default true)
   -output string
-        Output folder path (default "dataset")
+        Output folder path, relative to the working directory
+        (default: 'dataset' next to the config file)
   -validate-response
         Validate JSON response from server to match the schema (default true)
   -verbose
         Enable DEBUG logging level
   -version
         Get current version of datamatic
+```
+
+**Choosing the output folder** — first match wins:
+
+1. `--output <path>` — relative to the **working directory**, absolute used as-is
+2. `output:` in the config — relative to the **config file's directory**, so it travels with the workflow
+3. otherwise `dataset` **next to the config file** — the same workflow lands in the same place no matter where it was launched from
+
+```bash
+datamatic --config flows/triage/config.yaml                        # → flows/triage/dataset/
+datamatic --config flows/triage/config.yaml --output ./today       # → ./today/
+datamatic --config flows/triage/config.yaml --output /srv/runs/a   # → /srv/runs/a/
 ```
 
 ## Examples

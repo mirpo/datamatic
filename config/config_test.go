@@ -14,7 +14,11 @@ func TestNewConfig(t *testing.T) {
 	assert.Equal(t, "", cfg.ConfigFile)
 	assert.False(t, cfg.Verbose)
 	assert.True(t, cfg.LogPretty)
-	assert.Equal(t, "dataset", cfg.OutputFolder)
+	// the output folder is resolved during preprocessing (default: 'dataset'
+	// next to the config file), so it starts out unset
+	assert.Equal(t, "", cfg.OutputFolder)
+	assert.Equal(t, "", cfg.OutputFlag)
+	assert.Equal(t, "", cfg.Output)
 	assert.Equal(t, 300, cfg.HTTPTimeout)
 	assert.Equal(t, "", cfg.Version)
 	assert.Nil(t, cfg.Steps)

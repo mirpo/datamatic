@@ -507,14 +507,31 @@ func isValidName(name string) error {
 	return nil
 }
 
+// defaultOutputFolder is where a run writes when nothing else says otherwise:
+// next to the config, so the same workflow lands in the same place no matter
+// which directory it was launched from.
+const defaultOutputFolder = "dataset"
+
+// setRootOutputFolder resolves the one folder every step writes into. In order
+// of precedence: the --output flag (relative to the working directory, because
+// that is where it was typed), the `output:` key (relative to the config, so it
+// travels with the workflow), a folder assigned programmatically, and finally
+// the default next to the config.
 func setRootOutputFolder(cfg *config.Config) error {
-	if len(cfg.OutputFolder) == 0 {
-		return errors.New("output folder is required")
+	folder := cfg.OutputFolder // programmatic callers may set this directly
+
+	switch {
+	case cfg.OutputFlag != "":
+		folder = cfg.OutputFlag
+	case cfg.Output != "":
+		folder = resolveDataPath(cfg.ConfigFile, cfg.Output)
+	case folder == "":
+		folder = resolveDataPath(cfg.ConfigFile, defaultOutputFolder)
 	}
 
-	absOutputFolder, err := filepath.Abs(cfg.OutputFolder)
+	absOutputFolder, err := filepath.Abs(folder)
 	if err != nil {
-		return fmt.Errorf("failed to get absolute path for output folder '%s': %w", cfg.OutputFolder, err)
+		return fmt.Errorf("failed to get absolute path for output folder '%s': %w", folder, err)
 	}
 
 	cfg.OutputFolder = absOutputFolder

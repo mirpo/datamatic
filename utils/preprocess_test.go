@@ -705,6 +705,73 @@ func TestPreprocessConfig_DataPathsResolveToConfigDir(t *testing.T) {
 	assert.Equal(t, absIn, cfg.Steps[2].Read, "absolute read unchanged")
 }
 
+// TestPreprocessConfig_OutputFolderResolution pins where generated output goes.
+// A path written in the config travels with the config; a path typed on the
+// command line is relative to where the command was typed.
+func TestPreprocessConfig_OutputFolderResolution(t *testing.T) {
+	configDir := t.TempDir()
+	configFile := filepath.Join(configDir, "flow.yaml")
+
+	base := func() *config.Config {
+		cfg := config.NewConfig()
+		cfg.ConfigFile = configFile
+		cfg.Steps = []config.Step{{Name: "gen", Prompt: "p", Model: "ollama:m", Count: 1}}
+		return cfg
+	}
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+
+	t.Run("default sits next to the config, not in the working directory", func(t *testing.T) {
+		cfg := base()
+		require.NoError(t, PreprocessConfig(cfg))
+		assert.Equal(t, filepath.Join(configDir, "dataset"), cfg.OutputFolder)
+	})
+
+	t.Run("output: in the config resolves against the config dir", func(t *testing.T) {
+		cfg := base()
+		cfg.Output = "results"
+		require.NoError(t, PreprocessConfig(cfg))
+		assert.Equal(t, filepath.Join(configDir, "results"), cfg.OutputFolder)
+	})
+
+	t.Run("--output flag resolves against the working directory", func(t *testing.T) {
+		cfg := base()
+		cfg.OutputFlag = "today"
+		require.NoError(t, PreprocessConfig(cfg))
+		assert.Equal(t, filepath.Join(cwd, "today"), cfg.OutputFolder)
+	})
+
+	t.Run("--output flag wins over output: in the config", func(t *testing.T) {
+		cfg := base()
+		cfg.Output = "results"
+		cfg.OutputFlag = "today"
+		require.NoError(t, PreprocessConfig(cfg))
+		assert.Equal(t, filepath.Join(cwd, "today"), cfg.OutputFolder)
+	})
+
+	t.Run("absolute paths are used as-is", func(t *testing.T) {
+		abs := filepath.Join(t.TempDir(), "elsewhere")
+
+		cfg := base()
+		cfg.Output = abs
+		require.NoError(t, PreprocessConfig(cfg))
+		assert.Equal(t, abs, cfg.OutputFolder)
+
+		cfg = base()
+		cfg.OutputFlag = abs
+		require.NoError(t, PreprocessConfig(cfg))
+		assert.Equal(t, abs, cfg.OutputFolder)
+	})
+
+	t.Run("an explicitly assigned OutputFolder is honored", func(t *testing.T) {
+		explicit := t.TempDir()
+		cfg := base()
+		cfg.OutputFolder = explicit
+		require.NoError(t, PreprocessConfig(cfg))
+		assert.Equal(t, explicit, cfg.OutputFolder)
+	})
+}
+
 // TestPreprocessConfig_WriteDeliverablesLandInOutputFolder pins the split: an
 // input path travels with the config, everything generated goes to the one
 // output folder, and an absolute path is an escape hatch from both.
