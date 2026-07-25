@@ -172,14 +172,14 @@ Process your own data end to end — no shell glue:
 ```yaml
 steps:
   - name: leads
-    read: ./leads.csv          # local files → rows
+    read: leads.csv          # local files → rows
   - name: classified
     forEach: leads
     prompt: Classify {{.item.company}}
     jsonSchema: { ... }
   - name: report
     from: classified
-    write: ./enriched.csv       # rows → a deliverable file
+    write: enriched.csv         # rows → a deliverable file
 ```
 
 - **`read:`** turns local files into rows. Format is inferred from the path (overridable with `format:`):
@@ -188,7 +188,21 @@ steps:
   - `.jsonl` → one row per line
 - **`write:`** exports a step's rows to a file, format inferred from the extension: `.csv`, `.json` (array), `.md` (table), or `.jsonl`. It's terminal and doesn't change the intermediate JSONL that other steps read.
 - **`image:`** on a prompt step attaches a file as a vision image, e.g. `image: "{{.item.path}}"` after `read`-ing a folder of images.
-- Relative `read`/`write` paths resolve **relative to the config file's directory** (so a workflow's data travels with it and runs from any working directory); absolute paths are used as-is. See the [csv-enrichment](./examples/v1/csv-enrichment/README.md) and [process-my-files](./examples/v1/process-my-files/README.md) examples.
+
+**Where paths point.** Inputs travel with the workflow; everything generated lands in the output folder:
+
+| Path | Relative to | Absolute |
+| --- | --- | --- |
+| `read:` (input) | the **config file's directory** — so a workflow runs from any working directory | used as-is |
+| `write:` (deliverable) | the **output folder** | used as-is — this is how you publish outside it |
+| intermediate JSONL | the **output folder** | — |
+| `--output` (flag) | the **working directory** | used as-is |
+
+The output folder is **reused and overwritten** on each run — no `dataset_v1`, `dataset_v2` copies, so deliverable paths stay stable. For run history, point `--output` somewhere per-run (e.g. `--output runs/$(date +%F-%H%M)`). `dataset*` is gitignored.
+
+One exception: a shell step with an explicit `workDir` writes its `outputFilename` into that directory (relative to the output folder, or wherever an absolute `workDir` points), since the command needs to produce the file in its own working directory.
+
+See the [csv-enrichment](./examples/v1/csv-enrichment/README.md) and [process-my-files](./examples/v1/process-my-files/README.md) examples.
 
 ### Schema-Guided Reasoning (SGR)
 
@@ -291,13 +305,26 @@ Options:
   -log-pretty
         Enable pretty logging, JSON when false (default true)
   -output string
-        Output folder path (default "dataset")
+        Output folder path, relative to the working directory
+        (default: 'dataset' next to the config file)
   -validate-response
         Validate JSON response from server to match the schema (default true)
   -verbose
         Enable DEBUG logging level
   -version
         Get current version of datamatic
+```
+
+**Choosing the output folder** — first match wins:
+
+1. `--output <path>` — relative to the **working directory**, absolute used as-is
+2. `output:` in the config — relative to the **config file's directory**, so it travels with the workflow
+3. otherwise `dataset` **next to the config file** — the same workflow lands in the same place no matter where it was launched from
+
+```bash
+datamatic --config flows/triage/config.yaml                        # → flows/triage/dataset/
+datamatic --config flows/triage/config.yaml --output ./today       # → ./today/
+datamatic --config flows/triage/config.yaml --output /srv/runs/a   # → /srv/runs/a/
 ```
 
 ## Examples

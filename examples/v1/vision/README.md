@@ -10,7 +10,7 @@ accessibility.
 
 ## Steps
 
-1. `images` — `read: ./images/*.jpg` → one row per image: `{path, name, content}`
+1. `images` — `read: images/*.jpg` → one row per image: `{path, name, content}`
 2. `describe` — `forEach` image, `image: {{.item.path}}` attaches it → `{description, main_colors[], tags[]}`
 
 Point `read` at your own image folder to process your files.

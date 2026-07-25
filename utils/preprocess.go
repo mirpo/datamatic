@@ -221,8 +221,9 @@ func PreprocessConfig(cfg *config.Config) error {
 			}
 		}
 
-		// Write steps: terminal export of a source step's rows to a file
-		// (path resolves relative to the config file's dir — the deliverable)
+		// Write steps: terminal export of a source step's rows to a file. The
+		// deliverable is generated output, so a relative path joins the output
+		// folder (an absolute path publishes outside it).
 		if step.Type == config.WriteStepType {
 			if step.From == "" {
 				return fmt.Errorf("step '%s': 'from' is required for write steps", step.Name)
@@ -230,7 +231,7 @@ func PreprocessConfig(cfg *config.Config) error {
 			if err := requireEarlierStep(stepNames, "from", step.From); err != nil {
 				return fmt.Errorf("step '%s': %w", step.Name, err)
 			}
-			step.Write = resolveDataPath(cfg.ConfigFile, step.Write)
+			step.Write = resolveOutputPath(cfg.OutputFolder, step.Write)
 			format, err := resolveWriteFormat(step)
 			if err != nil {
 				return fmt.Errorf("step '%s': %w", step.Name, err)
@@ -362,14 +363,28 @@ func getFullOutputPath(step config.Step, outputFolder string) (string, error) {
 	return filepath.Clean(fullPath), nil
 }
 
-// resolveDataPath makes a relative read/write path relative to the config
-// file's directory, so a workflow's data files travel with it and it runs from
-// any working directory. Absolute paths are left unchanged.
+// resolveDataPath makes a relative input path relative to the config file's
+// directory, so a workflow's data files travel with it and it runs from any
+// working directory. Absolute paths are left unchanged.
 func resolveDataPath(configFile, path string) string {
+	return joinIfRelative(filepath.Dir(configFile), path)
+}
+
+// resolveOutputPath puts a relative generated path inside the output folder, so
+// everything a run produces lands in one place. Absolute paths are left
+// unchanged, which is how a deliverable is published outside that folder.
+func resolveOutputPath(outputFolder, path string) string {
+	return joinIfRelative(outputFolder, path)
+}
+
+// joinIfRelative is the shared rule behind both resolvers: an absolute path is
+// already the answer, and an empty one means "not set" — only a relative path
+// is anchored to a base.
+func joinIfRelative(base, path string) string {
 	if path == "" || filepath.IsAbs(path) {
 		return path
 	}
-	return filepath.Join(filepath.Dir(configFile), path)
+	return filepath.Join(base, path)
 }
 
 // resolveReadFormat validates an explicit read `format` or infers it from the
@@ -496,32 +511,47 @@ func isValidName(name string) error {
 	return nil
 }
 
+// defaultOutputFolder is where a run writes when nothing else says otherwise:
+// next to the config, so the same workflow lands in the same place no matter
+// which directory it was launched from.
+const defaultOutputFolder = "dataset"
+
+// setRootOutputFolder resolves the one folder every step writes into. In order
+// of precedence: the --output flag (relative to the working directory, because
+// that is where it was typed), the `output:` key (relative to the config, so it
+// travels with the workflow), a folder assigned programmatically, and finally
+// the default next to the config.
 func setRootOutputFolder(cfg *config.Config) error {
-	if len(cfg.OutputFolder) == 0 {
-		return errors.New("output folder is required")
+	folder := cfg.OutputFolder // programmatic callers may set this directly
+
+	switch {
+	case cfg.OutputFlag != "":
+		folder = cfg.OutputFlag
+	case cfg.Output != "":
+		folder = resolveDataPath(cfg.ConfigFile, cfg.Output)
+	case folder == "":
+		folder = resolveDataPath(cfg.ConfigFile, defaultOutputFolder)
 	}
 
-	absOutputFolder, err := filepath.Abs(cfg.OutputFolder)
+	absOutputFolder, err := filepath.Abs(folder)
 	if err != nil {
-		return fmt.Errorf("failed to get absolute path for output folder '%s': %w", cfg.OutputFolder, err)
+		return fmt.Errorf("failed to get absolute path for output folder '%s': %w", folder, err)
 	}
 
 	cfg.OutputFolder = absOutputFolder
 	return nil
 }
 
-// setWorkDir sets and normalizes the working directory for shell steps
+// setWorkDir sets and normalizes the working directory for shell steps. It
+// anchors like any other generated path (see resolveOutputPath), defaulting to
+// the output folder itself.
 func setWorkDir(step *config.Step, outputFolder string) error {
 	if step.WorkDir == "" {
 		step.WorkDir = outputFolder
 		return nil
 	}
 
-	if !filepath.IsAbs(step.WorkDir) {
-		step.WorkDir = filepath.Join(outputFolder, step.WorkDir)
-	}
-
-	absPath, err := filepath.Abs(step.WorkDir)
+	absPath, err := filepath.Abs(resolveOutputPath(outputFolder, step.WorkDir))
 	if err != nil {
 		return fmt.Errorf("invalid workDir path: %w", err)
 	}

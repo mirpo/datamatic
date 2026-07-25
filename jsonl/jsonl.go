@@ -12,8 +12,11 @@ type Writer struct {
 	file *os.File
 }
 
+// NewWriter opens a step's output file for writing, truncating it: a step
+// materializes all of its rows in one pass, so the file always holds exactly
+// the rows of the run that produced it (a rerun replaces, never appends).
 func NewWriter(path string) (*Writer, error) {
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
@@ -34,14 +37,12 @@ func (w *Writer) WriteJSON(v interface{}) error {
 		return fmt.Errorf("failed to marshal value: %w", err)
 	}
 
-	log.Debug().Msgf("writing jsonl line: %s", string(jsonData))
+	log.Debug().Bytes("line", jsonData).Msg("writing jsonl line")
 
-	if _, err := w.file.Write(jsonData); err != nil {
+	// one write per row: the file is unbuffered, so appending the newline here
+	// halves the syscalls versus a separate WriteString
+	if _, err := w.file.Write(append(jsonData, '\n')); err != nil {
 		return fmt.Errorf("failed to write json data to file: %w", err)
-	}
-
-	if _, err := w.file.WriteString("\n"); err != nil {
-		return fmt.Errorf("failed to write newline after json data: %w", err)
 	}
 
 	return nil

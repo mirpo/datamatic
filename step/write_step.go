@@ -2,12 +2,13 @@ package step
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/mirpo/datamatic/config"
 	"github.com/mirpo/datamatic/fs"
+	"github.com/mirpo/datamatic/jsonl"
 	"github.com/rs/zerolog/log"
 )
 
@@ -20,6 +21,13 @@ func (p *WriteStep) Run(ctx context.Context, cfg *config.Config, step config.Ste
 	src := cfg.GetStepByName(step.From)
 	if src == nil {
 		return fmt.Errorf("'from' references unknown step '%s'", step.From)
+	}
+
+	// the deliverable may nest (e.g. write: reports/board.csv), and the output
+	// folder starts out fresh, so its parent won't exist yet. Done before
+	// reading the source so an unwritable destination fails immediately.
+	if err := fs.EnsureFolder(filepath.Dir(step.Write)); err != nil {
+		return fmt.Errorf("step '%s': %w", step.Name, err)
 	}
 
 	file, err := os.Open(src.OutputFilename)
@@ -76,16 +84,17 @@ func asObjects(rows []interface{}) ([]map[string]interface{}, error) {
 	return objs, nil
 }
 
+// writeJSONL reuses the shared JSONL writer, so the deliverable's line format
+// stays defined in one place (the writer truncates: a fresh file each run).
 func writeJSONL(path string, rows []interface{}) error {
-	file, err := os.Create(path) // truncate: a fresh deliverable each run
+	writer, err := jsonl.NewWriter(path)
 	if err != nil {
 		return fmt.Errorf("failed to create '%s': %w", path, err)
 	}
-	defer file.Close()
+	defer writer.Close()
 
-	enc := json.NewEncoder(file) // Encode writes one compact JSON value + newline
 	for _, row := range rows {
-		if err := enc.Encode(row); err != nil {
+		if err := writer.WriteJSON(row); err != nil {
 			return fmt.Errorf("failed to write row: %w", err)
 		}
 	}

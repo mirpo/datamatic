@@ -5,7 +5,7 @@ version: 1.0
 # shape a scannable board → draft a suggested reply → write CSV + Markdown.
 steps:
   - name: emails
-    read: ./inbox/*.txt
+    read: inbox/*.txt
 
   - name: triage
     model: ollama:qwen3:1.7b
@@ -51,7 +51,7 @@ steps:
 
   - name: board
     from: board_rows
-    write: ./board.csv
+    write: board.csv
 
   - name: drafts
     model: ollama:qwen3:1.7b
@@ -79,4 +79,4 @@ steps:
 
   - name: reply_digest
     from: drafts
-    write: ./replies.md
+    write: replies.md

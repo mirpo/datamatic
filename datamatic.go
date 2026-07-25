@@ -37,7 +37,7 @@ func main() {
 	flag.BoolVar(&cfg.Verbose, "verbose", cfg.Verbose, "Enable DEBUG logging level")
 	flag.BoolVar(&cfg.LogPretty, "log-pretty", cfg.LogPretty, "Enable pretty logging, JSON when false")
 	flag.StringVar(&cfg.ConfigFile, "config", cfg.ConfigFile, "Config file path")
-	flag.StringVar(&cfg.OutputFolder, "output", cfg.OutputFolder, "Output folder path")
+	flag.StringVar(&cfg.OutputFlag, "output", "", "Output folder path, relative to the working directory (default: 'dataset' next to the config file)")
 	flag.IntVar(&cfg.HTTPTimeout, "http-timeout", cfg.HTTPTimeout, "HTTP timeout: 0 - no timeout, if number - recommended to put high on poor hardware")
 	flag.BoolVar(&cfg.ValidateResponse, "validate-response", cfg.ValidateResponse, "Validate JSON response from server to match the schema")
 

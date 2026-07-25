@@ -8,12 +8,12 @@ becomes a row, and each is triaged into a structured record.
 
 ## Steps
 
-1. `tickets` — `read: ./docs/*.md` → one row per file: `{path, name, content}`
+1. `tickets` — `read: docs/*.md` → one row per file: `{path, name, content}`
 2. `triage` — `forEach` ticket → `{category, priority, summary}`
 
 Point `read` at your own path to process your data. Other forms:
-`read: ./data.csv` (one row per record), `read: ./seed.jsonl` (one row per line),
-`read: ./docs/` (a whole directory). Override detection with `format:`.
+`read: data.csv` (one row per record), `read: seed.jsonl` (one row per line),
+`read: docs/` (a whole directory). Override detection with `format:`.
 
 ## Requirements
 

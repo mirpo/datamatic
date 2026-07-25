@@ -9,12 +9,12 @@ emails into `inbox/` and rerun.
 
 ## Steps
 
-1. `emails` — `read: ./inbox/*.txt` → one row per file (`{path, name, content}`)
+1. `emails` — `read: inbox/*.txt` → one row per file (`{path, name, content}`)
 2. `triage` — `forEach` email → SGR `{reasoning, subject, category, priority, sentiment, summary}`
 3. `board_rows` — **transform** drops the reasoning, keeping the scannable columns
-4. `board` — `write: ./board.csv` → the triage board
+4. `board` — `write: board.csv` → the triage board
 5. `drafts` — `forEach` triage row → `{subject, reply}` (drafted from the summary, not the raw email)
-6. `reply_digest` — `write: ./replies.md` → the suggested replies as a Markdown table
+6. `reply_digest` — `write: replies.md` → the suggested replies as a Markdown table
 
 ## Requirements
 
@@ -25,6 +25,6 @@ emails into `inbox/` and rerun.
 
 ```bash
 datamatic --config ./config.yaml --verbose
-cat ./board.csv
-cat ./replies.md
+cat ./dataset/board.csv
+cat ./dataset/replies.md
 ```

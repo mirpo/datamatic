@@ -174,3 +174,33 @@ func TestRun_ReadEnrichWritePipeline(t *testing.T) {
 	assert.Contains(t, got, "tech")
 	assert.Contains(t, got, "finance")
 }
+
+// TestRun_RerunReusesOutputFolder is the end-to-end rerun contract: running the
+// same config twice reuses the output folder (no "_vN" archive copies) and each
+// step's file holds one run's rows, not both runs stacked.
+func TestRun_RerunReusesOutputFolder(t *testing.T) {
+	outputFolder := t.TempDir()
+
+	run := func() {
+		srv := llmtest.NewServer(t, `{"title":"a"}`, `{"title":"b"}`)
+		cfg := config.NewConfig()
+		cfg.OutputFolder = outputFolder
+		cfg.Version = "1.0"
+		cfg.Steps = []config.Step{{
+			Name: "gen", Model: "ollama:test-model", Count: 2,
+			Prompt:        "Give a title",
+			JSONSchemaRaw: `{"type":"object","properties":{"title":{"type":"string"}},"required":["title"],"additionalProperties":false}`,
+			ModelConfig:   config.ModelConfig{BaseURL: srv.URL},
+		}}
+		require.NoError(t, utils.PreprocessConfig(cfg))
+		require.NoError(t, cfg.Validate())
+		require.NoError(t, runner.NewRunner(cfg).Run(context.Background()))
+	}
+
+	run()
+	run()
+
+	assert.NoDirExists(t, outputFolder+"_v1", "a rerun must not archive the output folder into a versioned copy")
+	assert.Len(t, readOutputLines(t, filepath.Join(outputFolder, "gen.jsonl")), 2,
+		"the file must hold one run's rows, not both runs appended")
+}
