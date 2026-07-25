@@ -2,10 +2,10 @@
 
 A real support-desk loop, no shell: **read a folder of incoming emails →
 classify each with schema-guided reasoning → draft a suggested reply → write a
-triage board (CSV) and a drafts digest (Markdown)**. Drop your own `.txt`
-emails into `inbox/` and rerun.
+triage board (CSV), a drafts digest (Markdown), and one editable reply file per
+ticket**. Drop your own `.txt` emails into `inbox/` and rerun.
 
-**Features:** `read` (folder of files) · `SGR` · `forEach` · `transform` · `write` (csv + md)
+**Features:** `read` (folder of files) · `SGR` · `forEach` · `transform` · `write` (aggregate + per-row)
 
 ## Steps
 
@@ -14,7 +14,11 @@ emails into `inbox/` and rerun.
 3. `board_rows` — **transform** drops the reasoning, keeping the scannable columns
 4. `board` — `write: board.csv` → the triage board
 5. `drafts` — `forEach` triage row → `{subject, reply}` (drafted from the summary, not the raw email)
-6. `reply_digest` — `write: replies.md` → the suggested replies as a Markdown table
+6. `reply_digest` — `write: replies.md` → all drafts as one Markdown table (aggregate mode)
+7. `reply_files` — `forEach` draft → `replies/<subject>.md`, one file per ticket whose body is the reply itself (per-row mode)
+
+Steps 6 and 7 show the two write modes side by side: `from:` for one file with
+every row, `forEach:` + `content:` for a folder of documents.
 
 ## Requirements
 
@@ -27,4 +31,5 @@ emails into `inbox/` and rerun.
 datamatic --config ./config.yaml --verbose
 cat ./dataset/board.csv
 cat ./dataset/replies.md
+ls ./dataset/replies/
 ```

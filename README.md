@@ -189,12 +189,32 @@ steps:
 - **`write:`** exports a step's rows to a file, format inferred from the extension: `.csv`, `.json` (array), `.md` (table), or `.jsonl`. It's terminal and doesn't change the intermediate JSONL that other steps read.
 - **`image:`** on a prompt step attaches a file as a vision image, e.g. `image: "{{.item.path}}"` after `read`-ing a folder of images.
 
+#### One file, or one file per row
+
+A write step's source picks its mode. `from:` writes **one file** with every row — a dataset or report. `forEach:` writes **one file per row** — a folder of documents:
+
+```yaml
+  - name: reply_digest
+    from: drafts                          # → one replies.md table of all drafts
+    write: replies.md
+
+  - name: reply_files
+    forEach: drafts                       # → one file per draft
+    write: replies/{{.item.subject}}.md   # path is a template, rendered per row
+    content: "{{.item.reply}}"            # body is raw text, not JSON
+```
+
+- The path template may nest (`write: out/{{.item.kind}}/{{.item.id}}.md`); missing directories are created.
+- **`content:`** is the file body as raw text — that is what makes the output a document rather than a record. Omit it and the row is serialized by extension instead (`.json`, `.csv`, …), one row per file.
+- Values interpolated into the path are made filename-safe, so a `/` or `:` inside your data can't redirect the file — only slashes you write in the template create directories. A name that renders empty falls back to the row number, and two rows producing the same name get numbered (`-2`) instead of overwriting each other.
+
 **Where paths point.** Inputs travel with the workflow; everything generated lands in the output folder:
 
 | Path | Relative to | Absolute |
 | --- | --- | --- |
 | `read:` (input) | the **config file's directory** — so a workflow runs from any working directory | used as-is |
 | `write:` (deliverable) | the **output folder** | used as-is — this is how you publish outside it |
+| `write:` per-row template | the **output folder**, after rendering | used as-is |
 | intermediate JSONL | the **output folder** | — |
 | `--output` (flag) | the **working directory** | used as-is |
 

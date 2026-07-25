@@ -77,6 +77,13 @@ steps:
       required: [subject, reply]
       additionalProperties: false
 
+  # aggregate: one Markdown table of every draft, to skim
   - name: reply_digest
     from: drafts
     write: replies.md
+
+  # per-row: one editable file per ticket, named after its subject
+  - name: reply_files
+    forEach: drafts
+    write: replies/{{.item.subject}}.md
+    content: "{{.item.reply}}"
