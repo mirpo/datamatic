@@ -82,8 +82,11 @@ steps:
     from: drafts
     write: replies.md
 
-  # per-row: one editable file per ticket, named after its subject
+  # per-row: one editable file per ticket, named after its subject.
+  # content is written verbatim — the block scalar adds the trailing newline a
+  # text file should end with (quote it instead to control the bytes exactly)
   - name: reply_files
     forEach: drafts
     write: replies/{{.item.subject}}.md
-    content: "{{.item.reply}}"
+    content: |
+      {{.item.reply}}
