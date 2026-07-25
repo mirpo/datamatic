@@ -172,7 +172,7 @@ Process your own data end to end — no shell glue:
 ```yaml
 steps:
   - name: leads
-    read: ./leads.csv          # local files → rows
+    read: leads.csv          # local files → rows
   - name: classified
     forEach: leads
     prompt: Classify {{.item.company}}

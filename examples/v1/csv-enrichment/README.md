@@ -6,7 +6,7 @@ The full office loop with no shell: **read a CSV → enrich each row with an LLM
 
 ## Steps
 
-1. `leads` — `read: ./leads.csv` → one row per record (columns become fields)
+1. `leads` — `read: leads.csv` → one row per record (columns become fields)
 2. `classified` — `forEach` lead → `{company, industry, size}`
 3. `report` — `write: enriched.csv` → the enriched rows as CSV
 

@@ -5,7 +5,7 @@ version: 1.0
 # shape a scannable board → draft a suggested reply → write CSV + Markdown.
 steps:
   - name: emails
-    read: ./inbox/*.txt
+    read: inbox/*.txt
 
   - name: triage
     model: ollama:qwen3:1.7b

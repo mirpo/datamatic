@@ -5,7 +5,7 @@ version: 1.0
 # as a vision image via `image: {{.item.path}}`.
 steps:
   - name: images
-    read: ./images/*.jpg
+    read: images/*.jpg
 
   - name: describe
     model: ollama:qwen2.5vl:3b

@@ -9,7 +9,7 @@ emails into `inbox/` and rerun.
 
 ## Steps
 
-1. `emails` — `read: ./inbox/*.txt` → one row per file (`{path, name, content}`)
+1. `emails` — `read: inbox/*.txt` → one row per file (`{path, name, content}`)
 2. `triage` — `forEach` email → SGR `{reasoning, subject, category, priority, sentiment, summary}`
 3. `board_rows` — **transform** drops the reasoning, keeping the scannable columns
 4. `board` — `write: board.csv` → the triage board

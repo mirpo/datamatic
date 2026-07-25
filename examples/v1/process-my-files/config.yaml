@@ -4,7 +4,7 @@ version: 1.0
 # a directory, a .csv, or a .jsonl and it becomes rows; here: one row per file.
 steps:
   - name: tickets
-    read: ./docs/*.md
+    read: docs/*.md
 
   - name: triage
     model: ollama:qwen3:1.7b
