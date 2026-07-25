@@ -27,17 +27,22 @@ func NewConfig() *Config {
 }
 
 type Config struct {
-	ConfigFile string
-	Verbose    bool
-	LogPretty  bool
+	// Runtime state: set from CLI flags or computed while preprocessing, never
+	// read from the config document. yaml:"-" keeps them out of the YAML
+	// namespace — without it each one is addressable by its lowercased name
+	// (`outputfolder:`, `verbose:`), which would mean several undocumented
+	// spellings of one setting, some with a different base directory.
+	ConfigFile string `yaml:"-"`
+	Verbose    bool   `yaml:"-"`
+	LogPretty  bool   `yaml:"-"`
 	// OutputFlag is the --output value: a relative path is resolved against the
 	// working directory, since that is where the command was typed.
-	OutputFlag string
+	OutputFlag string `yaml:"-"`
 	// OutputFolder is the resolved absolute folder every step writes into,
 	// computed during preprocessing.
-	OutputFolder     string
-	HTTPTimeout      int
-	ValidateResponse bool
+	OutputFolder     string   `yaml:"-"`
+	HTTPTimeout      int      `yaml:"-"`
+	ValidateResponse bool     `yaml:"-"`
 	Version          string   `yaml:"version"`
 	EnvVars          []string `yaml:"envVars"`
 	// Output is the optional `output:` key: a relative path is resolved against

@@ -195,10 +195,12 @@ steps:
 | --- | --- | --- |
 | `read:` (input) | the **config file's directory** — so a workflow runs from any working directory | used as-is |
 | `write:` (deliverable) | the **output folder** | used as-is — this is how you publish outside it |
-| intermediate JSONL | the **output folder** (always) | — |
+| intermediate JSONL | the **output folder** | — |
 | `--output` (flag) | the **working directory** | used as-is |
 
 The output folder is **reused and overwritten** on each run — no `dataset_v1`, `dataset_v2` copies, so deliverable paths stay stable. For run history, point `--output` somewhere per-run (e.g. `--output runs/$(date +%F-%H%M)`). `dataset*` is gitignored.
+
+One exception: a shell step with an explicit `workDir` writes its `outputFilename` into that directory (relative to the output folder, or wherever an absolute `workDir` points), since the command needs to produce the file in its own working directory.
 
 See the [csv-enrichment](./examples/v1/csv-enrichment/README.md) and [process-my-files](./examples/v1/process-my-files/README.md) examples.
 

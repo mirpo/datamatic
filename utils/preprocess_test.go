@@ -712,64 +712,41 @@ func TestPreprocessConfig_OutputFolderResolution(t *testing.T) {
 	configDir := t.TempDir()
 	configFile := filepath.Join(configDir, "flow.yaml")
 
-	base := func() *config.Config {
-		cfg := config.NewConfig()
-		cfg.ConfigFile = configFile
-		cfg.Steps = []config.Step{{Name: "gen", Prompt: "p", Model: "ollama:m", Count: 1}}
-		return cfg
-	}
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
+	abs := filepath.Join(t.TempDir(), "elsewhere")
+	preset := t.TempDir()
 
-	t.Run("default sits next to the config, not in the working directory", func(t *testing.T) {
-		cfg := base()
-		require.NoError(t, PreprocessConfig(cfg))
-		assert.Equal(t, filepath.Join(configDir, "dataset"), cfg.OutputFolder)
-	})
+	tests := []struct {
+		name       string
+		output     string // output: in the config
+		outputFlag string // --output
+		preset     string // assigned programmatically before preprocessing
+		want       string
+	}{
+		{
+			name: "default sits next to the config, not in the working directory",
+			want: filepath.Join(configDir, defaultOutputFolder),
+		},
+		{name: "output: resolves against the config dir", output: "results", want: filepath.Join(configDir, "results")},
+		{name: "--output resolves against the working directory", outputFlag: "today", want: filepath.Join(cwd, "today")},
+		{name: "--output wins over output:", output: "results", outputFlag: "today", want: filepath.Join(cwd, "today")},
+		{name: "absolute output: is used as-is", output: abs, want: abs},
+		{name: "absolute --output is used as-is", outputFlag: abs, want: abs},
+		{name: "a programmatically assigned folder is honored", preset: preset, want: preset},
+	}
 
-	t.Run("output: in the config resolves against the config dir", func(t *testing.T) {
-		cfg := base()
-		cfg.Output = "results"
-		require.NoError(t, PreprocessConfig(cfg))
-		assert.Equal(t, filepath.Join(configDir, "results"), cfg.OutputFolder)
-	})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := config.NewConfig()
+			cfg.ConfigFile = configFile
+			cfg.Steps = []config.Step{{Name: "gen", Prompt: "p", Model: "ollama:m", Count: 1}}
+			cfg.Output, cfg.OutputFlag, cfg.OutputFolder = tc.output, tc.outputFlag, tc.preset
 
-	t.Run("--output flag resolves against the working directory", func(t *testing.T) {
-		cfg := base()
-		cfg.OutputFlag = "today"
-		require.NoError(t, PreprocessConfig(cfg))
-		assert.Equal(t, filepath.Join(cwd, "today"), cfg.OutputFolder)
-	})
-
-	t.Run("--output flag wins over output: in the config", func(t *testing.T) {
-		cfg := base()
-		cfg.Output = "results"
-		cfg.OutputFlag = "today"
-		require.NoError(t, PreprocessConfig(cfg))
-		assert.Equal(t, filepath.Join(cwd, "today"), cfg.OutputFolder)
-	})
-
-	t.Run("absolute paths are used as-is", func(t *testing.T) {
-		abs := filepath.Join(t.TempDir(), "elsewhere")
-
-		cfg := base()
-		cfg.Output = abs
-		require.NoError(t, PreprocessConfig(cfg))
-		assert.Equal(t, abs, cfg.OutputFolder)
-
-		cfg = base()
-		cfg.OutputFlag = abs
-		require.NoError(t, PreprocessConfig(cfg))
-		assert.Equal(t, abs, cfg.OutputFolder)
-	})
-
-	t.Run("an explicitly assigned OutputFolder is honored", func(t *testing.T) {
-		explicit := t.TempDir()
-		cfg := base()
-		cfg.OutputFolder = explicit
-		require.NoError(t, PreprocessConfig(cfg))
-		assert.Equal(t, explicit, cfg.OutputFolder)
-	})
+			require.NoError(t, PreprocessConfig(cfg))
+			assert.Equal(t, tc.want, cfg.OutputFolder)
+		})
+	}
 }
 
 // TestPreprocessConfig_WriteDeliverablesLandInOutputFolder pins the split: an

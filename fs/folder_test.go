@@ -10,17 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCreateFolder(t *testing.T) {
-	tmpDir := t.TempDir()
-	path := filepath.Join(tmpDir, "test_folder")
-
-	err := createFolder(path)
-	assert.NoError(t, err, "Expected no error when creating folder")
-
-	_, err = os.Stat(path)
-	assert.False(t, os.IsNotExist(err), "Expected folder %s to be created, but it does not exist", path)
-}
-
 // TestEnsureFolder pins the rerun contract: the output folder is reused in
 // place, never rotated to a "_vN" copy. Steps overwrite their own files, so a
 // rerun keeps stable paths (deliverables included) and leaves room for resume.
@@ -46,7 +35,7 @@ func TestEnsureFolder_RejectsRelativePath(t *testing.T) {
 	assert.Error(t, EnsureFolder("relative/path"), "the output folder is resolved to an absolute path before use")
 }
 
-func TestCreateFolderNegative(t *testing.T) {
+func TestEnsureFolder_CreationFailure(t *testing.T) {
 	tmpDir := t.TempDir()
 	var pathToCreate string
 
@@ -63,7 +52,7 @@ func TestCreateFolderNegative(t *testing.T) {
 		defer os.Chmod(tmpDir, 0o755) //nolint:golint,errcheck
 	}
 
-	err := createFolder(pathToCreate)
+	err := EnsureFolder(pathToCreate)
 
 	assert.Error(t, err, "Expected error during folder creation")
 }

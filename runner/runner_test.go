@@ -200,14 +200,7 @@ func TestRun_RerunReusesOutputFolder(t *testing.T) {
 	run()
 	run()
 
-	siblings, err := os.ReadDir(filepath.Dir(outputFolder))
-	require.NoError(t, err)
-	for _, entry := range siblings {
-		assert.NotContains(t, entry.Name(), filepath.Base(outputFolder)+"_v",
-			"a rerun must not archive the output folder into a versioned copy")
-	}
-
-	data, err := os.ReadFile(filepath.Join(outputFolder, "gen.jsonl"))
-	require.NoError(t, err)
-	assert.Equal(t, 2, strings.Count(string(data), "\n"), "the file must hold one run's rows, not both runs appended")
+	assert.NoDirExists(t, outputFolder+"_v1", "a rerun must not archive the output folder into a versioned copy")
+	assert.Len(t, readOutputLines(t, filepath.Join(outputFolder, "gen.jsonl")), 2,
+		"the file must hold one run's rows, not both runs appended")
 }

@@ -23,6 +23,13 @@ func (p *WriteStep) Run(ctx context.Context, cfg *config.Config, step config.Ste
 		return fmt.Errorf("'from' references unknown step '%s'", step.From)
 	}
 
+	// the deliverable may nest (e.g. write: reports/board.csv), and the output
+	// folder starts out fresh, so its parent won't exist yet. Done before
+	// reading the source so an unwritable destination fails immediately.
+	if err := fs.EnsureFolder(filepath.Dir(step.Write)); err != nil {
+		return fmt.Errorf("step '%s': %w", step.Name, err)
+	}
+
 	file, err := os.Open(src.OutputFilename)
 	if err != nil {
 		return fmt.Errorf("step '%s': failed to open source '%s': %w", step.Name, src.OutputFilename, err)
@@ -31,12 +38,6 @@ func (p *WriteStep) Run(ctx context.Context, cfg *config.Config, step config.Ste
 
 	rows, err := collectRows(ctx, *src, file)
 	if err != nil {
-		return fmt.Errorf("step '%s': %w", step.Name, err)
-	}
-
-	// the deliverable may nest (e.g. write: reports/board.csv), and the output
-	// folder starts out fresh, so its parent won't exist yet
-	if err := fs.EnsureFolder(filepath.Dir(step.Write)); err != nil {
 		return fmt.Errorf("step '%s': %w", step.Name, err)
 	}
 

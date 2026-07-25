@@ -37,14 +37,12 @@ func (w *Writer) WriteJSON(v interface{}) error {
 		return fmt.Errorf("failed to marshal value: %w", err)
 	}
 
-	log.Debug().Msgf("writing jsonl line: %s", string(jsonData))
+	log.Debug().Bytes("line", jsonData).Msg("writing jsonl line")
 
-	if _, err := w.file.Write(jsonData); err != nil {
+	// one write per row: the file is unbuffered, so appending the newline here
+	// halves the syscalls versus a separate WriteString
+	if _, err := w.file.Write(append(jsonData, '\n')); err != nil {
 		return fmt.Errorf("failed to write json data to file: %w", err)
-	}
-
-	if _, err := w.file.WriteString("\n"); err != nil {
-		return fmt.Errorf("failed to write newline after json data: %w", err)
 	}
 
 	return nil

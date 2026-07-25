@@ -367,20 +367,24 @@ func getFullOutputPath(step config.Step, outputFolder string) (string, error) {
 // directory, so a workflow's data files travel with it and it runs from any
 // working directory. Absolute paths are left unchanged.
 func resolveDataPath(configFile, path string) string {
-	if path == "" || filepath.IsAbs(path) {
-		return path
-	}
-	return filepath.Join(filepath.Dir(configFile), path)
+	return joinIfRelative(filepath.Dir(configFile), path)
 }
 
 // resolveOutputPath puts a relative generated path inside the output folder, so
 // everything a run produces lands in one place. Absolute paths are left
 // unchanged, which is how a deliverable is published outside that folder.
 func resolveOutputPath(outputFolder, path string) string {
+	return joinIfRelative(outputFolder, path)
+}
+
+// joinIfRelative is the shared rule behind both resolvers: an absolute path is
+// already the answer, and an empty one means "not set" — only a relative path
+// is anchored to a base.
+func joinIfRelative(base, path string) string {
 	if path == "" || filepath.IsAbs(path) {
 		return path
 	}
-	return filepath.Join(outputFolder, path)
+	return filepath.Join(base, path)
 }
 
 // resolveReadFormat validates an explicit read `format` or infers it from the
@@ -538,18 +542,16 @@ func setRootOutputFolder(cfg *config.Config) error {
 	return nil
 }
 
-// setWorkDir sets and normalizes the working directory for shell steps
+// setWorkDir sets and normalizes the working directory for shell steps. It
+// anchors like any other generated path (see resolveOutputPath), defaulting to
+// the output folder itself.
 func setWorkDir(step *config.Step, outputFolder string) error {
 	if step.WorkDir == "" {
 		step.WorkDir = outputFolder
 		return nil
 	}
 
-	if !filepath.IsAbs(step.WorkDir) {
-		step.WorkDir = filepath.Join(outputFolder, step.WorkDir)
-	}
-
-	absPath, err := filepath.Abs(step.WorkDir)
+	absPath, err := filepath.Abs(resolveOutputPath(outputFolder, step.WorkDir))
 	if err != nil {
 		return fmt.Errorf("invalid workDir path: %w", err)
 	}
