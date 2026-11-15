@@ -63,7 +63,8 @@ func (p *OpenAIProvider) Generate(ctx context.Context, request GenerateRequest) 
 		}
 	}
 	if p.config.MaxTokens != nil {
-		req.MaxTokens = *p.config.MaxTokens
+		// Keep max_tokens: many OpenAI-compatible servers ignore max_completion_tokens.
+		req.MaxTokens = *p.config.MaxTokens //nolint:staticcheck // SA1019
 	}
 
 	messages := []openai.ChatCompletionMessage{}
